@@ -181,7 +181,7 @@
                 
                 document.getElementById('listName').disabled = !canEdit;
                 document.getElementById('listDescription').disabled = !canEdit;
-                document.getElementById('saveButtonContainer').style.display = canEdit ? 'block' : 'none';
+                document.getElementById('saveButtonContainer').style.display = canEdit ? 'flex' : 'none';
                 document.getElementById('addMediaSection').style.display = canEdit ? 'block' : 'none';
 
                 const mediaSnapshot = await db.collection('movies').get();
@@ -192,18 +192,17 @@
                 renderListItems();
                 initializeRanking(); // Initialize sortable state
             } catch (error) {
-                console.error("Error loading list:", error);
-                document.getElementById('listDetailsForm').innerHTML = `<h1>${error.message}</h1>`;
+                LibraryUtils.errors.handleError(error, "Loading List", "listDetailsForm");
             }
         }
         
         async function saveListDetails(e) {
             e.preventDefault();
-            const newName = document.getElementById('listName').value.trim();
-            const newDescription = document.getElementById('listDescription').value.trim();
+            const newName = LibraryUtils.validation.sanitizeInput(document.getElementById('listName').value, 100);
+            const newDescription = LibraryUtils.validation.sanitizeInput(document.getElementById('listDescription').value, 500);
 
             if (!newName) {
-                alert("List name cannot be empty.");
+                LibraryUtils.errors.showErrorModal("Input Error", "List name cannot be empty.");
                 return;
             }
             try {
@@ -212,11 +211,11 @@
                     description: newDescription,
                     mediaIds: listData.mediaIds // Save the potentially reordered list
                 });
-                alert("List details saved!");
-                window.location.href = 'lists.html'; // Redirect after save
+                LibraryUtils.errors.showErrorModal("Success", "List details saved!", () => {
+                    window.location.href = 'lists.html'; // Redirect after save
+                });
             } catch (error) {
-                console.error("Error saving list details:", error);
-                alert("Could not save changes.");
+                LibraryUtils.errors.handleError(error, "Saving list details");
             }
         }
 
@@ -235,7 +234,7 @@
                     <div class="list-item" data-id="${media.id}">
                         ${rankNumber}
                         <a href="library.html?id=${media.id}">
-                            <img src="${media.posterUrl || ''}" alt="${media.title}" onerror="this.src='https://placehold.co/200x300?text=No+Poster'">
+                            <img src="${media.posterUrl || ''}" alt="${media.title}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/EEE/333?text=Error'">
                         </a>
                         ${canEdit ? `<button class="btn-remove" onclick="removeMedia('${media.id}')">X</button>` : ''}
                     </div>
@@ -262,7 +261,7 @@
         }
 
         function handleMediaSearch(e) {
-            const query = e.target.value.toLowerCase();
+            const query = LibraryUtils.validation.sanitizeInput(e.target.value).toLowerCase();
             const resultsContainer = document.getElementById('searchResults');
             if (query.length < 3) {
                 resultsContainer.innerHTML = '';
@@ -278,7 +277,7 @@
 
         async function addMedia(mediaId) {
             if (listData.mediaIds.includes(mediaId)) {
-                alert("This item is already in the list.");
+                LibraryUtils.errors.showErrorModal("Duplicate", "This item is already in the list.");
                 return;
             }
             try {
@@ -290,8 +289,7 @@
                 document.getElementById('mediaSearchInput').value = '';
                 document.getElementById('searchResults').innerHTML = '';
             } catch (error) {
-                console.error("Error adding media:", error);
-                alert("Could not add media to the list.");
+                LibraryUtils.errors.handleError(error, "Adding media to list");
             }
         }
         
@@ -303,8 +301,7 @@
                 listData.mediaIds = listData.mediaIds.filter(id => id !== mediaId);
                 renderListItems();
             } catch (error) {
-                console.error("Error removing media:", error);
-                alert("Could not remove media from the list.");
+                LibraryUtils.errors.handleError(error, "Removing media from list");
             }
         }
         
@@ -328,8 +325,7 @@
                         await db.collection('lists').doc(listId).delete();
                         window.location.href = 'lists.html';
                     } catch (error) {
-                        console.error("Error deleting list:", error);
-                        alert("Could not delete list.");
+                        LibraryUtils.errors.handleError(error, "Deleting list");
                     }
                 }
             });

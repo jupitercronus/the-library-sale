@@ -516,21 +516,20 @@
         }
         
         async function searchForUser() {
-            const username = document.getElementById('userSearchInput').value.trim();
+            const username = LibraryUtils.validation.sanitizeInput(document.getElementById('userSearchInput').value);
             if (!username) return;
             
             try {
                 const usersRef = db.collection('users');
                 const snapshot = await usersRef.where('displayName', '==', username).limit(1).get();
                 if (snapshot.empty) {
-                    alert('User not found.');
+                    LibraryUtils.errors.showErrorModal('Not Found', 'User not found.');
                 } else {
                     const userId = snapshot.docs[0].id;
                     window.location.href = `profile.html?id=${userId}`;
                 }
             } catch (error) {
-                console.error("Error searching for user:", error);
-                alert("An error occurred while searching.");
+                LibraryUtils.errors.handleError(error, "Searching for user");
             }
         }
 
@@ -551,15 +550,7 @@
                     await db.collection('users').doc(userId).set(newUserProfile);
                     userDoc = await db.collection('users').doc(userId).get();
                 } else if (!userDoc.exists) {
-                    document.getElementById('profileContainer').innerHTML = `
-                        <div class="profile-section">
-                            <div class="profile-header">
-                                <h1>User Not Found</h1>
-                                <p>This user profile could not be found.</p>
-                            </div>
-                        </div>
-                    `;
-                    return;
+                    throw new Error("User not found.");
                 }
 
                 const profileData = userDoc.data();
@@ -636,8 +627,7 @@
                 displayOwnedMedia(fullMediaDetails.filter(m => m.owned));
 
             } catch (error) {
-                console.error("Error loading profile data:", error);
-                document.getElementById('profileContainer').innerHTML = '<h2>Error loading profile. Please try again.</h2>';
+                LibraryUtils.errors.handleError(error, 'Loading Profile Data', 'profileContainer');
             }
         }
 
@@ -697,7 +687,7 @@
         function renderMediaItem(item) {
             const title = item.title || 'Untitled';
             const posterHTML = item.posterUrl 
-                ? `<img src="${item.posterUrl}" alt="${title}" class="media-list-poster">`
+                ? `<img src="${item.posterUrl}" alt="${title}" class="media-list-poster" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML = '<div class=\\'no-poster-small\\'></div>';">`
                 : `<div class="no-poster-small"></div>`;
 
             return `

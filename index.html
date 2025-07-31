@@ -91,6 +91,7 @@
             border-radius: 4px;
         }
 
+        /* UPDATED Skeleton Styles based on lists.html */
         .skeleton-media-card {
             background: white;
             border-radius: 10px;
@@ -101,57 +102,53 @@
             flex-direction: column;
         }
 
-        .skeleton-poster {
+        .skeleton-media-poster {
             width: 100%;
-            height: 300px;
+            height: 300px; /* Adjusted to match real media card poster */
             margin-bottom: 15px;
         }
 
-        .skeleton-title {
-            width: 80%;
-            height: 24px;
-            margin-bottom: 8px;
+        .skeleton-media-info {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
         }
 
-        .skeleton-year {
-            width: 40%;
-            height: 16px;
-            margin-bottom: 12px;
-        }
-
-        .skeleton-details {
-            margin-bottom: 15px;
-        }
-
-        .skeleton-detail-line {
-            height: 14px;
-            margin-bottom: 8px;
-        }
-
-        .skeleton-detail-line:nth-child(1) { width: 70%; }
-        .skeleton-detail-line:nth-child(2) { width: 60%; }
-        .skeleton-detail-line:nth-child(3) { width: 85%; }
-
-        .skeleton-rating {
-            width: 120px;
+        .skeleton-media-title {
+            width: 70%;
             height: 20px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
-        .skeleton-actions {
+        .skeleton-media-meta {
+            width: 50%;
+            height: 14px;
+            margin-bottom: 10px;
+        }
+
+        .skeleton-media-description {
+            width: 100%;
+            height: 14px;
+            margin-bottom: 6px;
+        }
+
+        .skeleton-media-description:last-of-type {
+            width: 40%;
+            margin-bottom: 15px;
+        }
+
+        .skeleton-media-actions {
             margin-top: auto;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
             display: flex;
             gap: 10px;
-            padding-top: 15px;
         }
 
-        .skeleton-button {
-            height: 32px;
-            border-radius: 5px;
+        .skeleton-media-button {
+            width: 50px;
+            height: 24px;
         }
-
-        .skeleton-button:nth-child(1) { width: 100px; }
-        .skeleton-button:nth-child(2) { width: 60px; }
 
         .loading-spinner {
             width: 40px;
@@ -266,20 +263,19 @@
         const SkeletonUI = {
             showMediaGridSkeleton: (containerId, count = 6) => {
                 const container = document.getElementById(containerId);
+                // ✅ UPDATED: New skeleton HTML structure
                 const skeletonHTML = Array(count).fill(0).map(() => `
                     <div class="skeleton-media-card">
-                        <div class="skeleton skeleton-poster"></div>
-                        <div class="skeleton skeleton-title"></div>
-                        <div class="skeleton skeleton-year"></div>
-                        <div class="skeleton-details">
-                            <div class="skeleton skeleton-detail-line"></div>
-                            <div class="skeleton skeleton-detail-line"></div>
-                            <div class="skeleton skeleton-detail-line"></div>
-                        </div>
-                        <div class="skeleton skeleton-rating"></div>
-                        <div class="skeleton-actions">
-                            <div class="skeleton skeleton-button"></div>
-                            <div class="skeleton skeleton-button"></div>
+                        <div class="skeleton skeleton-media-poster"></div>
+                        <div class="skeleton-media-info">
+                            <div class="skeleton skeleton-media-title"></div>
+                            <div class="skeleton skeleton-media-meta"></div>
+                            <div class="skeleton skeleton-media-description"></div>
+                            <div class="skeleton skeleton-media-description"></div>
+                            <div class="skeleton-media-actions">
+                                <div class="skeleton skeleton-media-button"></div>
+                                <div class="skeleton skeleton-media-button"></div>
+                            </div>
                         </div>
                     </div>
                 `).join('');
@@ -337,14 +333,7 @@
                 
                 renderMedia();
             } catch (error) {
-                console.error("Error loading media:", error);
-                document.getElementById('mediaContainer').innerHTML = `
-                    <div class="empty-state">
-                        <h3>Error loading library</h3>
-                        <p>Please check your connection and try again.</p>
-                        <button class="btn-details" onclick="loadAllMedia()">Retry</button>
-                    </div>
-                `;
+                LibraryUtils.errors.handleError(error, 'Loading Media Library', 'mediaContainer');
             }
         }
 
@@ -352,7 +341,7 @@
             const container = document.getElementById('mediaContainer');
             const view = document.getElementById('viewDropdown').value;
             const sort = document.getElementById('sortDropdown').value;
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const searchTerm = LibraryUtils.validation.sanitizeInput(document.getElementById('searchInput').value).toLowerCase();
 
             let mediaToDisplay = [...allMedia];
 
@@ -458,7 +447,7 @@
                 return `
                     <div class="media-card">
                         <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
-                            ${media.posterUrl ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy">` : '<div class="no-poster">No Poster</div>'}
+                            ${media.posterUrl ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x450/EEE/333?text=Error'">` : '<div class="no-poster">No Poster</div>'}
                         </div>
                         <div class="media-card-content">
                             <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">
@@ -516,8 +505,7 @@
                         await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId).delete();
                         loadAllMedia();
                     } catch (error) {
-                        console.error('Error removing interaction from Firestore:', error);
-                        alert('Error: Could not remove item.');
+                        LibraryUtils.errors.handleError(error, 'Removing item from collection');
                     }
                 }
             });

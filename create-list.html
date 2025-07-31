@@ -127,13 +127,16 @@
         async function handleCreateList(e) {
             e.preventDefault();
             if (!currentUser) {
-                alert("You must be logged in to create a list.");
+                LibraryUtils.errors.showErrorModal("Authentication Error", "You must be logged in to create a list.");
                 return;
             }
 
-            const listName = document.getElementById('listName').value.trim();
+            // ✅ VALIDATION: Sanitize and validate inputs
+            const listName = LibraryUtils.validation.sanitizeInput(document.getElementById('listName').value, 100);
+            const description = LibraryUtils.validation.sanitizeInput(document.getElementById('description').value, 500);
+
             if (!listName) {
-                alert("List name is required.");
+                LibraryUtils.errors.showErrorModal("Input Error", "List name is required.");
                 return;
             }
 
@@ -142,7 +145,7 @@
 
                 const newList = {
                     listName: listName,
-                    description: document.getElementById('description').value.trim(),
+                    description: description,
                     isPublic: document.getElementById('isPublic').value === 'true',
                     creatorId: currentUser.uid,
                     creatorDisplayName: currentUser.displayName || currentUser.email,
@@ -154,8 +157,7 @@
                 window.location.href = `edit-list.html?id=${docRef.id}`;
 
             } catch (error) {
-                console.error("Error creating list:", error);
-                alert("Could not create list. Please check your Firestore security rules and try again.");
+                LibraryUtils.errors.handleError(error, "Creating list");
             }
         }
     </script>

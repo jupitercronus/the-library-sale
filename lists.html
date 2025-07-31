@@ -384,7 +384,7 @@
                     return `
                         <div class="activity-item">
                             <a href="library.html?id=${item.mediaId}">
-                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}">
+                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/EEE/333?text=Error'">
                             </a>
                             <p><a href="profile.html?id=${item.userId}">${item.userDisplayName}</a> watched</p>
                         </div>
@@ -424,7 +424,7 @@
                     return `
                         <div class="activity-item">
                             <a href="library.html?id=${item.mediaId}">
-                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}">
+                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/EEE/333?text=Error'">
                             </a>
                              <a href="library.html?id=${item.mediaId}" style="font-weight: normal;">${titleWithYear}</a>
                             <p>by <a href="profile.html?id=${item.userId}">${item.userDisplayName}</a></p>
@@ -467,7 +467,7 @@
         
         function renderPublicLists() {
             const container = document.getElementById('listsContainer');
-            const searchTerm = document.getElementById('listSearchInput').value.toLowerCase();
+            const searchTerm = LibraryUtils.validation.sanitizeInput(document.getElementById('listSearchInput').value).toLowerCase();
 
             let listsToDisplay = allLists;
             
@@ -506,7 +506,7 @@
 
                 return `
                     <div class="list-card-grid">
-                        <img src="${posterUrl}" alt="${list.listName}" class="list-poster-single">
+                        <img src="${posterUrl}" alt="${list.listName}" class="list-poster-single" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x180/EEE/333?text=Error'">
                         <div class="list-info">
                             <h3><a href="edit-list.html?id=${list.id}">${list.listName}</a></h3>
                             <p class="list-meta">Created by <a href="profile.html?id=${list.creatorId}">${list.creatorDisplayName || 'Anonymous'}</a></p>
@@ -538,8 +538,7 @@
                         await db.collection('lists').doc(listId).delete();
                         loadPublicLists();
                     } catch (error) {
-                        console.error("Error deleting list:", error);
-                        alert("Could not delete list.");
+                        LibraryUtils.errors.handleError(error, "Deleting list");
                     }
                 }
             });

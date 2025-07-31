@@ -547,6 +547,20 @@
             LibraryUtils.ui.setButtonLoading(submitBtn, 'Adding...');
 
             try {
+                // ✅ VALIDATION: Sanitize and validate all inputs before processing
+                const titleValue = LibraryUtils.validation.sanitizeInput(document.getElementById('title').value);
+                if (!titleValue) {
+                    throw new Error('Title is a required field.');
+                }
+                const yearValue = document.getElementById('year').value;
+                if (yearValue && !LibraryUtils.validation.isValidYear(yearValue)) {
+                    throw new Error('Please enter a valid year (e.g., 1999).');
+                }
+                const rating = starRatingController ? starRatingController.getRating() : currentRating;
+                if (!LibraryUtils.validation.isValidRating(rating)) {
+                    throw new Error('Invalid rating value provided.');
+                }
+                
                 const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
                 let movieDocRef;
                 let mainMediaData;
@@ -560,13 +574,6 @@
                 }
                 
                 if (!movieDocRef) {
-                    const titleValue = LibraryUtils.validation.sanitizeInput(document.getElementById('title').value);
-                    const yearValue = document.getElementById('year').value;
-                    
-                    if (!LibraryUtils.validation.isValidYear(yearValue) && yearValue) {
-                        throw new Error('Please enter a valid year');
-                    }
-
                     mainMediaData = {
                         title: titleValue,
                         year: yearValue ? parseInt(yearValue) : null,
@@ -584,11 +591,6 @@
                         isManualEntry: isPublicFieldsEditable
                     };
                     movieDocRef = await db.collection('movies').add(mainMediaData);
-                }
-
-                const rating = starRatingController ? starRatingController.getRating() : currentRating;
-                if (!LibraryUtils.validation.isValidRating(rating)) {
-                    throw new Error('Invalid rating value');
                 }
 
                 const userInteractionData = {
@@ -621,7 +623,6 @@
                 });
 
             } catch (error) {
-                console.error("Error adding media:", error);
                 LibraryUtils.errors.handleError(error, 'Adding Media');
             } finally {
                 LibraryUtils.ui.resetButton(submitBtn);
@@ -633,14 +634,15 @@
             LibraryUtils.ui.setButtonLoading(submitBtn, 'Updating...');
 
             try {
+                // ✅ VALIDATION: Sanitize and validate all inputs before processing
+                const rating = starRatingController ? starRatingController.getRating() : currentRating;
+                if (!LibraryUtils.validation.isValidRating(rating)) {
+                    throw new Error('Invalid rating value provided.');
+                }
+                
                 const movieDocRef = db.collection('movies').doc(editingMovieId);
                 const mediaDoc = await movieDocRef.get();
                 const mainMediaData = mediaDoc.data();
-
-                const rating = starRatingController ? starRatingController.getRating() : currentRating;
-                if (!LibraryUtils.validation.isValidRating(rating)) {
-                    throw new Error('Invalid rating value');
-                }
 
                 const userInteractionData = {
                     rating: rating,
@@ -679,7 +681,6 @@
                 });
 
             } catch (error) {
-                console.error("Error updating media:", error);
                 LibraryUtils.errors.handleError(error, 'Updating Media');
             } finally {
                 LibraryUtils.ui.resetButton(submitBtn);
@@ -702,8 +703,7 @@
                 const interactionDoc = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(editingMovieId).get();
                 
                 if (!mediaDoc.exists) {
-                    LibraryUtils.errors.showErrorModal('Error', 'Media not found.');
-                    return;
+                    throw new Error('Media not found.');
                 }
 
                 const mediaData = mediaDoc.data();
@@ -743,18 +743,23 @@
         function setupSearch() {
             const searchInput = document.getElementById('movieSearch');
             const debouncedSearch = LibraryUtils.ui.debounce((query) => {
-                if (query.length > 2) {
-                    performSearch(query);
+                // ✅ SANITIZED: Sanitize search query
+                const sanitizedQuery = LibraryUtils.validation.sanitizeInput(query);
+                if (sanitizedQuery.length > 2) {
+                    performSearch(sanitizedQuery);
                 } else {
                     document.getElementById('searchResults').innerHTML = '';
                 }
             }, 300);
 
             searchInput.addEventListener('input', (e) => {
-                debouncedSearch(e.target.value.trim());
+                debouncedSearch(e.target.value);
             });
             
-            document.getElementById('searchBtn').addEventListener('click', () => performSearch(searchInput.value.trim()));
+            document.getElementById('searchBtn').addEventListener('click', () => {
+                const sanitizedQuery = LibraryUtils.validation.sanitizeInput(searchInput.value);
+                performSearch(sanitizedQuery);
+            });
         }
 
         // HYBRID SMART SEARCH IMPLEMENTATION (Option 2)
@@ -816,7 +821,6 @@
                 displayResultsWithCreditLookup(results, query);
                 showStatusMessage(`${results.length} results found.`, 'success');
             } catch (error) {
-                console.error("Search error:", error);
                 LibraryUtils.errors.handleError(error, 'Search');
                 showStatusMessage('Search failed.', 'error');
             }
@@ -929,7 +933,6 @@
                 isPublicFieldsEditable = false;
                 showStatusMessage('Media details loaded successfully!', 'success');
             } catch (error) {
-                console.error("Error selecting media:", error);
                 LibraryUtils.errors.handleError(error, 'Loading media details');
             }
         }
@@ -957,16 +960,7 @@
         }
 
         function showAlertModal(title, message, onOk = () => {}) { 
-            LibraryUtils.errors.showErrorModal(title, message);
-            const modal = document.getElementById('alertModal');
-            if (modal) {
-                document.getElementById('alertModalOk').onclick = () => {
-                    modal.style.display = 'none';
-                    onOk();
-                };
-            } else {
-                onOk();
-            }
+            LibraryUtils.errors.showErrorModal(title, message, onOk);
         }
 
         function showStatusMessage(message, type) {
@@ -997,7 +991,7 @@
                 }
             });
 
-            // Input validation on typing
+            // ✅ VALIDATION: Add real-time validation feedback for barcode
             barcodeInput.addEventListener('input', function(e) {
                 const value = e.target.value;
                 const isValid = /^\d{0,18}$/.test(value);
@@ -1064,14 +1058,11 @@
         }
 
         function lookupManualBarcode() {
+            // ✅ SANITIZED: Sanitize barcode input
             const barcode = LibraryUtils.validation.sanitizeInput(document.getElementById('barcodeInput').value);
             const spinner = document.getElementById('barcodeSpinner');
             
-            if (!barcode) {
-                showStatusMessage('Please enter a barcode number.', 'error');
-                return;
-            }
-            
+            // ✅ VALIDATION: Check barcode validity before lookup
             if (!LibraryUtils.validation.isValidBarcode(barcode)) {
                 showStatusMessage('Please enter a valid barcode (8-18 digits).', 'error');
                 return;
@@ -1113,7 +1104,6 @@
                 showStatusMessage('Camera ready. Position barcode in view.', 'info');
                 
             } catch (error) {
-                console.error('Error starting scanner:', error);
                 LibraryUtils.errors.handleError(error, 'Camera Scanner');
                 stopScanner();
             }
@@ -1166,7 +1156,6 @@
                 }
 
             } catch (error) {
-                console.error('Barcode lookup error:', error);
                 LibraryUtils.errors.handleError(error, 'Barcode Lookup');
             }
         }
