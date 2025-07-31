@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Details - the library sale</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .logo { font-size: 1.8em; font-weight: bold; color: white; text-decoration: none; }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-link { color: white; text-decoration: none; font-weight: 500; padding: 8px 16px; border-radius: 6px; }
+        .add-media-btn { background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; }
+        .auth-btn { background: #dc3545; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; cursor: pointer; border: none; }
+        .main-container { max-width: 900px; margin: 30px auto; padding: 30px 20px; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .media-layout { display: flex; gap: 30px; }
+        .media-poster { flex-shrink: 0; width: 250px; }
+        .media-poster img { width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .no-poster { width: 250px; height: 375px; background: #f0f0f0; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #999; }
+        .media-info { flex-grow: 1; }
+        .media-title { font-size: 2.8em; font-weight: bold; color: #333; margin: 0 0 10px 0; }
+        .media-details p { margin: 0 0 8px 0; color: #444; }
+        .media-details strong { color: #000; }
+        .type-badge { background: #6c757d; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.6em; font-weight: 600; margin-left: 10px; vertical-align: middle; }
+        .media-actions { margin-top: 20px; }
+        .btn-action { padding: 8px 16px; border-radius: 5px; text-decoration: none; font-weight: 600; border: none; cursor: pointer; margin-right: 10px; }
+        .btn-add-list { background: #17a2b8; color: white; }
+        .media-summary { margin-top: 20px; line-height: 1.6; }
+        .section-divider { border: 0; height: 1px; background: #eee; margin: 30px 0; }
+        .section-title { font-size: 1.8em; color: #333; margin-bottom: 20px; }
+        
+        /* Ratings Section */
+        .ratings-section { display: flex; gap: 30px; align-items: center; }
+        .rating-box { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        .rating-box-title { font-weight: bold; color: #555; margin-bottom: 10px; }
+        .star-display { display: inline-block; position: relative; font-size: 1.5em; color: #ddd; }
+        .star-display-filled { position: absolute; top: 0; left: 0; white-space: nowrap; overflow: hidden; color: #ffc107; }
+        .btn-edit-comment { margin-left: auto; background: #007bff; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; }
+
+        /* Comments Section */
+        .comment-card { border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .comment-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .comment-header a { font-weight: bold; text-decoration: none; color: #0056b3; }
+        .comment-header a:hover { text-decoration: underline; }
+        
+        .physical-copies-list { list-style: none; padding: 0; }
+        .physical-copy-item { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 6px; margin-bottom: 10px; }
+        .copy-owner a { color: #0056b3; text-decoration: none; font-weight: bold; }
+        
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); }
+        .modal-content h3 { margin-top: 0; }
+        #myListsContainer { max-height: 200px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; padding: 10px; }
+        .list-choice { display: block; margin-bottom: 10px; }
+        .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+        .btn-modal { padding: 8px 16px; border-radius: 5px; text-decoration: none; font-weight: 600; border: none; cursor: pointer; }
+        .btn-modal.create { background: #28a745; color: white; }
+        .btn-modal.close { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">the library sale</a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Library</a>
+                <a href="lists.html" class="nav-link">Lists</a> 
+                <a href="profile.html" class="nav-link">Profile</a>
+                <a href="add-movie.html" class="add-media-btn">+ Add Media</a>
+                <button id="authBtn" class="auth-btn">Login</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container" id="mainContainer">
+        <div class="loading-state"><h2>Loading Media Details...</h2></div>
+    </div>
+    
+    <div id="addToListModal" class="modal">
+        <div class="modal-content">
+            <h3>Add to your lists</h3>
+            <div id="myListsContainer"></div>
+            <div class="modal-actions">
+                <a href="#" id="createListBtn" class="btn-modal create">Create a new list</a>
+                <button class="btn-modal close" onclick="closeAddToListModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+          authDomain: "tiny-lizard.firebaseapp.com",
+          projectId: "tiny-lizard",
+          storageBucket: "tiny-lizard.firebasestorage.app",
+          messagingSenderId: "250872474692",
+          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        let currentUser = null;
+        let mediaId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            mediaId = urlParams.get('id');
+            if (!mediaId) {
+                displayError("No media ID provided.");
+                return;
+            }
+
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
+                loadMediaData();
+            });
+            
+            document.getElementById('authBtn').addEventListener('click', () => {
+                if (currentUser) auth.signOut();
+                else window.location.href = 'auth.html';
+            });
+        });
+
+        async function loadMediaData() {
+            try {
+                const mediaDoc = await db.collection('movies').doc(mediaId).get();
+                if (!mediaDoc.exists) {
+                    displayError("Media not found.");
+                    return;
+                }
+                const mediaData = mediaDoc.data();
+                
+                const allUsersSnapshot = await db.collection('users').get();
+                const allInteractions = [];
+                const userProfilePromises = [];
+
+                allUsersSnapshot.forEach(userDoc => {
+                    const interactionPromise = db.collection('users').doc(userDoc.id).collection('movieInteractions').doc(mediaId).get()
+                        .then(interactionDoc => {
+                            if (interactionDoc.exists) {
+                                allInteractions.push({ userId: userDoc.id, ...interactionDoc.data() });
+                            }
+                        });
+                    userProfilePromises.push(interactionPromise);
+                });
+                await Promise.all(userProfilePromises);
+
+                const physicalCopiesSnapshot = await db.collection('movies').doc(mediaId).collection('physicalCopies').get();
+                const physicalCopies = physicalCopiesSnapshot.docs.map(doc => doc.data());
+
+                renderMediaPage(mediaData, allInteractions, physicalCopies);
+
+            } catch (error) {
+                console.error("Error loading media data:", error);
+                displayError("An error occurred while loading the media data.");
+            }
+        }
+
+        async function renderMediaPage(mediaData, allInteractions, physicalCopies) {
+            const container = document.getElementById('mainContainer');
+            const title = mediaData.title || mediaData.name || "Untitled";
+            const typeBadge = mediaData.contentType === 'tv' ? '<span class="type-badge">TV Show</span>' : '';
+            
+            const userIds = [...new Set(allInteractions.map(i => i.userId))];
+            const userProfiles = {};
+            if (userIds.length > 0) {
+                for (let i = 0; i < userIds.length; i += 10) {
+                    const chunk = userIds.slice(i, i + 10);
+                    const usersSnapshot = await db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+                    usersSnapshot.forEach(doc => { userProfiles[doc.id] = doc.data(); });
+                }
+            }
+            
+            const ratedInteractions = allInteractions.filter(i => i.rating > 0);
+            const averageRating = ratedInteractions.length > 0
+                ? (ratedInteractions.reduce((sum, i) => sum + i.rating, 0) / ratedInteractions.length).toFixed(1)
+                : 0;
+
+            const ratingsHTML = `
+                <div class="ratings-section">
+                    <div class="rating-box">
+                        <div class="rating-box-title">Average Rating</div>
+                        ${generateStarDisplay(averageRating)}
+                        <p style="font-size: 0.8em; color: #888;">(${ratedInteractions.length} ratings)</p>
+                    </div>
+                </div>
+            `;
+
+            const commentsHTML = allInteractions.length > 0 ? allInteractions.map(interaction => {
+                const user = userProfiles[interaction.userId];
+                if (!user || !interaction.review) return '';
+                return `
+                    <div class="comment-card">
+                        <div class="comment-header">
+                            <a href="profile.html?id=${interaction.userId}">${user.displayName || 'Anonymous'}</a>
+                            ${interaction.rating > 0 ? generateStarDisplay(interaction.rating) : ''}
+                            ${currentUser && currentUser.uid === interaction.userId ? `<button class="btn-edit-comment" onclick="editMyInteraction()">Edit</button>` : ''}
+                        </div>
+                        <p>${interaction.review}</p>
+                    </div>
+                `;
+            }).join('') : '<p>No comments yet. Be the first to add one!</p>';
+
+            let physicalCopiesHTML = '';
+            if (physicalCopies.length > 0) {
+                physicalCopiesHTML = `
+                    <div>
+                        <h3 class="section-title">Physical Copies (${physicalCopies.length} total)</h3>
+                        <ul class="physical-copies-list">
+                            ${physicalCopies.map(copy => `
+                                <li class="physical-copy-item">
+                                    <strong>${copy.editionDetails || 'Standard Edition'}</strong>
+                                    <span class="copy-owner">Owned by: <a href="profile.html?id=${copy.ownerId}">${copy.ownerDisplayName || 'Unknown'}</a></span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>`;
+            }
+
+            container.innerHTML = `
+                <div class="media-layout">
+                    <div class="media-poster">
+                        ${mediaData.posterUrl ? `<img src="${mediaData.posterUrl}" alt="${title} poster">` : '<div class="no-poster">No Poster</div>'}
+                    </div>
+                    <div class="media-info">
+                        <h1 class="media-title">${title} ${typeBadge}</h1>
+                        <div class="media-details">
+                            <p><strong>Year:</strong> ${mediaData.year || 'N/A'}</p>
+                            <p><strong>Director:</strong> ${mediaData.director || 'N/A'}</p>
+                            <p><strong>Genre:</strong> ${mediaData.genre || 'N/A'}</p>
+                            <p><strong>Cast:</strong> ${mediaData.cast ? mediaData.cast.join(', ') : 'N/A'}</p>
+                        </div>
+                        <div class="media-actions">
+                            <button class="btn-action btn-add-list" onclick="openAddToListModal()">Add to a List...</button>
+                        </div>
+                        <div class="media-summary">
+                            <h4>Summary</h4>
+                            <p>${mediaData.overview || 'No summary available.'}</p>
+                        </div>
+                    </div>
+                </div>
+                <hr class="section-divider">
+                <div>
+                    <h3 class="section-title">Ratings</h3>
+                    ${ratingsHTML}
+                </div>
+                <hr class="section-divider">
+                <div>
+                    <h3 class="section-title">Comments</h3>
+                    ${commentsHTML}
+                </div>
+                <hr class="section-divider">
+                ${physicalCopiesHTML}
+            `;
+            
+            document.getElementById('createListBtn').href = `create-list.html?mediaId=${mediaId}`;
+        }
+        
+        async function openAddToListModal() {
+            if (!currentUser) {
+                alert("Please log in to add this to a list.");
+                return;
+            }
+            const modal = document.getElementById('addToListModal');
+            const container = document.getElementById('myListsContainer');
+            container.innerHTML = "<p>Loading your lists...</p>";
+            modal.style.display = 'flex';
+
+            try {
+                const listsSnapshot = await db.collection('lists').where('creatorId', '==', currentUser.uid).get();
+                if (listsSnapshot.empty) {
+                    container.innerHTML = "<p>You haven't created any lists yet.</p>";
+                    return;
+                }
+
+                container.innerHTML = listsSnapshot.docs.map(doc => {
+                    const list = doc.data();
+                    const listId = doc.id;
+                    const alreadyAdded = (list.mediaIds || []).includes(mediaId);
+                    return `
+                        <div class="list-choice">
+                            <button onclick="toggleMediaInList('${listId}', ${alreadyAdded})" class="${alreadyAdded ? 'btn-small btn-delete' : 'btn-small btn-add'}">
+                                ${alreadyAdded ? 'Remove' : 'Add'}
+                            </button>
+                            <span>${list.listName}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error("Error fetching user's lists:", error);
+                container.innerHTML = "<p>Could not load your lists.</p>";
+            }
+        }
+
+        function closeAddToListModal() { document.getElementById('addToListModal').style.display = 'none'; }
+
+        async function toggleMediaInList(listId, alreadyAdded) {
+            const operation = alreadyAdded 
+                ? firebase.firestore.FieldValue.arrayRemove(mediaId) 
+                : firebase.firestore.FieldValue.arrayUnion(mediaId);
+            try {
+                await db.collection('lists').doc(listId).update({ mediaIds: operation });
+                openAddToListModal(); 
+            } catch (error) {
+                console.error("Error updating list:", error);
+                alert("Could not update the list.");
+            }
+        }
+        
+        function generateStarDisplay(rating) {
+            const totalStars = 5;
+            let starHTML = '★★★★★';
+            let filledWidth = (rating / totalStars) * 100;
+            return `<div class="star-display">${starHTML}<div class="star-display-filled" style="width: ${filledWidth}%;">${starHTML}</div></div>`;
+        }
+
+        function editMyInteraction() { if (currentUser) window.location.href = `add-movie.html?edit=${mediaId}`; }
+        function displayError(message) { document.getElementById('mainContainer').innerHTML = `<div class="error-state"><h2>Error</h2><p>${message}</p></div>`; }
+    </script>
+</body>
+</html>

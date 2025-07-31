@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>the library sale</title>
+    <!-- Firebase SDKs: Using version 10.11.0 for compatibility -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .logo { font-size: 1.8em; font-weight: bold; color: white; text-decoration: none; }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-link { color: white; text-decoration: none; font-weight: 500; padding: 8px 16px; border-radius: 6px; transition: background-color 0.3s ease; }
+        .nav-link:hover { background: rgba(255, 255, 255, 0.1); }
+        .nav-link.active { background: #007bff; }
+        .add-media-btn { background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: background-color 0.3s ease; }
+        .add-media-btn:hover { background: #0056b3; }
+        .auth-btn { background: #dc3545; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; cursor: pointer; border: none; transition: background-color 0.3s ease; }
+        .auth-btn:hover { background: #c82333; }
+        .main-container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+        .hero-section { text-align: center; margin-bottom: 40px; }
+        .hero-title { font-size: 2.5em; color: #333; margin-bottom: 15px; font-weight: normal; }
+        .controls-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
+        .search-bar { position: relative; flex: 1; max-width: 400px; }
+        .search-bar input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        .filter-controls { display: flex; gap: 10px; }
+        .filter-dropdown { padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background-color: white; font-size: 16px; cursor: pointer; }
+        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .media-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 1px solid #ddd; transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; flex-direction: column; }
+        .media-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.15); }
+        .media-poster { width: 100%; height: 300px; background: #f0f0f0; border-radius: 8px; margin-bottom: 15px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .media-poster img { width: 100%; height: 100%; object-fit: cover; }
+        .no-poster { color: #999; font-size: 14px; }
+        .media-card-content { flex-grow: 1; display: flex; flex-direction: column; }
+        .media-title { font-size: 1.3em; font-weight: bold; color: #333; margin-bottom: 8px; cursor: pointer; }
+        .media-year { color: #666; font-size: 0.9em; margin-bottom: 12px; }
+        
+        .media-rating { display: flex; margin-bottom: 12px; }
+        .star-display { display: inline-block; position: relative; font-size: 1.2em; color: #ddd; }
+        .star-display-filled { position: absolute; top: 0; left: 0; white-space: nowrap; overflow: hidden; color: #ffc107; }
+
+        .media-status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; margin-bottom: 12px; }
+        .watched { background: #d4edda; color: #155724; }
+        .unwatched { background: #f8d7da; color: #721c24; }
+        .owned-badge, .type-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75em; font-weight: 600; margin-left: 8px; display: inline-block; vertical-align: middle; }
+        .owned-badge { background: #007bff; color: white; }
+        .type-badge { background: #6c757d; color: white; }
+        
+        .media-public-details { font-size: 0.85em; color: #666; line-height: 1.4; margin-bottom: 15px; }
+        .media-public-details div { margin-bottom: 4px; }
+
+        .media-actions { margin-top: auto; padding-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .btn-details, .btn-small { text-decoration: none; padding: 8px 12px; border-radius: 5px; display: inline-block; transition: background-color 0.3s ease; border: none; cursor: pointer; font-size: 14px; }
+        .btn-details { background: #6c757d; color: white; }
+        .btn-details:hover { background: #5a6268; }
+        .btn-small.btn-edit { background: #007bff; color: white; }
+        .btn-small.btn-edit:hover { background: #0056b3; }
+        .btn-small.btn-delete { background: #dc3545; color: white; }
+        .btn-small.btn-delete:hover { background: #c82333; }
+        .btn-small.btn-add { background: #28a745; color: white; }
+        .btn-small.btn-add:hover { background: #218838; }
+
+        .media-added-by { font-size: 0.8em; color: #888; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+        .media-added-by a { color: #0056b3; text-decoration: none; font-weight: bold; }
+        .media-added-by a:hover { text-decoration: underline; }
+
+        .empty-state { text-align: center; padding: 80px 20px; color: #666; }
+        
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 25px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19); text-align: center; }
+        .modal-buttons { display: flex; justify-content: center; gap: 15px; }
+        .modal-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .modal-btn.confirm { background: #dc3545; color: white; }
+        .modal-btn.cancel { background: #6c757d; color: white; }
+
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">the library sale</a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">Library</a>
+                <a href="lists.html" class="nav-link">Lists</a> 
+                <a href="profile.html" class="nav-link">Profile</a>
+                <a href="add-movie.html" class="add-media-btn">+ Add Media</a> 
+                <button id="authBtn" class="auth-btn">Login</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="hero-section">
+            <h1 class="hero-title">welcome to your swamp</h1>
+        </div>
+
+        <div class="controls-section">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search by title, director, cast, genre...">
+            </div>
+            <div class="filter-controls">
+                <select id="viewDropdown" class="filter-dropdown">
+                    <option value="all">All Media</option>
+                    <option value="my">My Media</option>
+                </select>
+                <select id="sortDropdown" class="filter-dropdown">
+                    <option value="dateAdded">Recently Added</option>
+                    <option value="titleAsc">Title (A-Z)</option>
+                    <option value="titleDesc">Title (Z-A)</option>
+                    <option value="ratingDesc">My Rating (High to Low)</option>
+                    <option value="ratingAsc">My Rating (Low to High)</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="mediaContainer" class="media-grid">
+            <div class="empty-state">
+                <h3>Loading Library...</h3>
+            </div>
+        </div>
+    </div>
+    
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h3 id="confirmationModalTitle">Confirm Action</h3>
+            <p id="confirmationModalMessage">Are you sure?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn confirm" id="confirmModalYes">Yes</button>
+                <button class="modal-btn cancel" id="confirmModalNo">No</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+          authDomain: "tiny-lizard.firebaseapp.com",
+          projectId: "tiny-lizard",
+          storageBucket: "tiny-lizard.firebasestorage.app",
+          messagingSenderId: "250872474692",
+          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        let currentUser = null;
+        let allMedia = [];
+        let myInteractions = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
+                loadAllMedia();
+            });
+
+            document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
+            document.getElementById('searchInput').addEventListener('input', renderMedia);
+            document.getElementById('viewDropdown').addEventListener('change', renderMedia);
+            document.getElementById('sortDropdown').addEventListener('change', renderMedia);
+        });
+        
+        async function handleAuthButtonClick() {
+            if (currentUser) await auth.signOut();
+            else window.location.href = 'auth.html';
+        }
+
+        async function loadAllMedia() {
+            try {
+                const mediaSnapshot = await db.collection('movies').get();
+                allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                myInteractions = {};
+                if (currentUser) {
+                    const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
+                    interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
+                }
+                renderMedia();
+            } catch (error) {
+                console.error("Error loading media:", error);
+                document.getElementById('mediaContainer').innerHTML = '<div class="empty-state"><h3>Error loading library</h3></div>';
+            }
+        }
+
+        function renderMedia() {
+            const container = document.getElementById('mediaContainer');
+            const view = document.getElementById('viewDropdown').value;
+            const sort = document.getElementById('sortDropdown').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            let mediaToDisplay = [...allMedia];
+
+            if (view === 'my' && currentUser) {
+                mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
+            }
+
+            if (searchTerm) {
+                mediaToDisplay = mediaToDisplay.filter(media => {
+                    const title = (media.title || '').toLowerCase();
+                    const director = (media.director || '').toLowerCase();
+                    const genre = (media.genre || '').toLowerCase();
+                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+                    return title.includes(searchTerm) || 
+                           director.includes(searchTerm) ||
+                           genre.includes(searchTerm) ||
+                           cast.includes(searchTerm);
+                });
+            }
+
+            mediaToDisplay.sort((a, b) => {
+                const interactionA = myInteractions[a.id] || { rating: 0 };
+                const interactionB = myInteractions[b.id] || { rating: 0 };
+                switch (sort) {
+                    case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
+                    case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
+                    case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
+                    case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
+                    default:
+                        const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
+                        const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
+                        return timeB - timeA;
+                }
+            });
+
+            if (mediaToDisplay.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>No media found.</h3></div>';
+                return;
+            }
+
+            container.innerHTML = mediaToDisplay.map(media => {
+                const title = media.title || 'Untitled';
+                const interaction = myInteractions[media.id];
+                
+                const publicDetailsHTML = `
+                    <div class="media-public-details">
+                        ${media.director ? `<div><strong>Director:</strong> ${media.director}</div>` : ''}
+                        ${media.genre ? `<div><strong>Genre:</strong> ${media.genre}</div>` : ''}
+                        ${media.cast && Array.isArray(media.cast) && media.cast.length > 0 ? `<div><strong>Cast:</strong> ${media.cast.slice(0,2).join(', ')}...</div>` : ''}
+                    </div>
+                `;
+
+                let userDetailsHTML = '';
+                let actionsHTML = '';
+                let typeBadge = media.contentType === 'tv' ? '<span class="type-badge">TV Show</span>' : '';
+                
+                let addedByHTML = '';
+                if (media.originalUploaderId && media.originalUploaderDisplayName) {
+                    addedByHTML = `
+                        <div class="media-added-by">
+                            Added by: <a href="profile.html?id=${media.originalUploaderId}">${media.originalUploaderDisplayName}</a>
+                        </div>
+                    `;
+                }
+
+
+                if (currentUser) {
+                    if (interaction) {
+                        userDetailsHTML = `
+                            ${interaction.rating > 0 ? generateStarDisplay(interaction.rating) : ''}
+                            <div class="media-status ${interaction.watched ? 'watched' : 'unwatched'}">
+                                ${interaction.watched ? '✓ Watched' : '○ Not Watched'}
+                            </div>
+                        `;
+                        actionsHTML = `
+                            <div class="media-actions">
+                                <a href="library.html?id=${media.id}" class="btn-details">View Details</a>
+                                <button class="btn-small btn-edit" onclick="editMovie('${media.id}')">Edit</button>
+                                <button class="btn-small btn-delete" onclick="deleteMovie('${media.id}')">Remove</button>
+                            </div>
+                        `;
+                    } else {
+                        actionsHTML = `
+                            <div class="media-actions">
+                                 <a href="library.html?id=${media.id}" class="btn-details">View Details</a>
+                                 <button class="btn-small btn-add" onclick="addExistingMovieToMyCollection('${media.id}')">Add to My Media</button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    actionsHTML = `
+                        <div class="media-actions">
+                            <a href="library.html?id=${media.id}" class="btn-details">View Details</a>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="media-card">
+                        <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
+                            ${media.posterUrl ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy">` : '<div class="no-poster">No Poster</div>'}
+                        </div>
+                        <div class="media-card-content">
+                            <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">
+                                ${title}
+                                ${typeBadge}
+                                ${interaction && interaction.owned ? '<span class="owned-badge">Owned</span>' : ''}
+                            </h3>
+                            <p class="media-year">${media.year || ''}</p>
+                            
+                            ${publicDetailsHTML}
+                            ${userDetailsHTML}
+                            ${actionsHTML}
+                            ${addedByHTML}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function generateStarDisplay(rating) {
+            const totalStars = 5;
+            let starHTML = '★★★★★';
+            let filledWidth = (rating / totalStars) * 100;
+            return `
+                <div class="media-rating">
+                    <div class="star-display">
+                        ${starHTML}
+                        <div class="star-display-filled" style="width: ${filledWidth}%;">${starHTML}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function viewMediaDetails(mediaId) { window.location.href = `library.html?id=${mediaId}`; }
+        function editMovie(mediaId) { window.location.href = `add-movie.html?edit=${mediaId}`; }
+        function addExistingMovieToMyCollection(mediaId) { window.location.href = `add-movie.html?edit=${mediaId}`; }
+        
+        function showConfirmationModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirmationModal');
+            document.getElementById('confirmationModalTitle').textContent = title;
+            document.getElementById('confirmationModalMessage').textContent = message;
+            modal.style.display = 'flex'; 
+
+            const yesBtn = document.getElementById('confirmModalYes');
+            const noBtn = document.getElementById('confirmModalNo');
+
+            yesBtn.onclick = () => { modal.style.display = 'none'; onConfirm(true); };
+            noBtn.onclick = () => { modal.style.display = 'none'; onConfirm(false); };
+        }
+
+        async function deleteMovie(mediaId) { 
+            showConfirmationModal('Remove From Collection', 'Are you sure you want to remove this from your personal collection? This will delete your rating and review.', async (confirmed) => { 
+                if (confirmed && currentUser) {
+                    try {
+                        await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId).delete();
+                        loadAllMedia();
+                    } catch (error) {
+                        console.error('Error removing interaction from Firestore:', error);
+                        alert('Error: Could not remove item.');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

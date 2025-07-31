@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Sign Up - the library sale</title>
+    <!-- Firebase SDKs: Using version 10.11.0 for compatibility -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .auth-container {
+            background: white;
+            padding: 40px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .auth-container h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 17px;
+            font-weight: bold;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-primary:disabled {
+            background: #a0a0a0;
+            cursor: not-allowed;
+        }
+
+        .switch-mode {
+            margin-top: 25px;
+            font-size: 0.95em;
+            color: #666;
+        }
+
+        .switch-mode a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .switch-mode a:hover {
+            text-decoration: underline;
+        }
+
+        #authMessage {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            display: none; /* Hidden by default */
+        }
+
+        #authMessage.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        #authMessage.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1 id="authTitle">Login</h1>
+        <form id="authForm">
+            <div class="form-group" id="displayNameGroup" style="display: none;">
+                <label for="displayName">Username</label>
+                <input type="text" id="displayName" placeholder="Choose a username">
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required placeholder="your.email@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Min 6 characters">
+            </div>
+            <button type="submit" id="authSubmitBtn" class="btn-primary">Login</button>
+        </form>
+        <div id="authMessage"></div>
+        <div class="switch-mode">
+            Don't have an account? <a href="#" id="toggleAuthMode">Sign Up</a>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+            authDomain: "tiny-lizard.firebaseapp.com",
+            projectId: "tiny-lizard",
+            storageBucket: "tiny-lizard.firebasestorage.app",
+            messagingSenderId: "250872474692",
+            appId: "1:250872474692:web:969e0b1302ae3cb4666011",
+            measurementId: "G-43FM6WR90B"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth(); 
+        const db = firebase.firestore(); 
+
+        let isLoginMode = true; 
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const authTitle = document.getElementById('authTitle');
+            const authSubmitBtn = document.getElementById('authSubmitBtn');
+            const toggleAuthModeLink = document.getElementById('toggleAuthMode');
+            const authForm = document.getElementById('authForm');
+            const authMessageDiv = document.getElementById('authMessage');
+            const displayNameGroup = document.getElementById('displayNameGroup'); 
+            const displayNameInput = document.getElementById('displayName'); 
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    console.log('User is logged in:', user.email);
+                    // Check if user profile exists before redirecting
+                    ensureUserProfileExists(user).then(() => {
+                        window.location.href = 'index.html';
+                    });
+                }
+            });
+
+            toggleAuthModeLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                isLoginMode = !isLoginMode;
+                if (isLoginMode) {
+                    authTitle.textContent = 'Login';
+                    authSubmitBtn.textContent = 'Login';
+                    toggleAuthModeLink.innerHTML = 'Don\'t have an account? <a href="#">Sign Up</a>';
+                    displayNameGroup.style.display = 'none'; 
+                    displayNameInput.removeAttribute('required'); 
+                } else {
+                    authTitle.textContent = 'Sign Up';
+                    authSubmitBtn.textContent = 'Sign Up';
+                    toggleAuthModeLink.innerHTML = 'Already have an account? <a href="#">Login</a>';
+                    displayNameGroup.style.display = 'block'; 
+                    displayNameInput.setAttribute('required', 'true'); 
+                }
+                authMessageDiv.style.display = 'none'; 
+            });
+
+            authForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                authSubmitBtn.disabled = true;
+                authMessageDiv.style.display = 'none';
+
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const displayName = document.getElementById('displayName').value; 
+
+                try {
+                    if (isLoginMode) {
+                        await auth.signInWithEmailAndPassword(email, password);
+                        // The onAuthStateChanged listener will handle the redirect
+                    } else {
+                        if (!displayName.trim()) {
+                            displayAuthMessage('Username is required for sign up.', 'error');
+                            authSubmitBtn.disabled = false;
+                            return;
+                        }
+
+                        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                        const user = userCredential.user;
+
+                        await user.updateProfile({ 
+                            displayName: displayName 
+                        });
+                        
+                        // The onAuthStateChanged listener will fire and handle profile creation and redirect.
+                    }
+                } catch (error) {
+                    console.error('Authentication Error:', error);
+                    displayAuthMessage(error.message, 'error');
+                } finally {
+                    authSubmitBtn.disabled = false;
+                }
+            });
+
+            // NEW FUNCTION: Ensures a user document exists in Firestore.
+            async function ensureUserProfileExists(user) {
+                const userRef = db.collection('users').doc(user.uid);
+                const userDoc = await userRef.get();
+
+                if (!userDoc.exists) {
+                    console.log(`Profile for ${user.uid} not found. Creating now.`);
+                    try {
+                        await userRef.set({
+                            displayName: user.displayName || user.email.split('@')[0],
+                            email: user.email,
+                            dateCreated: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log(`Profile created successfully for ${user.uid}`);
+                    } catch (error) {
+                        console.error("Failed to create user profile in Firestore:", error);
+                        // Even if this fails, we let the user proceed. The profile page has a backup check.
+                    }
+                }
+            }
+
+            function displayAuthMessage(message, type) {
+                authMessageDiv.textContent = message;
+                authMessageDiv.className = ''; 
+                authMessageDiv.classList.add(type);
+                authMessageDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

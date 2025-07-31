@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lists - the library sale</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .logo { font-size: 1.8em; font-weight: bold; color: white; text-decoration: none; }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-link { color: white; text-decoration: none; font-weight: 500; padding: 8px 16px; border-radius: 6px; transition: background-color 0.3s ease; }
+        .nav-link:hover { background: rgba(255, 255, 255, 0.1); }
+        .nav-link.active { background: #007bff; }
+        .add-media-btn { background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: background-color 0.3s ease; }
+        .add-media-btn:hover { background: #0056b3; }
+        .auth-btn { background: #dc3545; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; cursor: pointer; border: none; transition: background-color 0.3s ease; }
+        .auth-btn:hover { background: #c82333; }
+        .main-container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+        .lists-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .section-title { font-size: 2em; color: #333; margin: 0; }
+        .header-controls { display: flex; gap: 10px; align-items: center; }
+        .btn-create { background: #28a745; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; }
+        .search-bar { flex-grow: 1; max-width: 300px; }
+        .search-bar input { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
+        .filter-buttons button { padding: 10px 15px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer; }
+        .filter-buttons button.active { background: #007bff; color: white; border-color: #007bff; }
+        
+        .activity-section { margin-bottom: 40px; }
+        .activity-grid { 
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 20px;
+        }
+        .activity-item { text-align: center; }
+        .activity-item img { width: 100%; height: 180px; object-fit: cover; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .activity-item p { font-size: 0.8em; color: #666; margin-top: 5px; }
+        .activity-item a { color: #0056b3; text-decoration: none; font-weight: bold; }
+        .activity-item a:hover { text-decoration: underline; }
+
+        #listsContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .list-card-grid {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .list-poster-single {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+        }
+        .list-info {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        .list-info h3 { margin: 0 0 10px 0; font-size: 1.2em; }
+        .list-info h3 a { color: #333; text-decoration: none; }
+        .list-info h3 a:hover { text-decoration: underline; }
+        .list-info p { margin: 0 0 10px 0; color: #666; font-size: 0.9em; flex-grow: 1; }
+        .list-meta { font-size: 0.8em; color: #888; }
+        .list-meta a { color: #0056b3; text-decoration: none; font-weight: bold; }
+        .list-meta a:hover { text-decoration: underline; }
+        .list-actions { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+        .btn-small { padding: 6px 12px; font-size: 12px; border-radius: 5px; border: none; cursor: pointer; font-weight: 500; margin-right: 10px; }
+        .btn-edit { background: #007bff; color: white; }
+        .btn-delete { background: #dc3545; color: white; }
+        .empty-state { text-align: center; padding: 50px; grid-column: 1 / -1; }
+        
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); text-align: center; }
+        .modal-buttons { display: flex; justify-content: center; gap: 15px; }
+        .modal-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .modal-btn.confirm { background: #dc3545; color: white; }
+        .modal-btn.cancel { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">the library sale</a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Library</a>
+                <a href="lists.html" class="nav-link active">Lists</a> 
+                <a href="profile.html" class="nav-link">Profile</a>
+                <a href="add-movie.html" class="add-media-btn">+ Add Media</a> 
+                <button id="authBtn" class="auth-btn">Login</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="lists-header">
+            <h1 class="section-title">Public Lists</h1>
+            <div class="header-controls">
+                <a href="create-list.html" class="btn-create">Create a List</a>
+                <div class="search-bar">
+                    <input type="text" id="listSearchInput" placeholder="Search lists...">
+                </div>
+                <div class="filter-buttons">
+                    <button id="allListsBtn" class="active">All Lists</button>
+                    <button id="myListsBtn">My Lists</button>
+                </div>
+            </div>
+        </div>
+        <div id="listsContainer">
+            <div class="empty-state"><h2>Loading lists...</h2></div>
+        </div>
+
+        <hr style="margin: 40px 0;">
+
+        <div class="activity-section">
+            <h2 class="section-title" style="text-align: left; font-size: 1.5em; margin-bottom: 15px;">Recently Watched</h2>
+            <div id="recentlyWatchedContainer" class="activity-grid"></div>
+        </div>
+        
+        <div class="activity-section">
+            <h2 class="section-title" style="text-align: left; font-size: 1.5em; margin-bottom: 15px;">Recently Purchased</h2>
+            <div id="recentlyBoughtContainer" class="activity-grid"></div>
+        </div>
+    </div>
+    
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h3 id="confirmationModalTitle">Confirm Action</h3>
+            <p id="confirmationModalMessage">Are you sure?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn confirm" id="confirmModalYes">Yes</button>
+                <button class="modal-btn cancel" id="confirmModalNo">No</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+          authDomain: "tiny-lizard.firebaseapp.com",
+          projectId: "tiny-lizard",
+          storageBucket: "tiny-lizard.firebasestorage.app",
+          messagingSenderId: "250872474692",
+          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        let currentUser = null;
+        let allLists = [];
+        let currentListView = 'all';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
+                if (!user) {
+                    document.querySelector('.btn-create').href = 'auth.html';
+                    document.getElementById('myListsBtn').style.display = 'none';
+                } else {
+                    document.getElementById('myListsBtn').style.display = 'inline-block';
+                }
+                loadPageData();
+            });
+            document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
+            document.getElementById('listSearchInput').addEventListener('input', () => renderPublicLists());
+            document.getElementById('allListsBtn').addEventListener('click', () => setListView('all'));
+            document.getElementById('myListsBtn').addEventListener('click', () => setListView('my'));
+        });
+
+        async function handleAuthButtonClick() {
+            if (currentUser) await auth.signOut();
+            else window.location.href = 'auth.html';
+        }
+        
+        function setListView(view) {
+            currentListView = view;
+            document.getElementById('allListsBtn').classList.toggle('active', view === 'all');
+            document.getElementById('myListsBtn').classList.toggle('active', view === 'my');
+            renderPublicLists();
+        }
+
+        function loadPageData() {
+            loadRecentlyWatched();
+            loadRecentlyBought();
+            loadPublicLists();
+        }
+
+        async function loadRecentlyWatched() {
+            const container = document.getElementById('recentlyWatchedContainer');
+            try {
+                const snapshot = await db.collection('watchHistory').orderBy('watchedDate', 'desc').limit(10).get();
+                if (snapshot.empty) {
+                    container.innerHTML = "<p>No watched activity yet.</p>";
+                    return;
+                }
+                container.innerHTML = snapshot.docs.map(doc => {
+                    const item = doc.data();
+                    return `
+                        <div class="activity-item">
+                            <a href="library.html?id=${item.mediaId}">
+                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}">
+                            </a>
+                            <p><a href="profile.html?id=${item.userId}">${item.userDisplayName}</a> watched</p>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error("Error loading recently watched:", error);
+                container.innerHTML = "<p>Could not load activity.</p>";
+            }
+        }
+        
+        async function loadRecentlyBought() {
+            const container = document.getElementById('recentlyBoughtContainer');
+            try {
+                const snapshot = await db.collection('purchaseHistory').orderBy('timestamp', 'desc').limit(10).get();
+                if (snapshot.empty) {
+                    container.innerHTML = "<p>No new purchases yet.</p>";
+                    return;
+                }
+
+                const mediaIds = [...new Set(snapshot.docs.map(doc => doc.data().mediaId))];
+                const mediaData = {};
+                if (mediaIds.length > 0) {
+                    const mediaSnapshot = await db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', mediaIds).get();
+                    mediaSnapshot.forEach(doc => {
+                        mediaData[doc.id] = doc.data();
+                    });
+                }
+
+                container.innerHTML = snapshot.docs.map(doc => {
+                    const item = doc.data();
+                    const media = mediaData[item.mediaId];
+                    const titleWithYear = media ? `${media.title} (${media.year})` : item.mediaTitle;
+                    return `
+                        <div class="activity-item">
+                            <a href="library.html?id=${item.mediaId}">
+                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}">
+                            </a>
+                             <a href="library.html?id=${item.mediaId}" style="font-weight: normal;">${titleWithYear}</a>
+                            <p>by <a href="profile.html?id=${item.userId}">${item.userDisplayName}</a></p>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error("Error loading recently purchased:", error);
+                container.innerHTML = "<p>Could not load activity.</p>";
+            }
+        }
+
+        async function loadPublicLists() {
+            try {
+                // FIX: This query now correctly fetches only public lists from the database
+                const listsSnapshot = await db.collection('lists').where('isPublic', '==', true).orderBy('createdAt', 'desc').get();
+                
+                const allMediaSnapshot = await db.collection('movies').get();
+                const allMedia = {};
+                allMediaSnapshot.forEach(doc => {
+                    allMedia[doc.id] = doc.data();
+                });
+
+                allLists = listsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    media: (doc.data().mediaIds || []).map(id => allMedia[id]).filter(Boolean)
+                }));
+                
+                renderPublicLists();
+
+            } catch (error) {
+                console.error("Error loading lists:", error);
+                document.getElementById('listsContainer').innerHTML = '<div class="empty-state"><h3>Could not load lists. Please check your Firestore indexes and try again.</h3></div>';
+            }
+        }
+        
+        function renderPublicLists() {
+            const container = document.getElementById('listsContainer');
+            const searchTerm = document.getElementById('listSearchInput').value.toLowerCase();
+
+            let listsToDisplay = allLists;
+            
+            if(currentListView === 'my') {
+                if(!currentUser) return;
+                listsToDisplay = allLists.filter(list => list.creatorId === currentUser.uid);
+            }
+            // No need for an else, since we now fetch only public lists by default
+
+            if (searchTerm) {
+                listsToDisplay = listsToDisplay.filter(list => list.listName.toLowerCase().includes(searchTerm));
+            }
+
+            if (listsToDisplay.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>No lists found.</h3></div>';
+                return;
+            }
+
+            container.innerHTML = listsToDisplay.map(list => {
+                const firstItem = list.media[0];
+                const posterUrl = firstItem ? firstItem.posterUrl : 'https://placehold.co/300x450?text=Empty+List';
+                
+                let description = list.description || '';
+                const words = description.split(' ');
+                if (words.length > 10) {
+                    description = words.slice(0, 10).join(' ') + '...';
+                }
+
+                const isOwner = currentUser && currentUser.uid === list.creatorId;
+                const actionsHTML = isOwner ? `
+                    <div class="list-actions">
+                        <a href="edit-list.html?id=${list.id}" class="btn-small btn-edit">Edit</a>
+                        <button class="btn-small btn-delete" onclick="deleteList('${list.id}')">Delete</button>
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="list-card-grid">
+                        <img src="${posterUrl}" alt="${list.listName}" class="list-poster-single">
+                        <div class="list-info">
+                            <h3><a href="edit-list.html?id=${list.id}">${list.listName}</a></h3>
+                            <p class="list-meta">Created by <a href="profile.html?id=${list.creatorId}">${list.creatorDisplayName || 'Anonymous'}</a></p>
+                            <p>${description}</p>
+                            ${actionsHTML}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function showConfirmationModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirmationModal');
+            document.getElementById('confirmationModalTitle').textContent = title;
+            document.getElementById('confirmationModalMessage').textContent = message;
+            modal.style.display = 'flex'; 
+
+            const yesBtn = document.getElementById('confirmModalYes');
+            const noBtn = document.getElementById('confirmModalNo');
+
+            yesBtn.onclick = () => { modal.style.display = 'none'; onConfirm(true); };
+            noBtn.onclick = () => { modal.style.display = 'none'; onConfirm(false); };
+        }
+
+        function deleteList(listId) {
+            showConfirmationModal('Delete List', 'Are you sure you want to permanently delete this list?', async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        await db.collection('lists').doc(listId).delete();
+                        loadPublicLists();
+                    } catch (error) {
+                        console.error("Error deleting list:", error);
+                        alert("Could not delete list.");
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

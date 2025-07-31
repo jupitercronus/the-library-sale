@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New List - the library sale</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .logo { font-size: 1.8em; font-weight: bold; color: white; text-decoration: none; }
+        .nav-links { display: flex; gap: 30px; align-items: center; }
+        .nav-link { color: white; text-decoration: none; font-weight: 500; padding: 8px 16px; border-radius: 6px; }
+        .add-media-btn { background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; }
+        .auth-btn { background: #dc3545; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; cursor: pointer; border: none; }
+        .main-container { max-width: 800px; margin: 30px auto; padding: 30px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], textarea, select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; box-sizing: border-box; }
+        textarea { min-height: 100px; resize: vertical; }
+        .btn-save { background: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">the library sale</a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Library</a>
+                <a href="lists.html" class="nav-link">Lists</a> 
+                <a href="profile.html" class="nav-link">Profile</a>
+                <a href="add-movie.html" class="add-media-btn">+ Add Media</a> 
+                <button id="authBtn" class="auth-btn">Login</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <h1>New List</h1>
+        <form id="createListForm">
+            <div class="form-group">
+                <label for="listName">Name *</label>
+                <input type="text" id="listName" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="isPublic">Who can view?</label>
+                <select id="isPublic">
+                    <option value="true" selected>Anyone - Public list</option>
+                    <option value="false">Only you - Private list</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-save">Save & Add Media</button>
+        </form>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+          authDomain: "tiny-lizard.firebaseapp.com",
+          projectId: "tiny-lizard",
+          storageBucket: "tiny-lizard.firebasestorage.app",
+          messagingSenderId: "250872474692",
+          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        let currentUser = null;
+        let mediaIdToAdd = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            mediaIdToAdd = urlParams.get('mediaId'); // Check for a media ID to auto-add
+
+            auth.onAuthStateChanged(user => {
+                const authBtn = document.getElementById('authBtn');
+                if (user) {
+                    currentUser = user;
+                    authBtn.textContent = 'Logout';
+                } else {
+                    authBtn.textContent = 'Login';
+                    window.location.href = 'auth.html';
+                }
+            });
+            document.getElementById('authBtn').addEventListener('click', () => {
+                if (currentUser) auth.signOut();
+                else window.location.href = 'auth.html';
+            });
+            document.getElementById('createListForm').addEventListener('submit', handleCreateList);
+        });
+        
+        async function handleCreateList(e) {
+            e.preventDefault();
+            if (!currentUser) {
+                alert("You must be logged in to create a list.");
+                return;
+            }
+
+            const listName = document.getElementById('listName').value.trim();
+            if (!listName) {
+                alert("List name is required.");
+                return;
+            }
+
+            try {
+                const initialMediaIds = mediaIdToAdd ? [mediaIdToAdd] : [];
+
+                const newList = {
+                    listName: listName,
+                    description: document.getElementById('description').value.trim(),
+                    isPublic: document.getElementById('isPublic').value === 'true',
+                    creatorId: currentUser.uid,
+                    creatorDisplayName: currentUser.displayName || currentUser.email,
+                    mediaIds: initialMediaIds,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                const docRef = await db.collection('lists').add(newList);
+                window.location.href = `edit-list.html?id=${docRef.id}`;
+
+            } catch (error) {
+                console.error("Error creating list:", error);
+                alert("Could not create list. Please check your Firestore security rules and try again.");
+            }
+        }
+    </script>
+</body>
+</html>
