@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="utils.js" defer></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
         .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -23,7 +24,22 @@
         input[type="text"], textarea, select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; box-sizing: border-box; }
         textarea { min-height: 100px; resize: vertical; }
         .btn-save { background: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; }
-    </style>
+       
+        /* === SKELETON LOADING STYLES === */
+       @keyframes skeleton-shimmer {
+        0% { background-position: -200px 0; }
+        100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        .skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200px 100%;
+        animation: skeleton-shimmer 1.5s infinite linear;
+        border-radius: 4px;
+        }
+        /* Add specific skeleton components based on page needs */
+   
+   </style>
 </head>
 <body>
     <nav class="navbar">
@@ -76,7 +92,17 @@
 
         let currentUser = null;
         let mediaIdToAdd = null;
-
+        
+        const SkeletonUI = {
+         showMediaGridSkeleton: (containerId, count = 6) => { /* ... */ },
+         showSearchSkeleton: (containerId, count = 3) => { /* ... */ },
+         showListsSkeleton: (containerId, count = 4) => { /* ... */ },
+         showActivitySkeleton: (containerId, count = 5) => { /* ... */ },
+         showProfileSkeleton: (containerId) => { /* ... */ },
+         showLoadingSpinner: (containerId, message = 'Loading...') => { /* ... */ },
+         clearSkeleton: (containerId) => { /* ... */ }
+        };
+        
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             mediaIdToAdd = urlParams.get('mediaId'); // Check for a media ID to auto-add

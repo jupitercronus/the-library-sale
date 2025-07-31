@@ -8,6 +8,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <!-- Utils -->
+    <script src="utils.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -56,6 +58,18 @@
             border-radius: 5px;
             font-size: 16px;
             box-sizing: border-box;
+        }
+
+        .form-group input.error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
+
+        .field-error {
+            color: #dc3545;
+            font-size: 0.8em;
+            margin-top: 5px;
+            display: none;
         }
 
         .btn-primary {
@@ -115,6 +129,21 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+
+        /* === SKELETON LOADING STYLES === */
+         @keyframes skeleton-shimmer {
+        0% { background-position: -200px 0; }
+         100% { background-position: calc(200px + 100%) 0; }
+         }
+
+        .skeleton {
+         background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200px 100%;
+        animation: skeleton-shimmer 1.5s infinite linear;
+        border-radius: 4px;
+        }
+
+        /* Add specific skeleton components based on page needs */
     </style>
 </head>
 <body>
@@ -124,14 +153,17 @@
             <div class="form-group" id="displayNameGroup" style="display: none;">
                 <label for="displayName">Username</label>
                 <input type="text" id="displayName" placeholder="Choose a username">
+                <div class="field-error" id="displayNameError">Username is required for sign up</div>
             </div>
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" required placeholder="your.email@example.com">
+                <div class="field-error" id="emailError">Please enter a valid email address</div>
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" required placeholder="Min 6 characters">
+                <div class="field-error" id="passwordError">Password must be at least 6 characters</div>
             </div>
             <button type="submit" id="authSubmitBtn" class="btn-primary">Login</button>
         </form>
@@ -157,7 +189,7 @@
         const db = firebase.firestore(); 
 
         let isLoginMode = true; 
-
+        
         document.addEventListener('DOMContentLoaded', function() {
             const authTitle = document.getElementById('authTitle');
             const authSubmitBtn = document.getElementById('authSubmitBtn');
@@ -177,6 +209,9 @@
                 }
             });
 
+            // Set up real-time validation
+            setupValidation();
+
             toggleAuthModeLink.addEventListener('click', function(e) {
                 e.preventDefault();
                 isLoginMode = !isLoginMode;
@@ -193,17 +228,23 @@
                     displayNameGroup.style.display = 'block'; 
                     displayNameInput.setAttribute('required', 'true'); 
                 }
-                authMessageDiv.style.display = 'none'; 
+                authMessageDiv.style.display = 'none';
+                clearValidationErrors();
             });
 
             authForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                authSubmitBtn.disabled = true;
+                
+                if (!validateForm()) {
+                    return;
+                }
+                
+                LibraryUtils.ui.setButtonLoading(authSubmitBtn, isLoginMode ? 'Logging in...' : 'Signing up...');
                 authMessageDiv.style.display = 'none';
 
-                const email = document.getElementById('email').value;
+                const email = LibraryUtils.validation.sanitizeInput(document.getElementById('email').value);
                 const password = document.getElementById('password').value;
-                const displayName = document.getElementById('displayName').value; 
+                const displayName = LibraryUtils.validation.sanitizeInput(document.getElementById('displayName').value); 
 
                 try {
                     if (isLoginMode) {
@@ -211,8 +252,7 @@
                         // The onAuthStateChanged listener will handle the redirect
                     } else {
                         if (!displayName.trim()) {
-                            displayAuthMessage('Username is required for sign up.', 'error');
-                            authSubmitBtn.disabled = false;
+                            showFieldError('displayName', 'Username is required for sign up.');
                             return;
                         }
 
@@ -227,11 +267,108 @@
                     }
                 } catch (error) {
                     console.error('Authentication Error:', error);
-                    displayAuthMessage(error.message, 'error');
+                    const friendlyMessage = LibraryUtils.errors.getUserFriendlyMessage(error.message);
+                    displayAuthMessage(friendlyMessage, 'error');
                 } finally {
-                    authSubmitBtn.disabled = false;
+                    LibraryUtils.ui.resetButton(authSubmitBtn);
                 }
             });
+
+            function setupValidation() {
+                const emailInput = document.getElementById('email');
+                const passwordInput = document.getElementById('password');
+                const displayNameInput = document.getElementById('displayName');
+
+                emailInput.addEventListener('blur', () => validateEmail());
+                emailInput.addEventListener('input', () => clearFieldError('email'));
+                
+                passwordInput.addEventListener('blur', () => validatePassword());
+                passwordInput.addEventListener('input', () => clearFieldError('password'));
+                
+                displayNameInput.addEventListener('blur', () => validateDisplayName());
+                displayNameInput.addEventListener('input', () => clearFieldError('displayName'));
+            }
+
+            function validateForm() {
+                let isValid = true;
+                
+                if (!validateEmail()) isValid = false;
+                if (!validatePassword()) isValid = false;
+                if (!isLoginMode && !validateDisplayName()) isValid = false;
+                
+                return isValid;
+            }
+
+            function validateEmail() {
+                const email = document.getElementById('email').value;
+                if (!email) {
+                    showFieldError('email', 'Email is required');
+                    return false;
+                }
+                if (!LibraryUtils.validation.isValidEmail(email)) {
+                    showFieldError('email', 'Please enter a valid email address');
+                    return false;
+                }
+                clearFieldError('email');
+                return true;
+            }
+
+            function validatePassword() {
+                const password = document.getElementById('password').value;
+                if (!password) {
+                    showFieldError('password', 'Password is required');
+                    return false;
+                }
+                if (password.length < 6) {
+                    showFieldError('password', 'Password must be at least 6 characters');
+                    return false;
+                }
+                clearFieldError('password');
+                return true;
+            }
+
+            function validateDisplayName() {
+                if (isLoginMode) return true;
+                
+                const displayName = document.getElementById('displayName').value.trim();
+                if (!displayName) {
+                    showFieldError('displayName', 'Username is required for sign up');
+                    return false;
+                }
+                if (displayName.length < 2) {
+                    showFieldError('displayName', 'Username must be at least 2 characters');
+                    return false;
+                }
+                clearFieldError('displayName');
+                return true;
+            }
+
+            function showFieldError(fieldName, message) {
+                const input = document.getElementById(fieldName);
+                const errorDiv = document.getElementById(fieldName + 'Error');
+                
+                input.classList.add('error');
+                if (errorDiv) {
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                }
+            }
+
+            function clearFieldError(fieldName) {
+                const input = document.getElementById(fieldName);
+                const errorDiv = document.getElementById(fieldName + 'Error');
+                
+                input.classList.remove('error');
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+            }
+
+            function clearValidationErrors() {
+                ['email', 'password', 'displayName'].forEach(fieldName => {
+                    clearFieldError(fieldName);
+                });
+            }
 
             // NEW FUNCTION: Ensures a user document exists in Firestore.
             async function ensureUserProfileExists(user) {

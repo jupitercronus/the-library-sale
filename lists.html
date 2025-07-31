@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="utils.js" defer></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
         .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -86,6 +87,123 @@
         .modal-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
         .modal-btn.confirm { background: #dc3545; color: white; }
         .modal-btn.cancel { background: #6c757d; color: white; }
+
+        /* === SKELETON LOADING STYLES === */
+        @keyframes skeleton-shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200px 100%;
+            animation: skeleton-shimmer 1.5s infinite linear;
+            border-radius: 4px;
+        }
+
+        /* List Card Skeletons */
+        .skeleton-list-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .skeleton-list-poster {
+            width: 100%;
+            height: 180px;
+        }
+
+        .skeleton-list-info {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .skeleton-list-title {
+            width: 70%;
+            height: 20px;
+            margin-bottom: 10px;
+        }
+
+        .skeleton-list-meta {
+            width: 50%;
+            height: 14px;
+            margin-bottom: 10px;
+        }
+
+        .skeleton-list-description {
+            width: 100%;
+            height: 14px;
+            margin-bottom: 6px;
+        }
+
+        .skeleton-list-description:last-of-type {
+            width: 40%;
+            margin-bottom: 15px;
+        }
+
+        .skeleton-list-actions {
+            margin-top: auto;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .skeleton-list-button {
+            width: 50px;
+            height: 24px;
+        }
+
+        /* Activity Skeletons */
+        .skeleton-activity-item {
+            text-align: center;
+        }
+
+        .skeleton-activity-poster {
+            width: 100%;
+            height: 180px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-activity-text {
+            width: 80%;
+            height: 12px;
+            margin: 0 auto;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -117,19 +235,23 @@
             </div>
         </div>
         <div id="listsContainer">
-            <div class="empty-state"><h2>Loading lists...</h2></div>
+            <!-- Initial skeleton loading state -->
         </div>
 
         <hr style="margin: 40px 0;">
 
         <div class="activity-section">
             <h2 class="section-title" style="text-align: left; font-size: 1.5em; margin-bottom: 15px;">Recently Watched</h2>
-            <div id="recentlyWatchedContainer" class="activity-grid"></div>
+            <div id="recentlyWatchedContainer" class="activity-grid">
+                <!-- Initial skeleton loading state -->
+            </div>
         </div>
         
         <div class="activity-section">
             <h2 class="section-title" style="text-align: left; font-size: 1.5em; margin-bottom: 15px;">Recently Purchased</h2>
-            <div id="recentlyBoughtContainer" class="activity-grid"></div>
+            <div id="recentlyBoughtContainer" class="activity-grid">
+                <!-- Initial skeleton loading state -->
+            </div>
         </div>
     </div>
     
@@ -161,7 +283,56 @@
         let allLists = [];
         let currentListView = 'all';
 
+        // === SKELETON UI UTILITIES ===
+        const SkeletonUI = {
+            showListsSkeleton: (containerId, count = 4) => {
+                const container = document.getElementById(containerId);
+                const skeletonHTML = Array(count).fill(0).map(() => `
+                    <div class="skeleton-list-card">
+                        <div class="skeleton skeleton-list-poster"></div>
+                        <div class="skeleton-list-info">
+                            <div class="skeleton skeleton-list-title"></div>
+                            <div class="skeleton skeleton-list-meta"></div>
+                            <div class="skeleton skeleton-list-description"></div>
+                            <div class="skeleton skeleton-list-description"></div>
+                            <div class="skeleton-list-actions">
+                                <div class="skeleton skeleton-list-button"></div>
+                                <div class="skeleton skeleton-list-button"></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                container.innerHTML = skeletonHTML;
+            },
+
+            showActivitySkeleton: (containerId, count = 5) => {
+                const container = document.getElementById(containerId);
+                const skeletonHTML = Array(count).fill(0).map(() => `
+                    <div class="skeleton-activity-item">
+                        <div class="skeleton skeleton-activity-poster"></div>
+                        <div class="skeleton skeleton-activity-text"></div>
+                    </div>
+                `).join('');
+                container.innerHTML = skeletonHTML;
+            },
+
+            showLoadingSpinner: (containerId, message = 'Loading...') => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = `
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">${message}</div>
+                    </div>
+                `;
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
+            // 識 SKELETON LOADING IMPLEMENTATION - Show skeletons immediately
+            SkeletonUI.showListsSkeleton('listsContainer', 6);
+            SkeletonUI.showActivitySkeleton('recentlyWatchedContainer', 8);
+            SkeletonUI.showActivitySkeleton('recentlyBoughtContainer', 8);
+
             auth.onAuthStateChanged(user => {
                 currentUser = user;
                 document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
@@ -200,6 +371,9 @@
         async function loadRecentlyWatched() {
             const container = document.getElementById('recentlyWatchedContainer');
             try {
+                // 識 SKELETON LOADING IMPLEMENTATION
+                SkeletonUI.showActivitySkeleton('recentlyWatchedContainer', 8);
+                
                 const snapshot = await db.collection('watchHistory').orderBy('watchedDate', 'desc').limit(10).get();
                 if (snapshot.empty) {
                     container.innerHTML = "<p>No watched activity yet.</p>";
@@ -225,6 +399,9 @@
         async function loadRecentlyBought() {
             const container = document.getElementById('recentlyBoughtContainer');
             try {
+                // 識 SKELETON LOADING IMPLEMENTATION
+                SkeletonUI.showActivitySkeleton('recentlyBoughtContainer', 8);
+                
                 const snapshot = await db.collection('purchaseHistory').orderBy('timestamp', 'desc').limit(10).get();
                 if (snapshot.empty) {
                     container.innerHTML = "<p>No new purchases yet.</p>";
@@ -262,6 +439,9 @@
 
         async function loadPublicLists() {
             try {
+                // 識 SKELETON LOADING IMPLEMENTATION
+                SkeletonUI.showListsSkeleton('listsContainer', 6);
+                
                 // FIX: This query now correctly fetches only public lists from the database
                 const listsSnapshot = await db.collection('lists').where('isPublic', '==', true).orderBy('createdAt', 'desc').get();
                 

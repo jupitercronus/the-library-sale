@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <!-- ZXing Barcode Scanner Library -->
     <script type="text/javascript" src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+    <!-- Utils -->
+    <script src="utils.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -233,6 +235,69 @@
             margin-left: 10px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* === SKELETON LOADING STYLES === */
+        @keyframes skeleton-shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200px 100%;
+            animation: skeleton-shimmer 1.5s infinite linear;
+            border-radius: 4px;
+        }
+
+        .skeleton-search-result {
+            border-bottom: 1px solid #eee;
+            padding: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .skeleton-search-poster {
+            width: 60px;
+            height: 90px;
+            flex-shrink: 0;
+        }
+
+        .skeleton-search-info {
+            flex: 1;
+        }
+
+        .skeleton-search-title {
+            width: 250px;
+            height: 18px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-search-overview {
+            width: 100%;
+            height: 14px;
+            margin-bottom: 4px;
+        }
+
+        .skeleton-search-overview:last-child {
+            width: 60%;
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error-state h3 { color: #dc3545; }
+        .btn-retry {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -389,6 +454,7 @@
         let videoInputDevices = [];
         let creditCache = new Map();
         let creditLookupTimeout;
+        let starRatingController = null;
         
         const TMDB_BASE_URL = '/api/tmdb';
         const UPC_BASE_URL = '/api/upc';
@@ -478,8 +544,7 @@
 
         async function addMedia() {
             const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Adding...';
+            LibraryUtils.ui.setButtonLoading(submitBtn, 'Adding...');
 
             try {
                 const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
@@ -495,16 +560,23 @@
                 }
                 
                 if (!movieDocRef) {
+                    const titleValue = LibraryUtils.validation.sanitizeInput(document.getElementById('title').value);
+                    const yearValue = document.getElementById('year').value;
+                    
+                    if (!LibraryUtils.validation.isValidYear(yearValue) && yearValue) {
+                        throw new Error('Please enter a valid year');
+                    }
+
                     mainMediaData = {
-                        title: document.getElementById('title').value,
-                        year: document.getElementById('year').value ? parseInt(document.getElementById('year').value) : null,
-                        director: document.getElementById('director').value,
-                        genre: document.getElementById('genre').value,
+                        title: titleValue,
+                        year: yearValue ? parseInt(yearValue) : null,
+                        director: LibraryUtils.validation.sanitizeInput(document.getElementById('director').value),
+                        genre: LibraryUtils.validation.sanitizeInput(document.getElementById('genre').value),
                         posterUrl: document.getElementById('movieForm').dataset.posterUrl || null,
                         runtime: document.getElementById('movieForm').dataset.runtime || null,
                         tmdbId: tmdbId ? parseInt(tmdbId) : null,
-                        overview: document.getElementById('summary').value,
-                        cast: document.getElementById('cast').value.split(',').map(c => c.trim()),
+                        overview: LibraryUtils.validation.sanitizeInput(document.getElementById('summary').value, 1000),
+                        cast: document.getElementById('cast').value.split(',').map(c => LibraryUtils.validation.sanitizeInput(c)),
                         contentType: document.getElementById('contentType').value,
                         dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
                         originalUploaderId: currentUser.uid,
@@ -514,9 +586,14 @@
                     movieDocRef = await db.collection('movies').add(mainMediaData);
                 }
 
+                const rating = starRatingController ? starRatingController.getRating() : currentRating;
+                if (!LibraryUtils.validation.isValidRating(rating)) {
+                    throw new Error('Invalid rating value');
+                }
+
                 const userInteractionData = {
-                    rating: currentRating,
-                    review: document.getElementById('review').value,
+                    rating: rating,
+                    review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
                     watched: document.getElementById('watchedCheckbox').checked,
                     watchedDate: document.getElementById('watchedDate').value || null,
                     owned: document.getElementById('ownedCheckbox').checked,
@@ -532,7 +609,8 @@
                     const physicalCopyData = {
                         ownerId: currentUser.uid,
                         ownerDisplayName: currentUser.displayName || currentUser.email,
-                        editionDetails: document.getElementById('editionDetails').value || document.getElementById('editionDetailsInput').value || 'Standard Edition',
+                        editionDetails: LibraryUtils.validation.sanitizeInput(document.getElementById('editionDetails').value) || 
+                                       LibraryUtils.validation.sanitizeInput(document.getElementById('editionDetailsInput').value) || 'Standard Edition',
                         dateAdded: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     await movieDocRef.collection('physicalCopies').add(physicalCopyData);
@@ -544,26 +622,29 @@
 
             } catch (error) {
                 console.error("Error adding media:", error);
-                showAlertModal('Error', 'Could not add media: ' + error.message);
+                LibraryUtils.errors.handleError(error, 'Adding Media');
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Add Media';
+                LibraryUtils.ui.resetButton(submitBtn);
             }
         }
         
         async function updateMedia() {
             const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Updating...';
+            LibraryUtils.ui.setButtonLoading(submitBtn, 'Updating...');
 
             try {
                 const movieDocRef = db.collection('movies').doc(editingMovieId);
                 const mediaDoc = await movieDocRef.get();
                 const mainMediaData = mediaDoc.data();
 
+                const rating = starRatingController ? starRatingController.getRating() : currentRating;
+                if (!LibraryUtils.validation.isValidRating(rating)) {
+                    throw new Error('Invalid rating value');
+                }
+
                 const userInteractionData = {
-                    rating: currentRating,
-                    review: document.getElementById('review').value,
+                    rating: rating,
+                    review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
                     watched: document.getElementById('watchedCheckbox').checked,
                     watchedDate: document.getElementById('watchedDate').value || null,
                     owned: document.getElementById('ownedCheckbox').checked,
@@ -583,7 +664,7 @@
                     const physicalCopyData = {
                         ownerId: currentUser.uid,
                         ownerDisplayName: currentUser.displayName || currentUser.email,
-                        editionDetails: document.getElementById('editionDetails').value || 'Standard Edition',
+                        editionDetails: LibraryUtils.validation.sanitizeInput(document.getElementById('editionDetails').value) || 'Standard Edition',
                         dateAdded: firebase.firestore.FieldValue.serverTimestamp()
                     };
                     await physicalCopiesRef.add(physicalCopyData);
@@ -599,10 +680,9 @@
 
             } catch (error) {
                 console.error("Error updating media:", error);
-                showAlertModal('Error', 'Could not update media: ' + error.message);
+                LibraryUtils.errors.handleError(error, 'Updating Media');
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Update Media';
+                LibraryUtils.ui.resetButton(submitBtn);
             }
         }
 
@@ -612,60 +692,68 @@
             if (!editingMovieId) {
                 togglePublicFieldsReadonly(false);
                 return;
-            };
+            }
 
             document.getElementById('formTitle').textContent = 'Edit My Details';
             document.getElementById('submitBtn').textContent = 'Update Details';
 
-            const mediaDoc = await db.collection('movies').doc(editingMovieId).get();
-            const interactionDoc = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(editingMovieId).get();
-            
-            if (!mediaDoc.exists) {
-                showAlertModal('Error', 'Media not found.');
-                return;
-            }
+            try {
+                const mediaDoc = await db.collection('movies').doc(editingMovieId).get();
+                const interactionDoc = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(editingMovieId).get();
+                
+                if (!mediaDoc.exists) {
+                    LibraryUtils.errors.showErrorModal('Error', 'Media not found.');
+                    return;
+                }
 
-            const mediaData = mediaDoc.data();
-            document.getElementById('title').value = mediaData.title || '';
-            document.getElementById('year').value = mediaData.year || '';
-            document.getElementById('director').value = mediaData.director || '';
-            document.getElementById('genre').value = mediaData.genre || '';
-            document.getElementById('summary').value = mediaData.overview || '';
-            document.getElementById('cast').value = (mediaData.cast || []).join(', ');
-            document.getElementById('contentType').value = mediaData.contentType || 'movie';
-            togglePublicFieldsReadonly(true);
+                const mediaData = mediaDoc.data();
+                document.getElementById('title').value = mediaData.title || '';
+                document.getElementById('year').value = mediaData.year || '';
+                document.getElementById('director').value = mediaData.director || '';
+                document.getElementById('genre').value = mediaData.genre || '';
+                document.getElementById('summary').value = mediaData.overview || '';
+                document.getElementById('cast').value = (mediaData.cast || []).join(', ');
+                document.getElementById('contentType').value = mediaData.contentType || 'movie';
+                togglePublicFieldsReadonly(true);
 
-            if (interactionDoc.exists) {
-                const interactionData = interactionDoc.data();
-                currentRating = interactionData.rating || 0;
-                updateStars();
-                document.getElementById('review').value = interactionData.review || '';
-                document.getElementById('watchedCheckbox').checked = interactionData.watched || false;
-                document.getElementById('watchedDate').value = interactionData.watchedDate || '';
-                document.getElementById('ownedCheckbox').checked = interactionData.owned || false;
+                if (interactionDoc.exists) {
+                    const interactionData = interactionDoc.data();
+                    currentRating = interactionData.rating || 0;
+                    if (starRatingController) {
+                        starRatingController.setRating(currentRating);
+                    }
+                    document.getElementById('review').value = interactionData.review || '';
+                    document.getElementById('watchedCheckbox').checked = interactionData.watched || false;
+                    document.getElementById('watchedDate').value = interactionData.watchedDate || '';
+                    document.getElementById('ownedCheckbox').checked = interactionData.owned || false;
 
-                if (interactionData.owned) {
-                    document.getElementById('editionDetailsGroup').style.display = 'block';
-                    const myCopyQuery = await db.collection('movies').doc(editingMovieId).collection('physicalCopies').where('ownerId', '==', currentUser.uid).limit(1).get();
-                    if (!myCopyQuery.empty) {
-                        document.getElementById('editionDetails').value = myCopyQuery.docs[0].data().editionDetails || '';
+                    if (interactionData.owned) {
+                        document.getElementById('editionDetailsGroup').style.display = 'block';
+                        const myCopyQuery = await db.collection('movies').doc(editingMovieId).collection('physicalCopies').where('ownerId', '==', currentUser.uid).limit(1).get();
+                        if (!myCopyQuery.empty) {
+                            document.getElementById('editionDetails').value = myCopyQuery.docs[0].data().editionDetails || '';
+                        }
                     }
                 }
+            } catch (error) {
+                LibraryUtils.errors.handleError(error, 'Loading edit data');
             }
         }
         
         function setupSearch() {
             const searchInput = document.getElementById('movieSearch');
-            let searchTimeout;
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                const query = searchInput.value.trim();
+            const debouncedSearch = LibraryUtils.ui.debounce((query) => {
                 if (query.length > 2) {
-                    searchTimeout = setTimeout(() => performSearch(query), 300);
+                    performSearch(query);
                 } else {
                     document.getElementById('searchResults').innerHTML = '';
                 }
+            }, 300);
+
+            searchInput.addEventListener('input', (e) => {
+                debouncedSearch(e.target.value.trim());
             });
+            
             document.getElementById('searchBtn').addEventListener('click', () => performSearch(searchInput.value.trim()));
         }
 
@@ -707,7 +795,9 @@
 
         async function performSearch(query) {
             if (!query) return;
-            showStatusMessage('Searching...', 'info');
+            
+            // Show skeleton loading
+            LibraryUtils.skeleton.showSkeleton('searchResults', 'search-results', 5);
             
             try {
                 const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}`;
@@ -727,6 +817,7 @@
                 showStatusMessage(`${results.length} results found.`, 'success');
             } catch (error) {
                 console.error("Search error:", error);
+                LibraryUtils.errors.handleError(error, 'Search');
                 showStatusMessage('Search failed.', 'error');
             }
         }
@@ -742,6 +833,7 @@
                 const title = item.title || item.name;
                 const year = (item.release_date || item.first_air_date || '').substring(0, 4);
                 const type = item.media_type === 'tv' ? 'TV Show' : 'Movie';
+                const overview = LibraryUtils.ui.truncateText(item.overview, 100);
                 
                 return `
                     <div class="search-result" 
@@ -757,7 +849,7 @@
                                     ${Math.round(item.score)}
                                 </span>
                             </h4>
-                            <p>${(item.overview || '').substring(0, 100)}...</p>
+                            <p>${overview}...</p>
                         </div>
                     </div>
                 `;
@@ -838,54 +930,18 @@
                 showStatusMessage('Media details loaded successfully!', 'success');
             } catch (error) {
                 console.error("Error selecting media:", error);
-                showStatusMessage('Could not load details.', 'error');
+                LibraryUtils.errors.handleError(error, 'Loading media details');
             }
         }
         
         function setupStarRating() {
-            const ratingContainer = document.getElementById('starRating');
-            const stars = Array.from(ratingContainer.children);
-
-            ratingContainer.addEventListener('mousemove', e => {
-                const rect = ratingContainer.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                const hoverValue = Math.round(percent * 5 * 2) / 2;
-                
-                stars.forEach((star, index) => {
-                    star.classList.remove('hover-full', 'hover-half');
-                    if (hoverValue > index + 0.5) {
-                        star.classList.add('hover-full');
-                    } else if (hoverValue > index) {
-                        star.classList.add('hover-half');
-                    }
-                });
-            });
-
-            ratingContainer.addEventListener('mouseleave', () => {
-                stars.forEach(star => {
-                    star.classList.remove('hover-full', 'hover-half');
-                });
-                updateStars();
-            });
-
-            ratingContainer.addEventListener('click', e => {
-                const rect = ratingContainer.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                currentRating = Math.round(percent * 5 * 2) / 2;
-                updateStars();
-            });
-        }
-
-        function updateStars() {
-            const stars = Array.from(document.getElementById('starRating').children);
-            stars.forEach((star, index) => {
-                star.classList.remove('full', 'half');
-                if (currentRating > index + 0.5) {
-                    star.classList.add('full');
-                } else if (currentRating > index) {
-                    star.classList.add('half');
-                }
-            });
+            starRatingController = LibraryUtils.stars.setupInteractiveStarRating(
+                'starRating',
+                (rating) => {
+                    currentRating = rating;
+                },
+                currentRating
+            );
         }
 
         function togglePublicFieldsReadonly(isReadonly) {
@@ -901,14 +957,16 @@
         }
 
         function showAlertModal(title, message, onOk = () => {}) { 
+            LibraryUtils.errors.showErrorModal(title, message);
             const modal = document.getElementById('alertModal');
-            document.getElementById('alertModalTitle').textContent = title;
-            document.getElementById('alertModalMessage').textContent = message;
-            modal.style.display = 'flex';
-            document.getElementById('alertModalOk').onclick = () => {
-                modal.style.display = 'none';
+            if (modal) {
+                document.getElementById('alertModalOk').onclick = () => {
+                    modal.style.display = 'none';
+                    onOk();
+                };
+            } else {
                 onOk();
-            };
+            }
         }
 
         function showStatusMessage(message, type) {
@@ -948,7 +1006,7 @@
                 }
                 
                 const lookupBtn = document.getElementById('lookupBarcodeBtn');
-                lookupBtn.disabled = e.target.value.length < 8;
+                lookupBtn.disabled = !LibraryUtils.validation.isValidBarcode(e.target.value);
             });
 
             // Set up camera scanning
@@ -1006,7 +1064,7 @@
         }
 
         function lookupManualBarcode() {
-            const barcode = document.getElementById('barcodeInput').value.trim();
+            const barcode = LibraryUtils.validation.sanitizeInput(document.getElementById('barcodeInput').value);
             const spinner = document.getElementById('barcodeSpinner');
             
             if (!barcode) {
@@ -1014,7 +1072,7 @@
                 return;
             }
             
-            if (!/^\d{8,18}$/.test(barcode)) {
+            if (!LibraryUtils.validation.isValidBarcode(barcode)) {
                 showStatusMessage('Please enter a valid barcode (8-18 digits).', 'error');
                 return;
             }
@@ -1056,13 +1114,7 @@
                 
             } catch (error) {
                 console.error('Error starting scanner:', error);
-                if (error.name === 'NotAllowedError') {
-                    showStatusMessage('Camera access denied. Please allow camera permissions.', 'error');
-                } else if (error.name === 'NotFoundError') {
-                    showStatusMessage('No camera found on this device.', 'error');
-                } else {
-                    showStatusMessage('Failed to start camera: ' + error.message, 'error');
-                }
+                LibraryUtils.errors.handleError(error, 'Camera Scanner');
                 stopScanner();
             }
         }
@@ -1088,12 +1140,16 @@
 
                 if (!upcData.items || upcData.items.length === 0) {
                     showStatusMessage('No product found for this barcode.', 'error');
-                    showAlertModal('Barcode Not Found', `No product found for barcode: ${barcode}. You can try entering the movie details manually.`);
+                    LibraryUtils.ui.showConfirmModal(
+                        'Barcode Not Found', 
+                        `No product found for barcode: ${barcode}. You can try entering the movie details manually.`,
+                        () => {}
+                    );
                     return;
                 }
                 
                 const product = upcData.items[0];
-                const productName = product.title || product.description || 'Unknown Product';
+                const productName = LibraryUtils.validation.sanitizeInput(product.title || product.description || 'Unknown Product');
                 
                 document.getElementById('editionDetailsInput').value = productName;
                 if (document.getElementById('editionDetails')) {
@@ -1111,8 +1167,7 @@
 
             } catch (error) {
                 console.error('Barcode lookup error:', error);
-                showStatusMessage('Barcode lookup failed.', 'error');
-                showAlertModal('Lookup Error', `Failed to lookup barcode: ${error.message}`);
+                LibraryUtils.errors.handleError(error, 'Barcode Lookup');
             }
         }
 
@@ -1122,14 +1177,13 @@
             title = title.replace(/\s*\(.*?\)\s*/g, ' ').trim(); 
             title = title.replace(/\s*\[.*?\]\s*/g, ' ').trim();
             title = title.replace(/\s+/g, ' ').trim();
-            return title.trim() || productName;
+            return LibraryUtils.validation.sanitizeInput(title) || productName;
         }
 
         // Cache management
         function clearCreditCache() {
             creditCache.clear();
         }
-
     </script>
 </body>
-</html> 
+</html>
