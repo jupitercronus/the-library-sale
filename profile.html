@@ -463,7 +463,8 @@
 
             showMediaGridSkeleton: (containerId, count = 6) => {
                 const container = document.getElementById(containerId);
-                container.innerHTML = this.generateMediaGridSkeleton(count);
+                // ✅ CORRECTED: Changed 'this' to 'SkeletonUI'
+                container.innerHTML = SkeletonUI.generateMediaGridSkeleton(count);
             },
 
             showLoadingSpinner: (containerId, message = 'Loading...') => {
