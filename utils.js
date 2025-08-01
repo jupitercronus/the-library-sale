@@ -510,6 +510,33 @@ const SkeletonUtils = {
     }
 };
 
+const SearchUtils = {
+    createDebouncedSearch: (searchFunction, delay = 300) => {
+        let timeout;
+        let isLoading = false;
+        
+        return function executedFunction(query, loadingElement) {
+            clearTimeout(timeout);
+            
+            if (loadingElement && !isLoading) {
+                loadingElement.style.display = 'block';
+                isLoading = true;
+            }
+            
+            timeout = setTimeout(async () => {
+                try {
+                    await searchFunction(query);
+                } finally {
+                    if (loadingElement) {
+                        loadingElement.style.display = 'none';
+                        isLoading = false;
+                    }
+                }
+            }, delay);
+        };
+    }
+};
+
 /**
  * GLOBAL UTILITIES OBJECT
  * Main export for easy access to all utilities
@@ -520,7 +547,8 @@ const LibraryUtils = {
     errors: ErrorUtils,
     validation: ValidationUtils,
     ui: UIUtils,
-    skeleton: SkeletonUtils
+    skeleton: SkeletonUtils,
+    search: SearchUtils
 };
 
 // Make utilities globally available

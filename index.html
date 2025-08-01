@@ -4,189 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>the library sale</title>
-    <!-- Firebase SDKs: Using version 10.11.0 for compatibility -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="utils.js" defer></script>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
-        .navbar { background: #333; padding: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
-        .logo { font-size: 1.8em; font-weight: bold; color: white; text-decoration: none; }
-        .nav-links { display: flex; gap: 30px; align-items: center; }
-        .nav-link { color: white; text-decoration: none; font-weight: 500; padding: 8px 16px; border-radius: 6px; transition: background-color 0.3s ease; }
-        .nav-link:hover { background: rgba(255, 255, 255, 0.1); }
-        .nav-link.active { background: #007bff; }
-        .add-media-btn { background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: 600; transition: background-color 0.3s ease; }
-        .add-media-btn:hover { background: #0056b3; }
-        .auth-btn { background: #dc3545; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; cursor: pointer; border: none; transition: background-color 0.3s ease; }
-        .auth-btn:hover { background: #c82333; }
-        .main-container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
-        .hero-section { text-align: center; margin-bottom: 40px; }
-        .hero-title { font-size: 2.5em; color: #333; margin-bottom: 15px; font-weight: normal; }
-        .controls-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
-        .search-bar { position: relative; flex: 1; max-width: 400px; }
-        .search-bar input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-        .filter-controls { display: flex; gap: 10px; }
-        .filter-dropdown { padding: 10px 12px; border: 1px solid #ddd; border-radius: 5px; background-color: white; font-size: 16px; cursor: pointer; }
-        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
-        .media-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border: 1px solid #ddd; transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; flex-direction: column; }
-        .media-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.15); }
-        .media-poster { width: 100%; height: 300px; background: #f0f0f0; border-radius: 8px; margin-bottom: 15px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .media-poster img { width: 100%; height: 100%; object-fit: cover; }
-        .no-poster { color: #999; font-size: 14px; }
-        .media-card-content { flex-grow: 1; display: flex; flex-direction: column; }
-        .media-title { font-size: 1.3em; font-weight: bold; color: #333; margin-bottom: 8px; cursor: pointer; }
-        .media-year { color: #666; font-size: 0.9em; margin-bottom: 12px; }
-        
-        .media-rating { display: flex; margin-bottom: 12px; }
-        .star-display { display: inline-block; position: relative; font-size: 1.2em; color: #ddd; }
-        .star-display-filled { position: absolute; top: 0; left: 0; white-space: nowrap; overflow: hidden; color: #ffc107; }
-
-        .media-status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; margin-bottom: 12px; }
-        .watched { background: #d4edda; color: #155724; }
-        .unwatched { background: #f8d7da; color: #721c24; }
-        .owned-badge, .type-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75em; font-weight: 600; margin-left: 8px; display: inline-block; vertical-align: middle; }
-        .owned-badge { background: #007bff; color: white; }
-        .type-badge { background: #6c757d; color: white; }
-        
-        .media-public-details { font-size: 0.85em; color: #666; line-height: 1.4; margin-bottom: 15px; }
-        .media-public-details div { margin-bottom: 4px; }
-
-        .media-actions { margin-top: auto; padding-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        .btn-details, .btn-small { text-decoration: none; padding: 8px 12px; border-radius: 5px; display: inline-block; transition: background-color 0.3s ease; border: none; cursor: pointer; font-size: 14px; }
-        .btn-details { background: #6c757d; color: white; }
-        .btn-details:hover { background: #5a6268; }
-        .btn-small.btn-edit { background: #007bff; color: white; }
-        .btn-small.btn-edit:hover { background: #0056b3; }
-        .btn-small.btn-delete { background: #dc3545; color: white; }
-        .btn-small.btn-delete:hover { background: #c82333; }
-        .btn-small.btn-add { background: #28a745; color: white; }
-        .btn-small.btn-add:hover { background: #218838; }
-
-        .media-added-by { font-size: 0.8em; color: #888; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
-        .media-added-by a { color: #0056b3; text-decoration: none; font-weight: bold; }
-        .media-added-by a:hover { text-decoration: underline; }
-
-        .empty-state { text-align: center; padding: 80px 20px; color: #666; }
-        
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
-        .modal-content { background-color: #fefefe; margin: auto; padding: 25px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19); text-align: center; }
-        .modal-buttons { display: flex; justify-content: center; gap: 15px; }
-        .modal-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        .modal-btn.confirm { background: #dc3545; color: white; }
-        .modal-btn.cancel { background: #6c757d; color: white; }
-
-        /* === SKELETON LOADING STYLES === */
-        @keyframes skeleton-shimmer {
-            0% { background-position: -200px 0; }
-            100% { background-position: calc(200px + 100%) 0; }
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200px 100%;
-            animation: skeleton-shimmer 1.5s infinite linear;
-            border-radius: 4px;
-        }
-
-        /* UPDATED Skeleton Styles based on lists.html */
-        .skeleton-media-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border: 1px solid #ddd;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .skeleton-media-poster {
-            width: 100%;
-            height: 300px; /* Adjusted to match real media card poster */
-            margin-bottom: 15px;
-        }
-
-        .skeleton-media-info {
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-        }
-
-        .skeleton-media-title {
-            width: 70%;
-            height: 20px;
-            margin-bottom: 10px;
-        }
-
-        .skeleton-media-meta {
-            width: 50%;
-            height: 14px;
-            margin-bottom: 10px;
-        }
-
-        .skeleton-media-description {
-            width: 100%;
-            height: 14px;
-            margin-bottom: 6px;
-        }
-
-        .skeleton-media-description:last-of-type {
-            width: 40%;
-            margin-bottom: 15px;
-        }
-
-        .skeleton-media-actions {
-            margin-top: auto;
-            border-top: 1px solid #eee;
-            padding-top: 10px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .skeleton-media-button {
-            width: 50px;
-            height: 24px;
-        }
-
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #007bff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 200px;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .loading-text {
-            color: #666;
-            font-size: 16px;
-        }
-
-        /* Responsive adjustments for skeleton */
-        @media (max-width: 768px) {
-            .media-grid {
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 20px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <nav class="navbar">
@@ -196,7 +18,7 @@
                 <a href="index.html" class="nav-link active">Library</a>
                 <a href="lists.html" class="nav-link">Lists</a> 
                 <a href="profile.html" class="nav-link">Profile</a>
-                <a href="add-movie.html" class="add-media-btn">+ Add Media</a> 
+                <a href="add-movie.html" class="add-media-btn" title="Add Media"></a> 
                 <button id="authBtn" class="auth-btn">Login</button>
             </div>
         </div>
@@ -227,8 +49,7 @@
         </div>
 
         <div id="mediaContainer" class="media-grid">
-            <!-- Initial skeleton loading state -->
-        </div>
+            </div>
     </div>
     
     <div id="confirmationModal" class="modal">
@@ -258,12 +79,12 @@
         let currentUser = null;
         let allMedia = [];
         let myInteractions = {};
+        let debouncedRender = null;
 
         // === SKELETON UI UTILITIES ===
         const SkeletonUI = {
             showMediaGridSkeleton: (containerId, count = 6) => {
                 const container = document.getElementById(containerId);
-                // ✅ UPDATED: New skeleton HTML structure
                 const skeletonHTML = Array(count).fill(0).map(() => `
                     <div class="skeleton-media-card">
                         <div class="skeleton skeleton-media-poster"></div>
@@ -294,7 +115,6 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 🎯 SKELETON LOADING IMPLEMENTATION - Show skeleton immediately
             SkeletonUI.showMediaGridSkeleton('mediaContainer', 8);
 
             auth.onAuthStateChanged(user => {
@@ -303,8 +123,20 @@
                 loadAllMedia();
             });
 
+            const debounce = (func, delay) => {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), delay);
+                };
+            };
+            
+            debouncedRender = debounce(() => renderMedia(), 300);
+
+
             document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
-            document.getElementById('searchInput').addEventListener('input', renderMedia);
+            document.getElementById('searchInput').addEventListener('input', debouncedRender);
             document.getElementById('viewDropdown').addEventListener('change', renderMedia);
             document.getElementById('sortDropdown').addEventListener('change', renderMedia);
         });
@@ -316,7 +148,6 @@
 
         async function loadAllMedia() {
             try {
-                // 🎯 SKELETON LOADING IMPLEMENTATION - Show loading state while fetching data
                 SkeletonUI.showLoadingSpinner('mediaContainer', 'Loading your media collection...');
 
                 const mediaSnapshot = await db.collection('movies').get();
@@ -328,12 +159,12 @@
                     interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
                 }
                 
-                // Small delay to show the loading state (remove in production if you want)
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 renderMedia();
             } catch (error) {
-                LibraryUtils.errors.handleError(error, 'Loading Media Library', 'mediaContainer');
+                console.error("Error loading media:", error);
+                document.getElementById('mediaContainer').innerHTML = `<p>Error loading media. Please try again later.</p>`;
             }
         }
 
@@ -341,7 +172,7 @@
             const container = document.getElementById('mediaContainer');
             const view = document.getElementById('viewDropdown').value;
             const sort = document.getElementById('sortDropdown').value;
-            const searchTerm = LibraryUtils.validation.sanitizeInput(document.getElementById('searchInput').value).toLowerCase();
+            const searchTerm = (document.getElementById('searchInput').value || '').trim();
 
             let mediaToDisplay = [...allMedia];
 
@@ -350,15 +181,16 @@
             }
 
             if (searchTerm) {
+                const lowerCaseSearchTerm = searchTerm.toLowerCase();
                 mediaToDisplay = mediaToDisplay.filter(media => {
                     const title = (media.title || '').toLowerCase();
                     const director = (media.director || '').toLowerCase();
                     const genre = (media.genre || '').toLowerCase();
                     const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
-                    return title.includes(searchTerm) || 
-                           director.includes(searchTerm) ||
-                           genre.includes(searchTerm) ||
-                           cast.includes(searchTerm);
+                    return title.includes(lowerCaseSearchTerm) || 
+                           director.includes(lowerCaseSearchTerm) ||
+                           genre.includes(lowerCaseSearchTerm) ||
+                           cast.includes(lowerCaseSearchTerm);
                 });
             }
 
@@ -382,7 +214,7 @@
                     <div class="empty-state">
                         <h3>No media found</h3>
                         <p>${searchTerm ? 'Try adjusting your search terms.' : 'Your collection is empty. Add some media to get started!'}</p>
-                        ${!searchTerm ? '<a href="add-movie.html" class="btn-details">Add Your First Movie</a>' : ''}
+                        ${!searchTerm ? '<a href="add-movie.html" class="add-media-btn" title="Add Your First Movie"></a>' : ''}
                     </div>
                 `;
                 return;
@@ -392,75 +224,53 @@
                 const title = media.title || 'Untitled';
                 const interaction = myInteractions[media.id];
                 
-                const publicDetailsHTML = `
-                    <div class="media-public-details">
-                        ${media.director ? `<div><strong>Director:</strong> ${media.director}</div>` : ''}
-                        ${media.genre ? `<div><strong>Genre:</strong> ${media.genre}</div>` : ''}
-                        ${media.cast && Array.isArray(media.cast) && media.cast.length > 0 ? `<div><strong>Cast:</strong> ${media.cast.slice(0,2).join(', ')}...</div>` : ''}
-                    </div>
-                `;
-
-                let userDetailsHTML = '';
                 let actionsHTML = '';
-                let typeBadge = media.contentType === 'tv' ? '<span class="type-badge">TV Show</span>' : '';
-                
-                let addedByHTML = '';
-                if (media.originalUploaderId && media.originalUploaderDisplayName) {
-                    addedByHTML = `
-                        <div class="media-added-by">
-                            Added by: <a href="profile.html?id=${media.originalUploaderId}">${media.originalUploaderDisplayName}</a>
-                        </div>
-                    `;
-                }
 
-                if (currentUser) {
-                    if (interaction) {
-                        userDetailsHTML = `
-                            ${interaction.rating > 0 ? generateStarDisplay(interaction.rating) : ''}
-                            <div class="media-status ${interaction.watched ? 'watched' : 'unwatched'}">
-                                ${interaction.watched ? '✓ Watched' : '○ Not Watched'}
-                            </div>
-                        `;
-                        actionsHTML = `
-                            <div class="media-actions">
-                                <a href="library.html?id=${media.id}" class="btn-details">View Details</a>
-                                <button class="btn-small btn-edit" onclick="editMovie('${media.id}')">Edit</button>
-                                <button class="btn-small btn-delete" onclick="deleteMovie('${media.id}')">Remove</button>
-                            </div>
-                        `;
-                    } else {
-                        actionsHTML = `
-                            <div class="media-actions">
-                                 <a href="library.html?id=${media.id}" class="btn-details">View Details</a>
-                                 <button class="btn-small btn-add" onclick="addExistingMovieToMyCollection('${media.id}')">Add to My Media</button>
-                            </div>
-                        `;
-                    }
-                } else {
+                if (currentUser && interaction) {
                     actionsHTML = `
                         <div class="media-actions">
-                            <a href="library.html?id=${media.id}" class="btn-details">View Details</a>
+                            <button 
+                                class="btn-small owned-status ${interaction.owned ? 'owned' : 'not-owned'}" 
+                                title="${interaction.owned ? 'Mark as Not Owned' : 'Mark as Owned'}"
+                                onclick="toggleOwnedStatus('${media.id}', ${interaction.owned || false})">
+                            </button>
+                            <button 
+                                class="btn-small media-status ${interaction.watched ? 'watched' : 'unwatched'}" 
+                                title="${interaction.watched ? 'Mark as Unwatched' : 'Mark as Watched'}"
+                                onclick="toggleWatchedStatus('${media.id}', ${interaction.watched || false})">
+                            </button>
+                            <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details"></a>
+                            <button class="btn-small btn-edit" onclick="editMovie('${media.id}')" title="Edit"></button>
+                            <button class="btn-small btn-delete" onclick="deleteMovie('${media.id}')" title="Remove"></button>
+                        </div>
+                    `;
+                } else if (currentUser) {
+                     actionsHTML = `
+                        <div class="media-actions">
+                             <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details"></a>
+                             <button class="btn-small btn-add" onclick="addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"></button>
+                        </div>
+                    `;
+                } else {
+                     actionsHTML = `
+                        <div class="media-actions">
+                            <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details"></a>
                         </div>
                     `;
                 }
 
                 return `
                     <div class="media-card">
-                        <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
-                            ${media.posterUrl ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x450/EEE/333?text=Error'">` : '<div class="no-poster">No Poster</div>'}
+                        <div class="media-top-section">
+                            <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
+                                ${media.posterUrl ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x450/EEE/333?text=Error'">` : '<div class="no-poster">No Poster</div>'}
+                            </div>
+                            ${actionsHTML}
                         </div>
                         <div class="media-card-content">
-                            <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">
-                                ${title}
-                                ${typeBadge}
-                                ${interaction && interaction.owned ? '<span class="owned-badge">Owned</span>' : ''}
-                            </h3>
+                            <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
                             <p class="media-year">${media.year || ''}</p>
-                            
-                            ${publicDetailsHTML}
-                            ${userDetailsHTML}
-                            ${actionsHTML}
-                            ${addedByHTML}
+                            ${generateStarDisplay(interaction ? interaction.rating : 0)}
                         </div>
                     </div>
                 `;
@@ -468,17 +278,50 @@
         }
         
         function generateStarDisplay(rating) {
+            if (!rating || rating <= 0) return '<div class="media-rating"></div>'; 
+
             const totalStars = 5;
-            let starHTML = '★★★★★';
-            let filledWidth = (rating / totalStars) * 100;
-            return `
-                <div class="media-rating">
-                    <div class="star-display">
-                        ${starHTML}
-                        <div class="star-display-filled" style="width: ${filledWidth}%;">${starHTML}</div>
-                    </div>
-                </div>
-            `;
+            let starsHTML = '';
+            
+            for (let i = 1; i <= totalStars; i++) {
+                if (i <= rating) {
+                    starsHTML += `<span class="star star-full"></span>`;
+                } else if (i - 0.5 <= rating) {
+                    starsHTML += `<span class="star star-half"></span>`;
+                } else {
+                    starsHTML += `<span class="star star-empty"></span>`;
+                }
+            }
+            
+            return `<div class="media-rating">${starsHTML}</div>`;
+        }
+
+        async function toggleOwnedStatus(mediaId, currentStatus) {
+            if (!currentUser) return;
+            try {
+                const interactionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId);
+                await interactionRef.update({ owned: !currentStatus });
+                if(myInteractions[mediaId]) {
+                    myInteractions[mediaId].owned = !currentStatus;
+                }
+                renderMedia();
+            } catch (error) {
+                console.error("Error updating owned status:", error);
+            }
+        }
+
+        async function toggleWatchedStatus(mediaId, currentStatus) {
+            if (!currentUser) return;
+            try {
+                const interactionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId);
+                await interactionRef.update({ watched: !currentStatus });
+                if(myInteractions[mediaId]) {
+                    myInteractions[mediaId].watched = !currentStatus;
+                }
+                renderMedia();
+            } catch (error) {
+                console.error("Error updating watched status:", error);
+            }
         }
 
         function viewMediaDetails(mediaId) { window.location.href = `library.html?id=${mediaId}`; }
@@ -494,8 +337,22 @@
             const yesBtn = document.getElementById('confirmModalYes');
             const noBtn = document.getElementById('confirmModalNo');
 
-            yesBtn.onclick = () => { modal.style.display = 'none'; onConfirm(true); };
-            noBtn.onclick = () => { modal.style.display = 'none'; onConfirm(false); };
+            const confirmHandler = () => {
+                modal.style.display = 'none';
+                yesBtn.removeEventListener('click', confirmHandler);
+                noBtn.removeEventListener('click', cancelHandler);
+                onConfirm(true);
+            };
+
+            const cancelHandler = () => {
+                modal.style.display = 'none';
+                yesBtn.removeEventListener('click', confirmHandler);
+                noBtn.removeEventListener('click', cancelHandler);
+                onConfirm(false);
+            };
+
+            yesBtn.addEventListener('click', confirmHandler);
+            noBtn.addEventListener('click', cancelHandler);
         }
 
         async function deleteMovie(mediaId) { 
@@ -505,7 +362,7 @@
                         await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId).delete();
                         loadAllMedia();
                     } catch (error) {
-                        LibraryUtils.errors.handleError(error, 'Removing item from collection');
+                        console.error("Error removing item:", error);
                     }
                 }
             });

@@ -1,0 +1,473 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #24143E; /* UPDATED: Background color */
+    color: #DEF0F7; /* UPDATED: Base text color */
+}
+
+h1, h2, h3 {
+    color: #DEF0F7; /* UPDATED: Consistent heading color */
+}
+
+.navbar {
+    background: #2D194D; /* UPDATED: Overlay background color */
+    padding: 15px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(222, 240, 247, 0.1);
+}
+
+.nav-container {
+    width: 90%; /* UPDATED: Use percentage for responsive width */
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #DEF0F7; /* UPDATED: Text color */
+    text-decoration: none;
+}
+
+.logo:hover {
+    color: #fdfb76; /* UPDATED: Hover text color */
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.nav-link {
+    color: #DEF0F7; /* UPDATED: Text color */
+    text-decoration: none;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+.nav-link:hover {
+    background: #fdfb76; /* UPDATED: Hover background color */
+    color: #24143E; /* UPDATED: Hover text color */
+}
+
+.nav-link.active {
+    background: #90dcff; /* UPDATED: Active nav color */
+    color: #24143E;
+}
+
+.add-media-btn {
+    background: #90dcff; /* UPDATED: Neutral button color */
+    color: #24143E; /* UPDATED: Contrasting color for icon */
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-media-btn:hover {
+    background: #fdfb76;
+    color: #24143E;
+}
+
+.auth-btn {
+    background: #e10086; /* UPDATED: Negative color */
+    color: #DEF0F7;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.auth-btn:hover {
+    background: #fdfb76;
+    color: #24143E;
+}
+
+.main-container {
+    width: 90%; /* UPDATED: Use percentage for responsive width */
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 20px;
+}
+
+.hero-section {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.hero-title {
+    font-size: 2.5em;
+    margin-bottom: 15px;
+    font-weight: normal;
+}
+
+.controls-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.search-bar {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid rgba(222, 240, 247, 0.2);
+    border-radius: 5px;
+    font-size: 16px;
+    background: #2D194D; /* UPDATED: Overlay background color */
+    color: #DEF0F7; /* UPDATED: Text color */
+}
+
+.filter-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.filter-dropdown {
+    padding: 10px 12px;
+    border: 1px solid rgba(222, 240, 247, 0.2);
+    border-radius: 5px;
+    background-color: #2D194D; /* UPDATED: Overlay background color */
+    color: #DEF0F7; /* UPDATED: Text color */
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 35px 25px;
+}
+
+.media-card {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.media-top-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.media-poster {
+    height: auto;
+    aspect-ratio: 1 / 1;
+    background: #2D194D; /* UPDATED: Overlay background color */
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    width: calc(100% - 55px);
+}
+
+.media-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.no-poster {
+    color: #fdfb76;
+    font-size: 14px;
+}
+
+.media-card-content {
+    padding: 0;
+}
+
+.media-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-bottom: 4px;
+    cursor: pointer;
+}
+
+.media-title:hover {
+    color: #fdfb76; /* UPDATED: Hover text color */
+}
+
+.media-year {
+    color: #DEF0F7;
+    font-size: 0.9em;
+    margin-bottom: 8px;
+}
+
+.media-rating {
+    display: flex;
+    gap: 2px;
+    height: 1em;
+}
+
+.star {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.star.star-full {
+    background-color: #ffc107;
+    -webkit-mask-image: url(icons/star-full.svg);
+    mask-image: url(icons/star-full.svg);
+}
+
+.star.star-half {
+    background-color: #ffc107;
+    -webkit-mask-image: url(icons/star-half.svg);
+    mask-image: url(icons/star-half.svg);
+}
+
+.star.star-empty {
+    background-color: #2D194D; /* UPDATED: Darker empty star */
+    -webkit-mask-image: url(icons/star-empty.svg);
+    mask-image: url(icons/star-empty.svg);
+}
+
+.media-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.btn-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    border: 2px solid transparent; /* Start with transparent border */
+    padding: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, color 0.3s ease;
+}
+
+/* UPDATED: Universal hover effect for all action buttons */
+.btn-small:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    background: #fdfb76;
+    color: #24143E;
+    border-color: transparent;
+}
+
+/* BOOLEAN BUTTONS: TRUE STATE */
+.watched,
+.owned {
+    background: #00db96;
+    color: #24143E; /* Dark icon for contrast */
+    border-color: transparent;
+}
+
+/* BOOLEAN BUTTONS: FALSE STATE */
+.unwatched,
+.not-owned {
+    background: transparent;
+    color: #DEF0F7;
+    border: 2px solid #2D194D;
+}
+
+.btn-edit,
+.btn-details,
+.btn-add {
+    background: #90dcff; /* UPDATED: Neutral button color */
+    color: #24143E;
+    border-color: transparent;
+}
+
+.btn-delete {
+    background: #e10086; /* UPDATED: Negative color */
+    color: #DEF0F7;
+    border-color: transparent;
+}
+
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #2D194D; /* UPDATED: Overlay background color */
+    margin: auto;
+    padding: 25px;
+    border: 1px solid rgba(222, 240, 247, 0.2);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+    text-align: center;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.modal-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.modal-btn:hover {
+    background: #fdfb76;
+    color: #24143E;
+}
+
+.modal-btn.confirm {
+    background: #00db96; /* UPDATED: Affirmative color */
+    color: #24143E;
+}
+
+.modal-btn.cancel {
+    background: #e10086; /* UPDATED: Negative color */
+    color: #DEF0F7;
+}
+
+/* === ICON STYLES === */
+.add-media-btn::before,
+.btn-add::before,
+.btn-edit::before,
+.btn-delete::before,
+.owned-status::before,
+.watched::before,
+.unwatched::before,
+.btn-details::before {
+    content: '';
+    display: inline-block;
+    width: 1em; 
+    height: 1em;
+    vertical-align: -0.1em;
+    background-color: currentColor;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* Specific icon images */
+.add-media-btn::before,
+.btn-add::before {
+    -webkit-mask-image: url(icons/add.svg);
+    mask-image: url(icons/add.svg);
+}
+
+.btn-edit::before {
+    -webkit-mask-image: url(icons/edit.svg);
+    mask-image: url(icons/edit.svg);
+}
+
+.btn-delete::before {
+    -webkit-mask-image: url(icons/trash.svg);
+    mask-image: url(icons/trash.svg);
+}
+
+.owned-status.owned::before {
+    -webkit-mask-image: url(icons/dvds.svg);
+    mask-image: url(icons/dvds.svg);
+}
+
+.owned-status.not-owned::before {
+    -webkit-mask-image: url(icons/dvds.svg);
+    mask-image: url(icons/dvds.svg);
+}
+
+.watched::before {
+    -webkit-mask-image: url(icons/watched.svg);
+    mask-image: url(icons/watched.svg);
+}
+
+.unwatched::before {
+    -webkit-mask-image: url(icons/unwatched.svg);
+    mask-image: url(icons/unwatched.svg);
+}
+
+.btn-details::before {
+    -webkit-mask-image: url(icons/details.svg);
+    mask-image: url(icons/details.svg);
+}
+
+
+/* === SKELETON LOADING STYLES === */
+@keyframes skeleton-shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #2D194D 25%, #24143E 50%, #2D194D 75%);
+    background-size: 200px 100%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+    border-radius: 4px;
+}
+
+/* === RESPONSIVE STYLES === */
+@media (max-width: 768px) {
+    .nav-links {
+        display: none; /* Hide links on mobile, implement JS toggle if needed */
+    }
+    .controls-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

@@ -10,295 +10,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <!-- ZXing Barcode Scanner Library -->
     <script type="text/javascript" src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-    <!-- Utils -->
+    <!-- App Utilities -->
     <script src="utils.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        
-        .navbar {
-            background: #333;
-            padding: 15px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
-            z-index: 999;
-            margin: -20px -20px 20px -20px;
-            border-radius: 10px 10px 0 0;
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-        }
-
-        .logo {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: white;
-            text-decoration: none;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-
-        .nav-link {
-            color: white;
-            text-decoration: none;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: background-color 0.3s ease;
-        }
-        .nav-link.active { background: #007bff; }
-        .nav-link:hover { background: rgba(255, 255, 255, 0.1); }
-        
-        .auth-btn {
-            background: #dc3545;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-            transition: background-color 0.3s ease;
-        }
-        .auth-btn:hover { background: #c82333; }
-
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-top: 0;
-        }
-        
-        h1, h3 { color: #333; }
-        
-        .form-group { margin-bottom: 20px; }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        input, textarea, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        
-        input[readonly], textarea[readonly] {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        
-        .btn {
-            background: #007bff;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
-        }
-        .btn:hover { background: #0056b3; }
-        .btn:disabled { background: #6c757d; cursor: not-allowed; }
-        
-        .search-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 30px;
-        }
-        
-        .search-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .search-controls input { flex: 1; min-width: 200px; }
-        
-        .search-results {
-            margin-top: 15px;
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #eee;
-            border-radius: 5px;
-            background: white;
-        }
-        
-        .search-result {
-            border-bottom: 1px solid #eee;
-            padding: 15px;
-            cursor: pointer;
-            display: flex;
-            gap: 15px;
-            align-items: flex-start;
-            transition: background-color 0.3s ease;
-            position: relative;
-        }
-        .search-result:hover { background: #e3f2fd; }
-        .search-result-poster { width: 60px; height: 90px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
-        .no-poster { width: 60px; height: 90px; background: #f0f0f0; border: 2px dashed #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #999; text-align: center; flex-shrink: 0; }
-        .search-result-info { flex: 1; }
-        .search-result h4 { margin: 0 0 5px 0; color: #333; }
-        .search-result p { margin: 0; color: #666; font-size: 14px; }
-        
-        .relevance-score {
-            font-size: 0.6em;
-            background: #28a745;
-            color: white;
-            padding: 1px 4px;
-            border-radius: 3px;
-            margin-left: 4px;
-        }
-        
-        .star-rating { 
-            display: inline-flex; 
-            gap: 2px;
-        }
-        .star { 
-            position: relative; 
-            font-size: 2.5em; 
-            color: #ddd; 
-            cursor: pointer;
-            user-select: none;
-        }
-        .star::before {
-            content: '★';
-            position: absolute;
-            top: 0;
-            left: 0;
-            color: #ffc107;
-            width: 0%;
-            overflow: hidden;
-            transition: width 0.1s ease;
-        }
-        .star.half::before { width: 50%; }
-        .star.full::before { width: 100%; }
-        .star.hover-half::before { width: 50%; }
-        .star.hover-full::before { width: 100%; }
-
-        .status-message { padding: 10px; border-radius: 5px; margin: 10px 0; }
-        .status-success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-        .status-error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
-        .status-info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-
-        .scanner-container { text-align: center; margin-top: 15px; }
-        .scanner-overlay { position: relative; display: inline-block; }
-        @keyframes scan { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; }
-        .modal-content { background-color: #fefefe; margin: auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); text-align: center; }
-        .modal-content h3 { margin-top: 0; color: #333; }
-        .modal-content p { margin-bottom: 20px; color: #666; }
-        .modal-buttons { display: flex; justify-content: center; gap: 15px; }
-        .modal-btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; transition: background-color 0.3s ease; }
-        .modal-btn.ok { background: #007bff; color: white; }
-        .modal-btn.ok:hover { background: #0056b3; }
-
-        .loading-spinner {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #007bff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* === SKELETON LOADING STYLES === */
-        @keyframes skeleton-shimmer {
-            0% { background-position: -200px 0; }
-            100% { background-position: calc(200px + 100%) 0; }
-        }
-
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200px 100%;
-            animation: skeleton-shimmer 1.5s infinite linear;
-            border-radius: 4px;
-        }
-
-        .skeleton-search-result {
-            border-bottom: 1px solid #eee;
-            padding: 15px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-start;
-        }
-
-        .skeleton-search-poster {
-            width: 60px;
-            height: 90px;
-            flex-shrink: 0;
-        }
-
-        .skeleton-search-info {
-            flex: 1;
-        }
-
-        .skeleton-search-title {
-            width: 250px;
-            height: 18px;
-            margin-bottom: 8px;
-        }
-
-        .skeleton-search-overview {
-            width: 100%;
-            height: 14px;
-            margin-bottom: 4px;
-        }
-
-        .skeleton-search-overview:last-child {
-            width: 60%;
-        }
-
-        .error-state {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
-        .error-state h3 { color: #dc3545; }
-        .btn-retry {
-            background: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-    </style>
+    <script src="cache.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
      <nav class="navbar">
@@ -322,6 +37,7 @@
             <div class="search-controls">
                 <input type="text" id="movieSearch" placeholder="Type title, actor, director...">
                 <button type="button" id="searchBtn" class="btn">Search</button>
+                <div class="loading-spinner" id="searchSpinner"></div>
                 <button type="button" id="cameraBtn" class="btn">Scan Barcode</button>
                 <button type="button" id="manualBarcodeBtn" class="btn">Enter Barcode</button>
             </div>
@@ -346,6 +62,10 @@
             
             <div id="statusMessage"></div>
             <div id="searchResults"></div>
+            <div id="searchFooter" class="search-footer" style="display: none;">
+                <span id="resultCount"></span>
+                <button id="loadMoreBtn" class="btn btn-load-more">Load More</button>
+            </div>
         </div>
         
         <hr>
@@ -452,10 +172,17 @@
         let isPublicFieldsEditable = true;
         let codeReader = null;
         let videoInputDevices = [];
-        let creditCache = new Map();
-        let creditLookupTimeout;
         let starRatingController = null;
         
+        // --- PAGINATION & SEARCH STATE ---
+        let currentSearchQuery = '';
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalResults = 0;
+        let isLoadingMore = false;
+        
+        const apiCache = new CacheManager('tmdb_api_cache_', 50, 24);
+
         const TMDB_BASE_URL = '/api/tmdb';
         const UPC_BASE_URL = '/api/upc';
         const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
@@ -502,6 +229,15 @@
             document.getElementById('ownedCheckbox').addEventListener('change', (e) => {
                 document.getElementById('editionDetailsGroup').style.display = e.target.checked ? 'block' : 'none';
             });
+
+            // Check for search params in URL on load
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryFromUrl = urlParams.get('query');
+            const pageFromUrl = parseInt(urlParams.get('page')) || 1;
+            if (queryFromUrl) {
+                document.getElementById('movieSearch').value = queryFromUrl;
+                performSearch(queryFromUrl, pageFromUrl);
+            }
         }
 
         function setupForm() {
@@ -527,7 +263,6 @@
                     watchedDate: userInteraction.watchedDate,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
-                console.log("Updated watch history.");
             } else if (collectionName === 'purchaseHistory' && userInteraction.owned) {
                 await db.collection('purchaseHistory').doc(docId).set({
                     userId: currentUser.uid,
@@ -538,7 +273,6 @@
                     editionDetails: document.getElementById('editionDetails').value || 'Physical Copy',
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
-                console.log("Updated purchase history.");
             }
         }
 
@@ -547,19 +281,14 @@
             LibraryUtils.ui.setButtonLoading(submitBtn, 'Adding...');
 
             try {
-                // ✅ VALIDATION: Sanitize and validate all inputs before processing
                 const titleValue = LibraryUtils.validation.sanitizeInput(document.getElementById('title').value);
-                if (!titleValue) {
-                    throw new Error('Title is a required field.');
-                }
+                if (!titleValue) throw new Error('Title is a required field.');
+                
                 const yearValue = document.getElementById('year').value;
-                if (yearValue && !LibraryUtils.validation.isValidYear(yearValue)) {
-                    throw new Error('Please enter a valid year (e.g., 1999).');
-                }
+                if (yearValue && !LibraryUtils.validation.isValidYear(yearValue)) throw new Error('Please enter a valid year (e.g., 1999).');
+                
                 const rating = starRatingController ? starRatingController.getRating() : currentRating;
-                if (!LibraryUtils.validation.isValidRating(rating)) {
-                    throw new Error('Invalid rating value provided.');
-                }
+                if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value provided.');
                 
                 const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
                 let movieDocRef;
@@ -634,11 +363,8 @@
             LibraryUtils.ui.setButtonLoading(submitBtn, 'Updating...');
 
             try {
-                // ✅ VALIDATION: Sanitize and validate all inputs before processing
                 const rating = starRatingController ? starRatingController.getRating() : currentRating;
-                if (!LibraryUtils.validation.isValidRating(rating)) {
-                    throw new Error('Invalid rating value provided.');
-                }
+                if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value provided.');
                 
                 const movieDocRef = db.collection('movies').doc(editingMovieId);
                 const mediaDoc = await movieDocRef.get();
@@ -702,9 +428,7 @@
                 const mediaDoc = await db.collection('movies').doc(editingMovieId).get();
                 const interactionDoc = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(editingMovieId).get();
                 
-                if (!mediaDoc.exists) {
-                    throw new Error('Media not found.');
-                }
+                if (!mediaDoc.exists) throw new Error('Media not found.');
 
                 const mediaData = mediaDoc.data();
                 document.getElementById('title').value = mediaData.title || '';
@@ -719,9 +443,7 @@
                 if (interactionDoc.exists) {
                     const interactionData = interactionDoc.data();
                     currentRating = interactionData.rating || 0;
-                    if (starRatingController) {
-                        starRatingController.setRating(currentRating);
-                    }
+                    if (starRatingController) starRatingController.setRating(currentRating);
                     document.getElementById('review').value = interactionData.review || '';
                     document.getElementById('watchedCheckbox').checked = interactionData.watched || false;
                     document.getElementById('watchedDate').value = interactionData.watchedDate || '';
@@ -742,30 +464,46 @@
         
         function setupSearch() {
             const searchInput = document.getElementById('movieSearch');
-            const debouncedSearch = LibraryUtils.ui.debounce((query) => {
-                // ✅ SANITIZED: Sanitize search query
+            const searchSpinner = document.getElementById('searchSpinner');
+            const searchResultsContainer = document.getElementById('searchResults');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            
+            const debouncedSearch = LibraryUtils.search.createDebouncedSearch((query) => {
                 const sanitizedQuery = LibraryUtils.validation.sanitizeInput(query);
                 if (sanitizedQuery.length > 2) {
-                    performSearch(sanitizedQuery);
+                    performSearch(sanitizedQuery, 1);
                 } else {
                     document.getElementById('searchResults').innerHTML = '';
+                    document.getElementById('searchFooter').style.display = 'none';
                 }
-            }, 300);
+            });
 
             searchInput.addEventListener('input', (e) => {
-                debouncedSearch(e.target.value);
+                debouncedSearch(e.target.value, searchSpinner);
             });
             
             document.getElementById('searchBtn').addEventListener('click', () => {
                 const sanitizedQuery = LibraryUtils.validation.sanitizeInput(searchInput.value);
-                performSearch(sanitizedQuery);
+                performSearch(sanitizedQuery, 1);
             });
+
+            // Virtual scrolling
+            searchResultsContainer.addEventListener('scroll', () => {
+                if (isLoadingMore || currentPage >= totalPages) return;
+                
+                const { scrollTop, scrollHeight, clientHeight } = searchResultsContainer;
+                if (scrollHeight - scrollTop <= clientHeight + 100) { // 100px threshold
+                    loadNextPage();
+                }
+            });
+
+            // Load more button
+            loadMoreBtn.addEventListener('click', loadNextPage);
         }
 
-        // HYBRID SMART SEARCH IMPLEMENTATION (Option 2)
-        function containsPersonName(query) {
-            const namePatterns = /\b[A-Z][a-z]+ [A-Z][a-z]+\b/;
-            return namePatterns.test(query);
+        function loadNextPage() {
+            if (isLoadingMore || currentPage >= totalPages) return;
+            performSearch(currentSearchQuery, currentPage + 1);
         }
 
         function calculateRelevanceScore(item, query) {
@@ -779,170 +517,189 @@
                 if (title.startsWith(keyword)) score += 50;
                 if (title.includes(keyword)) score += 20;
                 if (overview.includes(keyword)) score += 5;
-                
-                const titleWords = title.split(' ');
-                titleWords.forEach(word => {
-                    if (word.startsWith(keyword) || keyword.startsWith(word)) {
-                        score += 10;
-                    }
-                });
             });
 
             const releaseYear = parseInt((item.release_date || item.first_air_date || '').substring(0, 4));
             if (releaseYear > 2020) score += 5;
-            if (releaseYear > 2015) score += 3;
 
             score += Math.min(item.popularity / 10, 20);
             score += (item.vote_average || 0) * 2;
-
             return score;
         }
 
-        async function performSearch(query) {
-            if (!query) return;
+        async function performSearch(query, page = 1) {
+            if (!query || isLoadingMore) return;
             
-            // Show skeleton loading
-            LibraryUtils.skeleton.showSkeleton('searchResults', 'search-results', 5);
-            
-            try {
-                const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}`;
-                const response = await fetch(searchUrl);
-                const data = await response.json();
-
-                const results = data.results
-                    .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-                    .map(item => ({
-                        ...item,
-                        score: calculateRelevanceScore(item, query),
-                        needsCreditBoost: containsPersonName(query)
-                    }))
-                    .sort((a, b) => b.score - a.score);
-
-                displayResultsWithCreditLookup(results, query);
-                showStatusMessage(`${results.length} results found.`, 'success');
-            } catch (error) {
-                LibraryUtils.errors.handleError(error, 'Search');
-                showStatusMessage('Search failed.', 'error');
+            const isNewSearch = page === 1;
+            if (isNewSearch) {
+                currentSearchQuery = query;
+                currentPage = 1;
             }
-        }
 
-        function displayResultsWithCreditLookup(results, originalQuery) {
-            const resultsDiv = document.getElementById('searchResults');
-            if (results.length === 0) {
-                resultsDiv.innerHTML = '<p>No results found.</p>';
+            isLoadingMore = true;
+            
+            const cacheKey = `search_${query.toLowerCase().replace(/\s+/g, '_')}_p${page}`;
+            const cachedData = apiCache.get('multi-search', cacheKey);
+
+            if (cachedData) {
+                processAndDisplayResults(cachedData, query, isNewSearch);
+                isLoadingMore = false;
                 return;
             }
 
-            resultsDiv.innerHTML = results.slice(0, 10).map((item, index) => {
+            if (isNewSearch) {
+                LibraryUtils.skeleton.showSkeleton('searchResults', 'search-results', 5);
+            } else {
+                document.getElementById('loadMoreBtn').textContent = 'Loading...';
+                document.getElementById('loadMoreBtn').disabled = true;
+            }
+            
+            try {
+                const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}&page=${page}`;
+                const response = await fetch(searchUrl);
+                const data = await response.json();
+
+                apiCache.set('multi-search', cacheKey, data);
+                processAndDisplayResults(data, query, isNewSearch);
+
+            } catch (error) {
+                LibraryUtils.errors.handleError(error, 'Search');
+                showStatusMessage('Search failed.', 'error');
+            } finally {
+                isLoadingMore = false;
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                loadMoreBtn.textContent = 'Load More';
+                loadMoreBtn.disabled = currentPage >= totalPages;
+            }
+        }
+
+        function processAndDisplayResults(data, query, isNewSearch) {
+            currentPage = data.page;
+            totalPages = data.total_pages;
+            totalResults = data.total_results;
+
+            const results = data.results
+                .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+                .map(item => ({
+                    ...item,
+                    score: calculateRelevanceScore(item, query)
+                }))
+                .sort((a, b) => b.score - a.score);
+
+            displayResults(results, isNewSearch);
+            updateUrl(query, currentPage);
+            updateSearchFooter();
+        }
+
+        function displayResults(results, isNewSearch) {
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (isNewSearch) {
+                resultsDiv.innerHTML = '';
+            }
+
+            if (results.length === 0 && isNewSearch) {
+                resultsDiv.innerHTML = '<p style="text-align: center; padding: 20px;">No results found.</p>';
+                return;
+            }
+
+            const resultsHTML = results.map((item) => {
                 const title = item.title || item.name;
                 const year = (item.release_date || item.first_air_date || '').substring(0, 4);
                 const type = item.media_type === 'tv' ? 'TV Show' : 'Movie';
                 const overview = LibraryUtils.ui.truncateText(item.overview, 100);
                 
                 return `
-                    <div class="search-result" 
-                         onclick="selectMedia('${item.id}', '${item.media_type}')"
-                         onmouseenter="boostScoreWithCredits(this, '${item.id}', '${item.media_type}', '${originalQuery}', ${index})"
-                         data-original-score="${item.score}">
+                    <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')">
                         <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : ''}" 
                              class="search-result-poster" onerror="this.style.display='none'">
                         <div class="search-result-info">
                             <h4>${title} (${year}) 
                                 <span style="font-size:0.7em; background:#007bff; color:white; padding: 2px 6px; border-radius: 4px;">${type}</span>
-                                <span class="relevance-score">
-                                    ${Math.round(item.score)}
-                                </span>
                             </h4>
-                            <p>${overview}...</p>
+                            <p>${overview}</p>
                         </div>
                     </div>
                 `;
             }).join('');
+
+            resultsDiv.insertAdjacentHTML('beforeend', resultsHTML);
         }
 
-        async function boostScoreWithCredits(element, id, mediaType, originalQuery, index) {
-            clearTimeout(creditLookupTimeout);
+        function updateSearchFooter() {
+            const footer = document.getElementById('searchFooter');
+            const countSpan = document.getElementById('resultCount');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
             
-            const cacheKey = `${mediaType}-${id}`;
-            if (creditCache.has(cacheKey)) {
-                updateScoreDisplay(element, creditCache.get(cacheKey), originalQuery);
-                return;
-            }
-
-            creditLookupTimeout = setTimeout(async () => {
-                try {
-                    const creditUrl = `${TMDB_BASE_URL}/${mediaType}/${id}?append_to_response=credits`;
-                    const response = await fetch(creditUrl);
-                    const data = await response.json();
-                    
-                    creditCache.set(cacheKey, data.credits);
-                    updateScoreDisplay(element, data.credits, originalQuery);
-                } catch (error) {
-                    console.error('Credit lookup error:', error);
+            if (totalResults > 0) {
+                footer.style.display = 'flex';
+                const itemsShown = document.getElementById('searchResults').children.length;
+                countSpan.textContent = `Showing ${itemsShown} of ${totalResults} results`;
+                
+                if (currentPage < totalPages) {
+                    loadMoreBtn.style.display = 'block';
+                    loadMoreBtn.disabled = false;
+                } else {
+                    loadMoreBtn.style.display = 'none';
                 }
-            }, 300);
+            } else {
+                footer.style.display = 'none';
+            }
         }
 
-        function updateScoreDisplay(element, credits, originalQuery) {
-            const keywords = originalQuery.toLowerCase().split(' ').filter(k => k.length > 2);
-            const originalScore = parseFloat(element.dataset.originalScore);
-            let creditBoost = 0;
-
-            if (credits) {
-                const cast = (credits.cast || []).map(c => c.name.toLowerCase());
-                const director = (credits.crew.find(c => c.job === 'Director')?.name || '').toLowerCase();
-                
-                keywords.forEach(keyword => {
-                    if (director.includes(keyword)) creditBoost += 25;
-                    if (cast.some(actor => actor.includes(keyword))) creditBoost += 15;
-                });
-            }
-
-            const newScore = originalScore + creditBoost;
-            const scoreElement = element.querySelector('.relevance-score');
-            if (scoreElement) {
-                scoreElement.textContent = Math.round(newScore);
-                if (creditBoost > 0) {
-                    scoreElement.style.background = '#dc3545';
-                    element.style.order = -newScore;
-                }
-            }
+        function updateUrl(query, page) {
+            const url = new URL(window.location);
+            url.searchParams.set('query', query);
+            url.searchParams.set('page', page);
+            window.history.pushState({ path: url.href }, '', url.href);
         }
 
         async function selectMedia(id, type) {
             showStatusMessage('Loading details...', 'info');
-            document.getElementById('searchResults').innerHTML = '';
+            
+            const cacheKey = `details_${type}_${id}`;
+            const cachedData = apiCache.get('details', cacheKey);
+
+            if (cachedData) {
+                populateFormWithData(cachedData);
+                return;
+            }
+
             try {
                 const response = await fetch(`${TMDB_BASE_URL}/${type}/${id}?append_to_response=credits`);
                 const data = await response.json();
-
-                document.getElementById('title').value = data.title || data.name;
-                document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);
-                document.getElementById('summary').value = data.overview;
-                document.getElementById('genre').value = data.genres.map(g => g.name).join(', ');
-                document.getElementById('cast').value = data.credits.cast.slice(0, 5).map(c => c.name).join(', ');
-                const director = data.credits.crew.find(c => c.job === 'Director');
-                document.getElementById('director').value = director ? director.name : '';
-                document.getElementById('contentType').value = type;
                 
-                document.getElementById('movieForm').dataset.tmdbId = data.id;
-                document.getElementById('movieForm').dataset.posterUrl = data.poster_path ? TMDB_IMAGE_BASE + data.poster_path : '';
-                document.getElementById('movieForm').dataset.runtime = data.runtime || (data.episode_run_time ? data.episode_run_time[0] : null);
+                apiCache.set('details', cacheKey, data);
+                populateFormWithData(data);
 
-                togglePublicFieldsReadonly(true);
-                isPublicFieldsEditable = false;
-                showStatusMessage('Media details loaded successfully!', 'success');
             } catch (error) {
                 LibraryUtils.errors.handleError(error, 'Loading media details');
             }
+        }
+
+        function populateFormWithData(data) {
+            document.getElementById('title').value = data.title || data.name;
+            document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);
+            document.getElementById('summary').value = data.overview;
+            document.getElementById('genre').value = data.genres.map(g => g.name).join(', ');
+            document.getElementById('cast').value = data.credits.cast.slice(0, 5).map(c => c.name).join(', ');
+            const director = data.credits.crew.find(c => c.job === 'Director');
+            document.getElementById('director').value = director ? director.name : '';
+            document.getElementById('contentType').value = data.media_type || (data.seasons ? 'tv' : 'movie');
+            
+            document.getElementById('movieForm').dataset.tmdbId = data.id;
+            document.getElementById('movieForm').dataset.posterUrl = data.poster_path ? TMDB_IMAGE_BASE + data.poster_path : '';
+            document.getElementById('movieForm').dataset.runtime = data.runtime || (data.episode_run_time ? data.episode_run_time[0] : null);
+
+            togglePublicFieldsReadonly(true);
+            isPublicFieldsEditable = false;
+            showStatusMessage('Media details loaded successfully!', 'success');
         }
         
         function setupStarRating() {
             starRatingController = LibraryUtils.stars.setupInteractiveStarRating(
                 'starRating',
-                (rating) => {
-                    currentRating = rating;
-                },
+                (rating) => { currentRating = rating; },
                 currentRating
             );
         }
@@ -951,11 +708,8 @@
              const fields = ['title', 'year', 'director', 'genre', 'summary', 'cast', 'contentType'];
              fields.forEach(id => {
                 const el = document.getElementById(id);
-                if (el.tagName === 'SELECT') {
-                    el.disabled = isReadonly;
-                } else {
-                    el.readOnly = isReadonly;
-                }
+                if (el.tagName === 'SELECT') el.disabled = isReadonly;
+                else el.readOnly = isReadonly;
              });
         }
 
@@ -968,7 +722,6 @@
             statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
         }
         
-        // COMPLETE BARCODE SCANNER IMPLEMENTATION WITH PROPER EVENT LISTENERS
         async function setupBarcodeScanner() {
             const cameraBtn = document.getElementById('cameraBtn');
             const manualBtn = document.getElementById('manualBarcodeBtn');
@@ -977,55 +730,32 @@
             const stopBtn = document.getElementById('stopScanBtn');
             const barcodeInput = document.getElementById('barcodeInput');
             
-            // Set up manual barcode entry listeners
             manualBtn.addEventListener('click', showManualInput);
             lookupBtn.addEventListener('click', lookupManualBarcode);
             cancelBtn.addEventListener('click', hideManualInput);
             stopBtn.addEventListener('click', stopScanner);
             
-            // Allow Enter key in manual input
-            barcodeInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    lookupManualBarcode();
-                }
-            });
+            barcodeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); lookupManualBarcode(); } });
 
-            // ✅ VALIDATION: Add real-time validation feedback for barcode
-            barcodeInput.addEventListener('input', function(e) {
+            barcodeInput.addEventListener('input', (e) => {
                 const value = e.target.value;
-                const isValid = /^\d{0,18}$/.test(value);
-                if (!isValid) {
+                if (!/^\d{0,18}$/.test(value)) {
                     e.target.value = value.replace(/\D/g, '').slice(0, 18);
                 }
-                
-                const lookupBtn = document.getElementById('lookupBarcodeBtn');
-                lookupBtn.disabled = !LibraryUtils.validation.isValidBarcode(e.target.value);
+                document.getElementById('lookupBarcodeBtn').disabled = !LibraryUtils.validation.isValidBarcode(e.target.value);
             });
 
-            // Set up camera scanning
             cameraBtn.addEventListener('click', startScanner);
 
             try {
                 if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
                     codeReader = new ZXing.BrowserMultiFormatReader();
-                    
-                    try {
-                        videoInputDevices = await codeReader.listVideoInputDevices();
-                        if (videoInputDevices.length === 0) {
-                            cameraBtn.disabled = true;
-                            cameraBtn.textContent = 'No Camera';
-                            console.log('No video input devices found');
-                        } else {
-                            console.log(`Found ${videoInputDevices.length} video input devices`);
-                        }
-                    } catch (deviceError) {
-                        console.error('Error listing video devices:', deviceError);
+                    videoInputDevices = await codeReader.listVideoInputDevices();
+                    if (videoInputDevices.length === 0) {
                         cameraBtn.disabled = true;
-                        cameraBtn.textContent = 'Camera Access Denied';
+                        cameraBtn.textContent = 'No Camera';
                     }
                 } else {
-                    console.error('ZXing library not loaded properly');
                     cameraBtn.disabled = true;
                     cameraBtn.textContent = 'Scanner N/A';
                 }
@@ -1037,72 +767,37 @@
         }
 
         function showManualInput() {
-            const manualDiv = document.getElementById('manualBarcodeInput');
-            const barcodeInput = document.getElementById('barcodeInput');
-            const lookupBtn = document.getElementById('lookupBarcodeBtn');
-            
-            manualDiv.style.display = 'block';
-            barcodeInput.value = '';
-            barcodeInput.focus();
-            lookupBtn.disabled = true;
+            document.getElementById('manualBarcodeInput').style.display = 'block';
+            document.getElementById('barcodeInput').focus();
+            document.getElementById('lookupBarcodeBtn').disabled = true;
         }
 
         function hideManualInput() {
-            const manualDiv = document.getElementById('manualBarcodeInput');
-            const barcodeInput = document.getElementById('barcodeInput');
-            const spinner = document.getElementById('barcodeSpinner');
-            
-            manualDiv.style.display = 'none';
-            barcodeInput.value = '';
-            spinner.style.display = 'none';
+            document.getElementById('manualBarcodeInput').style.display = 'none';
         }
 
         function lookupManualBarcode() {
-            // ✅ SANITIZED: Sanitize barcode input
             const barcode = LibraryUtils.validation.sanitizeInput(document.getElementById('barcodeInput').value);
-            const spinner = document.getElementById('barcodeSpinner');
-            
-            // ✅ VALIDATION: Check barcode validity before lookup
             if (!LibraryUtils.validation.isValidBarcode(barcode)) {
                 showStatusMessage('Please enter a valid barcode (8-18 digits).', 'error');
                 return;
             }
-            
-            spinner.style.display = 'block';
-            lookupMovieByBarcode(barcode).finally(() => {
-                hideManualInput();
-            });
+            document.getElementById('barcodeSpinner').style.display = 'block';
+            lookupMovieByBarcode(barcode).finally(() => hideManualInput());
         }
 
         async function startScanner() {
-            if (!codeReader || videoInputDevices.length === 0) {
-                showStatusMessage('Camera not available.', 'error');
-                return;
-            }
-
-            const scannerContainer = document.getElementById('scannerContainer');
-            const videoElement = document.getElementById('video');
-            
+            if (!codeReader || videoInputDevices.length === 0) return;
+            document.getElementById('scannerContainer').style.display = 'block';
+            showStatusMessage('Starting camera...', 'info');
             try {
-                scannerContainer.style.display = 'block';
-                showStatusMessage('Starting camera...', 'info');
-                
-                const selectedDeviceId = videoInputDevices[0].deviceId;
-                
-                await codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+                await codeReader.decodeFromVideoDevice(videoInputDevices[0].deviceId, 'video', (result, err) => {
                     if (result) {
-                        console.log('Barcode detected:', result.text);
-                        showStatusMessage(`Barcode detected: ${result.text}`, 'success');
                         stopScanner();
                         lookupMovieByBarcode(result.text);
                     }
-                    if (err && !(err instanceof ZXing.NotFoundException)) {
-                        console.error('Scanner error:', err);
-                    }
                 });
-                
                 showStatusMessage('Camera ready. Position barcode in view.', 'info');
-                
             } catch (error) {
                 LibraryUtils.errors.handleError(error, 'Camera Scanner');
                 stopScanner();
@@ -1110,50 +805,30 @@
         }
 
         function stopScanner() {
-            if (codeReader) {
-                codeReader.reset();
-            }
+            if (codeReader) codeReader.reset();
             document.getElementById('scannerContainer').style.display = 'none';
-            showStatusMessage('Camera stopped.', 'info');
         }
 
         async function lookupMovieByBarcode(barcode) {
             showStatusMessage(`Looking up barcode: ${barcode}...`, 'info');
             try {
                 const upcResponse = await fetch(`${UPC_BASE_URL}?upc=${barcode}`);
-                
-                if (!upcResponse.ok) {
-                    throw new Error(`UPC lookup failed: ${upcResponse.status} ${upcResponse.statusText}`);
-                }
+                if (!upcResponse.ok) throw new Error(`UPC lookup failed: ${upcResponse.statusText}`);
                 
                 const upcData = await upcResponse.json();
-
                 if (!upcData.items || upcData.items.length === 0) {
                     showStatusMessage('No product found for this barcode.', 'error');
-                    LibraryUtils.ui.showConfirmModal(
-                        'Barcode Not Found', 
-                        `No product found for barcode: ${barcode}. You can try entering the movie details manually.`,
-                        () => {}
-                    );
                     return;
                 }
                 
                 const product = upcData.items[0];
-                const productName = LibraryUtils.validation.sanitizeInput(product.title || product.description || 'Unknown Product');
-                
+                const productName = LibraryUtils.validation.sanitizeInput(product.title || product.description);
                 document.getElementById('editionDetailsInput').value = productName;
-                if (document.getElementById('editionDetails')) {
-                    document.getElementById('editionDetails').value = productName;
-                }
-                
-                showStatusMessage(`Found: ${productName}. Searching for movie details...`, 'info');
+                if (document.getElementById('editionDetails')) document.getElementById('editionDetails').value = productName;
                 
                 const movieTitle = extractMovieTitle(productName);
-                if (movieTitle) {
-                    await performSearch(movieTitle);
-                } else {
-                    showStatusMessage('Could not extract movie title from product name.', 'error');
-                }
+                if (movieTitle) await performSearch(movieTitle, 1);
+                else showStatusMessage('Could not extract movie title from product name.', 'error');
 
             } catch (error) {
                 LibraryUtils.errors.handleError(error, 'Barcode Lookup');
@@ -1167,11 +842,6 @@
             title = title.replace(/\s*\[.*?\]\s*/g, ' ').trim();
             title = title.replace(/\s+/g, ' ').trim();
             return LibraryUtils.validation.sanitizeInput(title) || productName;
-        }
-
-        // Cache management
-        function clearCreditCache() {
-            creditCache.clear();
         }
     </script>
 </body>
