@@ -14,6 +14,8 @@ h1, h2, h3 {
     padding: 15px 0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     border-bottom: 1px solid rgba(222, 240, 247, 0.1);
+    position: relative; /* Needed for absolute positioning of menu */
+    z-index: 1000; /* Ensure navbar context is above main content */
 }
 
 .nav-container {
@@ -36,6 +38,23 @@ h1, h2, h3 {
     color: #fdfb76; /* UPDATED: Hover text color */
 }
 
+.hamburger-btn {
+    display: none; /* Hidden by default, shown on mobile */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 96px; /* Increased size */
+    height: 96px; /* Increased size */
+    color: #DEF0F7;
+    font-size: 72px; /* Increased icon size */
+    z-index: 1001; /* Ensure it's above other nav content */
+}
+
+.hamburger-btn:hover {
+    color: #fdfb76;
+}
+
 .nav-links {
     display: flex;
     gap: 20px;
@@ -56,20 +75,20 @@ h1, h2, h3 {
     color: #24143E; /* UPDATED: Hover text color */
 }
 
+/* UPDATED: Hide the active nav link */
 .nav-link.active {
-    background: #90dcff; /* UPDATED: Active nav color */
-    color: #24143E;
+    display: none;
 }
 
 .add-media-btn {
     background: #90dcff; /* UPDATED: Neutral button color */
     color: #24143E; /* UPDATED: Contrasting color for icon */
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     text-decoration: none;
     transition: background-color 0.3s ease;
-    font-size: 20px;
+    font-size: 30px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -102,10 +121,12 @@ h1, h2, h3 {
     max-width: 1200px;
     margin: 0 auto;
     padding: 30px 20px;
+    position: relative; /* Needed for z-index stacking */
+    z-index: 1; /* Keep main content below navbar */
 }
 
 .hero-section {
-    text-align: center;
+    text-align: left;
     margin-bottom: 40px;
 }
 
@@ -180,7 +201,7 @@ h1, h2, h3 {
     height: auto;
     aspect-ratio: 1 / 1;
     background: #2D194D; /* UPDATED: Overlay background color */
-    border-radius: 8px;
+    border-radius: 5px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -241,19 +262,19 @@ h1, h2, h3 {
 }
 
 .star.star-full {
-    background-color: #ffc107;
+    background-color: #fdfb76;
     -webkit-mask-image: url(icons/star-full.svg);
     mask-image: url(icons/star-full.svg);
 }
 
 .star.star-half {
-    background-color: #ffc107;
+    background-color: #fdfb76;
     -webkit-mask-image: url(icons/star-half.svg);
     mask-image: url(icons/star-half.svg);
 }
 
 .star.star-empty {
-    background-color: #2D194D; /* UPDATED: Darker empty star */
+    background-color: #fdfb76; 
     -webkit-mask-image: url(icons/star-empty.svg);
     mask-image: url(icons/star-empty.svg);
 }
@@ -267,13 +288,13 @@ h1, h2, h3 {
 }
 
 .btn-small {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    border-radius: 500%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 24px;
     cursor: pointer;
     border: 2px solid transparent; /* Start with transparent border */
     padding: 0;
@@ -379,6 +400,7 @@ h1, h2, h3 {
 }
 
 /* === ICON STYLES === */
+.hamburger-btn::before,
 .add-media-btn::before,
 .btn-add::before,
 .btn-edit::before,
@@ -402,6 +424,11 @@ h1, h2, h3 {
 }
 
 /* Specific icon images */
+.hamburger-btn::before {
+    -webkit-mask-image: url(icons/hamburger.svg);
+    mask-image: url(icons/hamburger.svg);
+}
+
 .add-media-btn::before,
 .btn-add::before {
     -webkit-mask-image: url(icons/add.svg);
@@ -411,6 +438,8 @@ h1, h2, h3 {
 .btn-edit::before {
     -webkit-mask-image: url(icons/edit.svg);
     mask-image: url(icons/edit.svg);
+    width: 0.85em; /* Adjust size to prevent squished appearance */
+    height: 0.85em;
 }
 
 .btn-delete::before {
@@ -461,13 +490,75 @@ h1, h2, h3 {
     border-radius: 4px;
 }
 
+/* RE-ADDED: Skeleton styles for the new card layout */
+.skeleton-media-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.skeleton-media-card .media-top-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.skeleton-media-card .media-poster {
+    width: calc(100% - 55px);
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+}
+
+.skeleton-media-card .media-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 40px;
+}
+
+.skeleton-media-card .media-actions .skeleton {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.skeleton-media-card .media-card-content .skeleton {
+    height: 20px;
+    margin-bottom: 8px;
+}
+
+.skeleton-media-card .media-card-content .skeleton:last-child {
+    width: 40%;
+    height: 16px;
+}
+
+
 /* === RESPONSIVE STYLES === */
 @media (max-width: 768px) {
     .nav-links {
-        display: none; /* Hide links on mobile, implement JS toggle if needed */
-    }
-    .controls-section {
+        display: none;
+        position: absolute;
+        top: 100%; /* Position right below the navbar */
+        left: 0;
+        right: 0;
+        background: #2D194D;
         flex-direction: column;
-        align-items: stretch;
+        align-items: flex-end; /* Right-align the items */
+        padding: 20px 30px; /* Add padding to the right */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    .hamburger-btn {
+        display: inline-flex;
+    }
+}
+
+@media (min-width: 769px) {
+    .nav-links {
+        display: flex !important; /* Ensure it's visible on desktop */
     }
 }

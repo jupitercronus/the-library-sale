@@ -9,20 +9,13 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
+    <script src="main.js" defer></script>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="logo">the library sale</a>
-            <div class="nav-links">
-                <a href="index.html" class="nav-link active">Library</a>
-                <a href="lists.html" class="nav-link">Lists</a> 
-                <a href="profile.html" class="nav-link">Profile</a>
-                <a href="add-movie.html" class="add-media-btn" title="Add Media"></a> 
-                <button id="authBtn" class="auth-btn">Login</button>
-            </div>
-        </div>
-    </nav>
+    <div>
+        <header id="navbar-placeholder"></header>
+        <!-- The rest of your page content -->
+    </div>
 
     <div class="main-container">
         <div class="hero-section">
@@ -133,6 +126,13 @@
             };
             
             debouncedRender = debounce(() => renderMedia(), 300);
+
+            // Hamburger Menu Logic
+            const hamburgerBtn = document.getElementById('hamburgerBtn');
+            const navLinks = document.getElementById('navLinks');
+            hamburgerBtn.addEventListener('click', () => {
+                navLinks.classList.toggle('active');
+            });
 
 
             document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
