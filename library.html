@@ -4,31 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Movie Details - The Library Sale</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* Custom styles to match the site's aesthetic */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827; /* bg-gray-900 */
-            color: #f9fafb; /* text-gray-50 */
-        }
-        .star-icon {
-            width: 1.5rem; /* w-6 */
-            height: 1.5rem; /* h-6 */
-        }
-        .icon-sm {
-            width: 1.25rem; /* w-5 */
-            height: 1.25rem; /* h-5 */
-        }
-    </style>
+    <script src="main.js" defer></script>
 </head>
-<body class="bg-gray-900">
-
-    <!-- Navbar is loaded dynamically -->
-    <div id="navbar-container"></div>
-
+<body>
+    <div>
+        <header id="navbar-placeholder"></header>
+        <!-- The rest of your page content -->
+    </div>
     <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <!-- Loading Spinner -->
@@ -112,20 +103,9 @@
         </div>
     </main>
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    
-    <!-- App Scripts -->
-    <script src="main.js"></script>
-    <script src="utils.js"></script>
-    <script src="api/tmdb.js"></script>
-
     <script>
+        // This listener will now correctly run AFTER all deferred scripts have executed.
         document.addEventListener('DOMContentLoaded', () => {
-            // Dynamically load the navbar
-            loadNavbar();
             
             // Check user authentication status
             checkAuth(user => {
@@ -144,6 +124,23 @@
                 }
             });
         });
+
+        /**
+         * Fetches movie details via the Vercel proxy.
+         * @param {string} tmdbId - The movie ID from The Movie Database.
+         * @returns {Promise<object>} A promise that resolves to the movie details object.
+         */
+        async function getMovieDetails(tmdbId) {
+            // The URL points to our own serverless function which acts as a proxy.
+            const url = `/api/tmdb?id=${tmdbId}&append_to_response=credits`;
+
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+                throw new Error(`Failed to fetch movie details: ${errorData.message}`);
+            }
+            return await response.json();
+        }
 
         /**
          * Fetches all movie data and populates the page.
@@ -166,7 +163,7 @@
                 const tmdbId = movieData.tmdb_id;
                 const myRating = movieData.rating;
 
-                // 2. Get rich movie details from the TMDB API
+                // 2. Get rich movie details from the TMDB API via our Vercel proxy
                 const tmdbDetails = await getMovieDetails(tmdbId);
 
                 // 3. Populate the main movie details
