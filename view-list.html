@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View List - the library sale</title>
+    <!-- Google Fonts Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <!-- App Scripts -->
+    <script src="utils.js" defer></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="main.js" defer></script>
+</head>
+<body>
+    <header id="navbar-placeholder"></header>
+
+    <div class="main-container">
+        <div id="list-content">
+            <!-- List details will be loaded here -->
+            <div class="list-header">
+                <h1 id="listName">Loading List...</h1>
+                <p id="creatorName"></p>
+            </div>
+            <p id="listDescription"></p>
+            <hr class="list-divider">
+            <div id="media-list-container">
+                <!-- Media items will be rendered here -->
+            </div>
+        </div>
+        <button onclick="history.back()" class="btn-back" title="Go Back"></button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+          authDomain: "tiny-lizard.firebaseapp.com",
+          projectId: "tiny-lizard",
+          storageBucket: "tiny-lizard.firebasestorage.app",
+          messagingSenderId: "250872474692",
+          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const listId = urlParams.get('id');
+
+            if (!listId) {
+                document.getElementById('list-content').innerHTML = '<h1>Error: No List ID provided.</h1>';
+                return;
+            }
+
+            loadListData(listId);
+        });
+
+        async function loadListData(listId) {
+            try {
+                // 1. Fetch the list document
+                const listDoc = await db.collection('lists').doc(listId).get();
+                if (!listDoc.exists) {
+                    throw new Error("List not found.");
+                }
+                const listData = listDoc.data();
+
+                // 2. Populate list header details
+                document.getElementById('listName').textContent = listData.listName;
+                document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${listData.creatorId}">${listData.creatorDisplayName || 'Anonymous'}</a>`;
+                document.getElementById('listDescription').textContent = listData.description || '';
+
+                // 3. Fetch all media items in the list
+                const mediaIds = listData.mediaIds;
+                if (!mediaIds || mediaIds.length === 0) {
+                    document.getElementById('media-list-container').innerHTML = '<p>This list is empty.</p>';
+                    return;
+                }
+
+                const mediaDataMap = new Map();
+                const moviePromises = [];
+                for (let i = 0; i < mediaIds.length; i += 10) {
+                    const chunk = mediaIds.slice(i, i + 10);
+                    moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
+                }
+
+                const movieSnapshots = await Promise.all(moviePromises);
+                movieSnapshots.forEach(snapshot => {
+                    snapshot.forEach(doc => {
+                        mediaDataMap.set(doc.id, doc.data());
+                    });
+                });
+                
+                // 4. Render the media items in the correct order
+                const container = document.getElementById('media-list-container');
+                container.innerHTML = mediaIds.map((id, index) => {
+                    const media = mediaDataMap.get(id);
+                    if (!media) return ''; // Skip if a movie was deleted or not found
+                    
+                    return `
+                        <a href="library.html?id=${id}" class="list-media-item">
+                            <span class="list-item-number">${index + 1}.</span>
+                            <img src="${media.posterUrl || 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A'}" class="list-item-poster" alt="Poster for ${media.title}">
+                            <div class="list-item-info">
+                                <span class="list-item-title">${media.title}</span>
+                                <span class="list-item-year">(${media.year || 'N/A'})</span>
+                            </div>
+                        </a>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error("Error loading list data:", error);
+                document.getElementById('list-content').innerHTML = `<h1>Error: ${error.message}</h1>`;
+            }
+        }
+    </script>
+</body>
+</html>
