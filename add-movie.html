@@ -267,61 +267,72 @@
             });
         }
         
+ // FIXED addMedia() function - add this to your add-movie.html
         async function addMedia() {
             const submitBtn = document.getElementById('submitBtn');
             LibraryUtils.ui.setButtonLoading(submitBtn);
 
-            try {
-                const titleValue = LibraryUtils.validation.sanitizeInput(document.getElementById('title').value);
-                if (!titleValue) throw new Error('Title is a required field.');
-                
-                const yearValue = document.getElementById('year').value;
-                if (yearValue && !LibraryUtils.validation.isValidYear(yearValue)) throw new Error('Please enter a valid year.');
-                
-                const rating = starRatingController ? starRatingController.getRating() : currentRating;
-                if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value.');
-                
-                const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
-                let movieDocRef, mainMediaData;
-
-                if (tmdbId) {
-                    const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbId)).limit(1).get();
-                    if (!existingQuery.empty) {
-                        movieDocRef = existingQuery.docs[0].ref;
-                        mainMediaData = existingQuery.docs[0].data();
-                    }
-                }
-                
-                if (!movieDocRef) {
-                    mainMediaData = {
-                        title: titleValue, year: yearValue ? parseInt(yearValue) : null, director: LibraryUtils.validation.sanitizeInput(document.getElementById('director').value),
-                        genre: LibraryUtils.validation.sanitizeInput(document.getElementById('genre').value), posterUrl: document.getElementById('movieForm').dataset.posterUrl || null,
-                        runtime: document.getElementById('movieForm').dataset.runtime || null, tmdbId: tmdbId ? parseInt(tmdbId) : null,
-                        overview: LibraryUtils.validation.sanitizeInput(document.getElementById('summary').value, 1000), cast: document.getElementById('cast').value.split(',').map(c => LibraryUtils.validation.sanitizeInput(c)),
-                        contentType: document.getElementById('contentType').value, dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
-                        originalUploaderId: currentUser.uid, originalUploaderDisplayName: currentUser.displayName || currentUser.email, isManualEntry: isPublicFieldsEditable
-                    };
-                    movieDocRef = await db.collection('movies').add(mainMediaData);
-                }
-
-                const userInteractionData = {
-                    rating: rating, review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
-                    watched: document.getElementById('watchedToggle').dataset.watched === 'true',
-                    watchedDate: document.getElementById('watchedDate').value || null,
-                    owned: document.getElementById('ownedToggle').dataset.owned === 'true',
-                    interactionDate: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
-                
-                showTimedRedirectModal('Success!', 'Media added to your library.', 'index.html', 3, movieDocRef.id);
-
-            } catch (error) {
-                LibraryUtils.errors.handleError(error, 'Adding Media');
-            } finally {
-                LibraryUtils.ui.resetButton(submitBtn);
-            }
-        }
+        try {
+            const titleValue = LibraryUtils.validation.sanitizeInput(document.getElementById('title').value);
+            if (!titleValue) throw new Error('Title is a required field.');
         
+            const yearValue = document.getElementById('year').value;
+            if (yearValue && !LibraryUtils.validation.isValidYear(yearValue)) throw new Error('Please enter a valid year.');
+        
+            const rating = starRatingController ? starRatingController.getRating() : currentRating;
+            if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value.');
+        
+            const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
+            let movieDocRef, mainMediaData;
+
+            if (tmdbId) {
+                const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbId)).limit(1).get();
+                if (!existingQuery.empty) {
+                movieDocRef = existingQuery.docs[0].ref;
+                mainMediaData = existingQuery.docs[0].data();
+                }
+            }
+        
+            if (!movieDocRef) {
+                mainMediaData = {
+                    title: titleValue, 
+                    year: yearValue ? parseInt(yearValue) : null, 
+                    director: LibraryUtils.validation.sanitizeInput(document.getElementById('director').value),
+                    genre: LibraryUtils.validation.sanitizeInput(document.getElementById('genre').value), 
+                    posterUrl: document.getElementById('movieForm').dataset.posterUrl || null,
+                    runtime: document.getElementById('movieForm').dataset.runtime || null, 
+                    tmdbId: tmdbId ? parseInt(tmdbId) : null,
+                    overview: LibraryUtils.validation.sanitizeInput(document.getElementById('summary').value, 1000), 
+                    cast: document.getElementById('cast').value.split(',').map(c => LibraryUtils.validation.sanitizeInput(c)),
+                    contentType: document.getElementById('contentType').value, 
+                    dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
+                    originalUploaderId: currentUser.uid, 
+                    originalUploaderDisplayName: currentUser.displayName || currentUser.email, 
+                    isManualEntry: isPublicFieldsEditable
+                };
+                movieDocRef = await db.collection('movies').add(mainMediaData);
+            }
+
+        // ✅ FIXED: Added movieId field to the interaction data
+            const userInteractionData = {
+                movieId: movieDocRef.id,  // ← ADD THIS LINE
+                rating: rating, 
+                review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
+                watched: document.getElementById('watchedToggle').dataset.watched === 'true',
+                watchedDate: document.getElementById('watchedDate').value || null,
+                owned: document.getElementById('ownedToggle').dataset.owned === 'true',
+                interactionDate: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
+        
+            showTimedRedirectModal('Success!', 'Media added to your library.', 'index.html', 3, movieDocRef.id);
+
+        } catch (error) {
+            LibraryUtils.errors.handleError(error, 'Adding Media');
+        } finally {
+            LibraryUtils.ui.resetButton(submitBtn);
+        }
+}
         async function updateMedia() {
             const submitBtn = document.getElementById('submitBtn');
             LibraryUtils.ui.setButtonLoading(submitBtn);
@@ -330,8 +341,11 @@
                 const rating = starRatingController ? starRatingController.getRating() : currentRating;
                 if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value.');
                 
+                // ✅ FIXED: Added movieId field to the interaction data
                 const userInteractionData = {
-                    rating: rating, review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
+                    movieId: editingMovieId,  // ← ADD THIS LINE
+                    rating: rating, 
+                    review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
                     watched: document.getElementById('watchedToggle').dataset.watched === 'true',
                     watchedDate: document.getElementById('watchedDate').value || null,
                     owned: document.getElementById('ownedToggle').dataset.owned === 'true',
