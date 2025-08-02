@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>the library sale</title>
+    <!-- Google Fonts Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
@@ -19,7 +24,7 @@
 
     <div class="main-container">
         <div class="hero-section">
-            <h1 class="hero-title">welcome to your swamp</h1>
+            <h2 class="hero-title">welcome to your swamp</h2>
         </div>
 
         <div class="controls-section">
@@ -50,8 +55,8 @@
             <h3 id="confirmationModalTitle">Confirm Action</h3>
             <p id="confirmationModalMessage">Are you sure?</p>
             <div class="modal-buttons">
-                <button class="modal-btn confirm" id="confirmModalYes">Yes</button>
-                <button class="modal-btn cancel" id="confirmModalNo">No</button>
+                <button class="modal-btn confirm" id="confirmModalYes" title="Yes"></button>
+                <button class="modal-btn cancel" id="confirmModalNo" title="No"></button>
             </div>
         </div>
     </div>
@@ -80,16 +85,17 @@
                 const container = document.getElementById(containerId);
                 const skeletonHTML = Array(count).fill(0).map(() => `
                     <div class="skeleton-media-card">
-                        <div class="skeleton skeleton-media-poster"></div>
-                        <div class="skeleton-media-info">
-                            <div class="skeleton skeleton-media-title"></div>
-                            <div class="skeleton skeleton-media-meta"></div>
-                            <div class="skeleton skeleton-media-description"></div>
-                            <div class="skeleton skeleton-media-description"></div>
-                            <div class="skeleton-media-actions">
-                                <div class="skeleton skeleton-media-button"></div>
-                                <div class="skeleton skeleton-media-button"></div>
+                        <div class="media-top-section">
+                            <div class="skeleton media-poster"></div>
+                            <div class="media-actions">
+                                <div class="skeleton"></div>
+                                <div class="skeleton"></div>
+                                <div class="skeleton"></div>
                             </div>
+                        </div>
+                        <div class="media-card-content">
+                            <div class="skeleton"></div>
+                            <div class="skeleton"></div>
                         </div>
                     </div>
                 `).join('');
@@ -112,7 +118,7 @@
 
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
+                // This assumes main.js handles the auth button text change
                 loadAllMedia();
             });
 
@@ -127,23 +133,19 @@
             
             debouncedRender = debounce(() => renderMedia(), 300);
 
-            // Hamburger Menu Logic
-            const hamburgerBtn = document.getElementById('hamburgerBtn');
-            const navLinks = document.getElementById('navLinks');
-            hamburgerBtn.addEventListener('click', () => {
-                navLinks.classList.toggle('active');
-            });
-
-
-            document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
+            // Event listeners are attached in main.js after navbar loads
             document.getElementById('searchInput').addEventListener('input', debouncedRender);
             document.getElementById('viewDropdown').addEventListener('change', renderMedia);
             document.getElementById('sortDropdown').addEventListener('change', renderMedia);
         });
         
         async function handleAuthButtonClick() {
-            if (currentUser) await auth.signOut();
-            else window.location.href = 'auth.html';
+            if (currentUser) {
+                await auth.signOut();
+                window.location.reload();
+            } else {
+                window.location.href = 'auth.html';
+            }
         }
 
         async function loadAllMedia() {
@@ -360,7 +362,8 @@
                 if (confirmed && currentUser) {
                     try {
                         await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId).delete();
-                        loadAllMedia();
+                        delete myInteractions[mediaId];
+                        renderMedia();
                     } catch (error) {
                         console.error("Error removing item:", error);
                     }

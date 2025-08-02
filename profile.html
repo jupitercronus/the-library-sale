@@ -4,29 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile - the library sale</title>
+    <!-- Google Fonts Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <!-- App Scripts -->
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
 </head>
 <body>
-    <div>
-        <header id="navbar-placeholder"></header>
-        <!-- The rest of your page content -->
-    </div>
+    <header id="navbar-placeholder"></header>
 
-    <div class="main-container">
-        <div class="user-search-section">
-            <input type="text" id="userSearchInput" placeholder="Find user by username...">
-            <button onclick="searchForUser()">Search</button>
-        </div>
+    <div class="profile-page-container">
+        <!-- Left Sidebar -->
+        <aside class="profile-sidebar">
+            <div class="sidebar-block">
+                <div class="sidebar-search">
+                    <input type="text" id="userSearchInput" placeholder="Find user...">
+                    <button id="userSearchBtn" class="btn-icon" title="Search Users"></button>
+                </div>
+            </div>
 
-        <div id="profileContainer">
-            <!-- Initial skeleton loading state -->
-        </div>
+            <div class="sidebar-block">
+                <div id="sidebarUserInfo">
+                    <!-- User info will be loaded here -->
+                </div>
+                 <a href="#" id="myListsLink" class="sidebar-link">My Lists</a>
+            </div>
+
+            <div class="sidebar-block">
+                <h3>Stats</h3>
+                <ul class="sidebar-stats" id="statsList">
+                    <!-- Stats will be loaded here -->
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="profile-main-content">
+            <!-- Owned Media Section -->
+            <section id="owned-section">
+                <div class="media-section-header">
+                    <h2>Owned</h2>
+                    <div class="media-section-controls">
+                        <input type="text" id="ownedSearchInput" class="media-search-input" placeholder="Search owned media...">
+                        <select id="ownedSortDropdown" class="filter-dropdown">
+                            <option value="dateAddedDesc">Recently Added (Newest)</option>
+                            <option value="dateAddedAsc">Recently Added (Oldest)</option>
+                            <option value="titleAsc">Title (A-Z)</option>
+                            <option value="titleDesc">Title (Z-A)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="ownedMediaGrid" class="profile-media-grid">
+                    <!-- Owned media posters will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Watched Media Section -->
+            <section id="watched-section">
+                <div class="media-section-header">
+                    <h2>Watched</h2>
+                    <div class="media-section-controls">
+                        <input type="text" id="watchedSearchInput" class="media-search-input" placeholder="Search watched media...">
+                        <select id="watchedSortDropdown" class="filter-dropdown">
+                            <option value="dateWatchedDesc">Recently Watched</option>
+                            <option value="titleAsc">Title (A-Z)</option>
+                            <option value="titleDesc">Title (Z-A)</option>
+                            <option value="ratingDesc">Rating (High-Low)</option>
+                            <option value="ratingAsc">Rating (Low-High)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="watchedMediaGrid" class="profile-media-grid">
+                    <!-- Watched media posters will be loaded here -->
+                </div>
+            </section>
+        </main>
     </div>
 
     <script>
@@ -43,300 +102,244 @@
         const auth = firebase.auth(); 
 
         let currentUser = null;
-
-        // === SKELETON UI UTILITIES ===
-        const SkeletonUI = {
-            showProfileSkeleton: (containerId) => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = `
-                    <div class="profile-section">
-                        <div class="skeleton-profile-header">
-                            <div class="skeleton skeleton-profile-name"></div>
-                            <div class="skeleton skeleton-profile-email"></div>
-                        </div>
-                        <div class="skeleton-stats-grid">
-                            <div class="skeleton-stat-card">
-                                <div class="skeleton skeleton-stat-number"></div>
-                                <div class="skeleton skeleton-stat-label"></div>
-                            </div>
-                            <div class="skeleton-stat-card">
-                                <div class="skeleton skeleton-stat-number"></div>
-                                <div class="skeleton skeleton-stat-label"></div>
-                            </div>
-                            <div class="skeleton-stat-card">
-                                <div class="skeleton skeleton-stat-number"></div>
-                                <div class="skeleton skeleton-stat-label"></div>
-                            </div>
-                            <div class="skeleton-stat-card">
-                                <div class="skeleton skeleton-stat-number"></div>
-                                <div class="skeleton skeleton-stat-label"></div>
-                            </div>
-                            <div class="skeleton-stat-card">
-                                <div class="skeleton skeleton-stat-number"></div>
-                                <div class="skeleton skeleton-stat-label"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <h2 class="section-title">Watched Media</h2>
-                    <div class="media-list-section">
-                        <div id="watchedMediaList" class="media-list-grid">
-                            ${SkeletonUI.generateMediaGridSkeleton(6)}
-                        </div>
-                    </div>
-                    <h2 class="section-title">Owned Media</h2>
-                    <div class="media-list-section">
-                        <div id="ownedMediaList" class="media-list-grid">
-                            ${SkeletonUI.generateMediaGridSkeleton(6)}
-                        </div>
-                    </div>
-                `;
-            },
-
-            generateMediaGridSkeleton: (count) => {
-                return Array(count).fill(0).map(() => `
-                    <div class="skeleton-media-item">
-                        <div class="skeleton skeleton-media-poster"></div>
-                        <div class="skeleton skeleton-media-title"></div>
-                    </div>
-                `).join('');
-            },
-
-            showMediaGridSkeleton: (containerId, count = 6) => {
-                const container = document.getElementById(containerId);
-                // ✅ CORRECTED: Changed 'this' to 'SkeletonUI'
-                container.innerHTML = SkeletonUI.generateMediaGridSkeleton(count);
-            },
-
-            showLoadingSpinner: (containerId, message = 'Loading...') => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = `
-                    <div class="loading-container">
-                        <div class="loading-spinner"></div>
-                        <div class="loading-text">${message}</div>
-                    </div>
-                `;
-            }
-        };
+        let viewedUserId = null;
+        let allOwnedMedia = [];
+        let allWatchedMedia = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const profileUserId = urlParams.get('id');
-
-            // 識 SKELETON LOADING IMPLEMENTATION - Show profile skeleton immediately
-            SkeletonUI.showProfileSkeleton('profileContainer');
+            viewedUserId = urlParams.get('id');
 
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                const authBtn = document.getElementById('authBtn');
-                authBtn.textContent = user ? 'Logout' : 'Login';
-                
-                if (user) {
-                    document.getElementById('profileNav').href = `profile.html?id=${user.uid}`;
-                } else {
-                     document.getElementById('profileNav').href = `auth.html`;
+                if (!viewedUserId && user) {
+                    viewedUserId = user.uid;
                 }
-
-                const targetUserId = profileUserId || (currentUser ? currentUser.uid : null);
-
-                if (targetUserId) {
-                    loadProfileData(targetUserId);
+                
+                if (viewedUserId) {
+                    loadProfileData(viewedUserId);
                 } else {
                     window.location.href = 'auth.html';
                 }
+
+                setupEventListeners();
             });
-            
-            document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
         });
 
-        async function handleAuthButtonClick() {
-            if (currentUser) {
-                await auth.signOut();
-            } else {
-                window.location.href = 'auth.html';
-            }
+        function setupEventListeners() {
+            document.getElementById('userSearchBtn').addEventListener('click', searchForUser);
+            document.getElementById('userSearchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchForUser();
+            });
+
+            document.getElementById('ownedSearchInput').addEventListener('input', () => renderMediaGrid('owned'));
+            document.getElementById('ownedSortDropdown').addEventListener('change', () => renderMediaGrid('owned'));
+            
+            document.getElementById('watchedSearchInput').addEventListener('input', () => renderMediaGrid('watched'));
+            document.getElementById('watchedSortDropdown').addEventListener('change', () => renderMediaGrid('watched'));
         }
-        
+
         async function searchForUser() {
-            const username = LibraryUtils.validation.sanitizeInput(document.getElementById('userSearchInput').value);
+            const username = document.getElementById('userSearchInput').value.trim();
             if (!username) return;
             
             try {
                 const usersRef = db.collection('users');
                 const snapshot = await usersRef.where('displayName', '==', username).limit(1).get();
                 if (snapshot.empty) {
-                    LibraryUtils.errors.showErrorModal('Not Found', 'User not found.');
+                    alert('User not found.');
                 } else {
                     const userId = snapshot.docs[0].id;
                     window.location.href = `profile.html?id=${userId}`;
                 }
             } catch (error) {
-                LibraryUtils.errors.handleError(error, "Searching for user");
+                console.error("Error searching for user:", error);
             }
         }
 
         async function loadProfileData(userId) {
             try {
-                // 識 SKELETON LOADING IMPLEMENTATION - Show loading spinner
-                SkeletonUI.showLoadingSpinner('profileContainer', 'Loading profile...');
-
-                let userDoc = await db.collection('users').doc(userId).get();
-
-                if (!userDoc.exists && currentUser && currentUser.uid === userId) {
-                    console.log("User profile not found for current user. Creating one now...");
-                    const newUserProfile = {
-                        displayName: currentUser.displayName || currentUser.email.split('@')[0],
-                        email: currentUser.email,
-                        dateCreated: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-                    await db.collection('users').doc(userId).set(newUserProfile);
-                    userDoc = await db.collection('users').doc(userId).get();
-                } else if (!userDoc.exists) {
-                    throw new Error("User not found.");
+                const userDoc = await db.collection('users').doc(userId).get();
+                if (!userDoc.exists) {
+                    document.querySelector('.profile-main-content').innerHTML = '<h2>User not found</h2>';
+                    return;
                 }
-
                 const profileData = userDoc.data();
-                
-                // Create the basic profile structure first
-                document.getElementById('profileContainer').innerHTML = `
-                    <div class="profile-section">
-                        <div class="profile-header">
-                            <h1 id="profileDisplayName">${profileData.displayName || 'User'}</h1>
-                            <p id="profileEmail">${profileData.email}</p>
-                        </div>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-number" id="totalMediaCount">0</div>
-                                <div class="stat-label">Total Media in Collection</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="watchedMediaCount">0</div>
-                                <div class="stat-label">Watched</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="ownedMediaCount">0</div>
-                                <div class="stat-label">Owned Physical Copies</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="avgRating">0.0</div>
-                                <div class="stat-label">Average Rating</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="totalHours">0</div>
-                                <div class="stat-label">Hours Watched</div>
-                            </div>
-                        </div>
-                    </div>
-                    <h2 class="section-title">Watched Media</h2>
-                    <div class="media-list-section">
-                        <div id="watchedMediaList" class="media-list-grid">
-                            <div class="empty-list">Loading watched media...</div>
-                        </div>
-                    </div>
-                    <h2 class="section-title">Owned Media</h2>
-                    <div class="media-list-section">
-                        <div id="ownedMediaList" class="media-list-grid">
-                            <div class="empty-list">Loading owned media...</div>
-                        </div>
-                    </div>
-                `;
+                populateSidebar(profileData);
 
                 const interactionsSnapshot = await db.collection('users').doc(userId).collection('movieInteractions').get();
                 const interactions = interactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                if (interactions.length === 0) {
-                    calculateAndDisplayStats([]);
-                    displayWatchedMedia([]);
-                    displayOwnedMedia([]);
-                    return;
+                if (interactions.length > 0) {
+                    const mediaIds = interactions.map(i => i.id);
+                    const mediaChunks = [];
+                    for (let i = 0; i < mediaIds.length; i += 10) {
+                        mediaChunks.push(mediaIds.slice(i, i + 10));
+                    }
+
+                    const allMoviesData = {};
+                    for (const chunk of mediaChunks) {
+                        const mediaSnapshot = await db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+                        mediaSnapshot.forEach(doc => {
+                            allMoviesData[doc.id] = doc.data();
+                        });
+                    }
+                    
+                    const fullMediaDetails = interactions.map(interaction => {
+                        const mediaData = allMoviesData[interaction.id];
+                        return mediaData ? { ...interaction, ...mediaData } : null;
+                    }).filter(Boolean);
+
+                    allOwnedMedia = fullMediaDetails.filter(m => m.owned);
+                    allWatchedMedia = fullMediaDetails.filter(m => m.watched);
+                    
+                    calculateAndDisplayStats(fullMediaDetails);
+                } else {
+                     calculateAndDisplayStats([]);
                 }
-
-                const mediaIds = interactions.map(i => i.id);
                 
-                const mediaSnapshot = await db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', mediaIds).get();
-                const allMoviesData = {};
-                mediaSnapshot.forEach(doc => {
-                    allMoviesData[doc.id] = doc.data();
-                });
-
-                const fullMediaDetails = interactions.map(interaction => {
-                    const mediaData = allMoviesData[interaction.id];
-                    return { ...interaction, ...mediaData };
-                });
-
-                calculateAndDisplayStats(fullMediaDetails);
-                displayWatchedMedia(fullMediaDetails.filter(m => m.watched));
-                displayOwnedMedia(fullMediaDetails.filter(m => m.owned));
+                renderMediaGrid('owned');
+                renderMediaGrid('watched');
 
             } catch (error) {
-                LibraryUtils.errors.handleError(error, 'Loading Profile Data', 'profileContainer');
+                console.error("Error loading profile data:", error);
             }
         }
 
-        function calculateAndDisplayStats(mediaItems) {
-            document.getElementById('totalMediaCount').textContent = mediaItems.length;
-            document.getElementById('watchedMediaCount').textContent = mediaItems.filter(item => item.watched).length;
-            document.getElementById('ownedMediaCount').textContent = mediaItems.filter(item => item.owned).length;
+        function populateSidebar(profileData) {
+            const userInfoContainer = document.getElementById('sidebarUserInfo');
+            const isMyProfile = currentUser && currentUser.uid === viewedUserId;
             
-            const ratedItems = mediaItems.filter(item => item.rating > 0);
-            const avgRating = ratedItems.length > 0
-                ? (ratedItems.reduce((sum, item) => sum + item.rating, 0) / ratedItems.length).toFixed(1)
-                : '0.0';
-            document.getElementById('avgRating').textContent = avgRating;
+            userInfoContainer.innerHTML = `
+                <h2 class="sidebar-username">${profileData.displayName || 'Anonymous'}</h2>
+                ${isMyProfile ? `<p class="sidebar-email">${profileData.email}</p>` : ''}
+            `;
             
-            const totalHours = Math.round(
-                mediaItems
-                    .filter(item => item.watched && item.runtime)
-                    .reduce((sum, item) => sum + parseInt(item.runtime), 0) / 60
-            );
-            document.getElementById('totalHours').textContent = totalHours;
-        }
-
-        function displayWatchedMedia(watchedItems) {
-            const container = document.getElementById('watchedMediaList');
-            
-            // 識 SKELETON LOADING IMPLEMENTATION
-            SkeletonUI.showMediaGridSkeleton('watchedMediaList', 6);
-            
-            // Small delay to show the skeleton
-            setTimeout(() => {
-                if (watchedItems.length === 0) {
-                    container.innerHTML = '<div class="empty-list">No watched media yet.</div>';
-                    return;
-                }
-                watchedItems.sort((a, b) => new Date(b.watchedDate) - new Date(a.watchedDate));
-                container.innerHTML = watchedItems.map(item => renderMediaItem(item)).join('');
-            }, 300);
-        }
-
-        function displayOwnedMedia(ownedItems) {
-            const container = document.getElementById('ownedMediaList');
-            
-            // 識 SKELETON LOADING IMPLEMENTATION
-            SkeletonUI.showMediaGridSkeleton('ownedMediaList', 6);
-            
-            // Small delay to show the skeleton
-            setTimeout(() => {
-                if (ownedItems.length === 0) {
-                    container.innerHTML = '<div class="empty-list">No owned media yet.</div>';
-                    return;
-                }
-                ownedItems.sort((a,b) => (a.title || '').localeCompare(b.title || ''));
-                container.innerHTML = ownedItems.map(item => renderMediaItem(item)).join('');
-            }, 300);
+            document.getElementById('myListsLink').href = `lists.html?userId=${viewedUserId}`;
         }
         
-        function renderMediaItem(item) {
-            const title = item.title || 'Untitled';
-            const posterHTML = item.posterUrl 
-                ? `<img src="${item.posterUrl}" alt="${title}" class="media-list-poster" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML = '<div class=\\'no-poster-small\\'></div>';">`
-                : `<div class="no-poster-small"></div>`;
+        function getTopItems(items, threshold = 3) {
+            if (!items || items.length === 0) return 'N/A';
+            const counts = items.reduce((acc, item) => {
+                if (item) {
+                    acc[item] = (acc[item] || 0) + 1;
+                }
+                return acc;
+            }, {});
 
-            return `
-                <a href="library.html?id=${item.id}" class="media-list-item">
-                    ${posterHTML}
-                    <p>${title}</p>
-                </a>
+            const filteredItems = Object.entries(counts).filter(([key, value]) => value > threshold);
+
+            if (filteredItems.length === 0) return 'N/A';
+
+            return filteredItems
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(entry => entry[0])
+                .join(', ');
+        }
+        
+        function generateStarDisplay(rating) {
+            if (rating <= 0) return '<div class="media-rating"></div>'; 
+            const totalStars = 5;
+            let starsHTML = '';
+            for (let i = 1; i <= totalStars; i++) {
+                if (i <= rating) {
+                    starsHTML += `<span class="star star-full"></span>`;
+                } else if (i - 0.5 <= rating) {
+                    starsHTML += `<span class="star star-half"></span>`;
+                } else {
+                    starsHTML += `<span class="star star-empty"></span>`;
+                }
+            }
+            return `<div class="media-rating">${starsHTML}</div>`;
+        }
+
+        function calculateAndDisplayStats(mediaItems) {
+            const statsList = document.getElementById('statsList');
+            const watchedItems = mediaItems.filter(item => item.watched);
+
+            const watchedCount = watchedItems.length;
+            const ownedCount = mediaItems.filter(item => item.owned).length;
+            
+            const ratedItems = mediaItems.filter(item => item.rating && item.rating > 0);
+            const avgRatingValue = ratedItems.length > 0
+                ? (ratedItems.reduce((sum, item) => sum + item.rating, 0) / ratedItems.length)
+                : 0;
+            const avgRatingStars = generateStarDisplay(avgRatingValue);
+            
+            const hoursWatched = Math.round(
+                watchedItems
+                    .filter(item => item.runtime)
+                    .reduce((sum, item) => sum + parseInt(item.runtime), 0) / 60
+            );
+
+            const reviewsWritten = mediaItems.filter(item => item.review && item.review.trim() !== '').length;
+            
+            const topGenre = getTopItems(watchedItems.flatMap(item => (item.genre || '').split(',').map(g => g.trim()).filter(Boolean)), 0);
+            const favoriteDecade = getTopItems(watchedItems.filter(item => item.year).map(item => `${Math.floor(item.year / 10) * 10}s`), 0);
+            const topDirectors = getTopItems(watchedItems.flatMap(item => (item.director || '').split(',').map(d => d.trim()).filter(Boolean)));
+            const topCast = getTopItems(watchedItems.flatMap(item => Array.isArray(item.cast) ? item.cast.map(c => c.trim()).filter(Boolean) : []));
+
+            statsList.innerHTML = `
+                <li class="stat-stars"><strong>Avg. Rating:</strong> <span>${avgRatingStars}</span></li>
+                <li><strong>Media Owned:</strong> <span>${ownedCount}</span></li>
+                <li><strong>Media Watched:</strong> <span>${watchedCount}</span></li>
+                <li><strong>Hours Watched:</strong> <span>${hoursWatched}</span></li>
+                <li><strong>Reviews Written:</strong> <span>${reviewsWritten}</span></li>
+                <li><strong>Top Genre:</strong> <span>${topGenre}</span></li>
+                <li><strong>Favorite Decade:</strong> <span>${favoriteDecade}</span></li>
+                <li><strong>Top Directors:</strong> <span>${topDirectors}</span></li>
+                <li><strong>Top Cast:</strong> <span>${topCast}</span></li>
             `;
+        }
+        
+        function renderMediaGrid(type) {
+            const isOwned = type === 'owned';
+            const sourceData = isOwned ? allOwnedMedia : allWatchedMedia;
+            const gridContainer = document.getElementById(isOwned ? 'ownedMediaGrid' : 'watchedMediaGrid');
+            const searchInput = document.getElementById(isOwned ? 'ownedSearchInput' : 'watchedSearchInput').value.toLowerCase();
+            const sortValue = document.getElementById(isOwned ? 'ownedSortDropdown' : 'watchedSortDropdown').value;
+
+            let mediaToDisplay = [...sourceData];
+
+            if (searchInput) {
+                mediaToDisplay = mediaToDisplay.filter(item => 
+                    (item.title || '').toLowerCase().includes(searchInput)
+                );
+            }
+
+            mediaToDisplay.sort((a, b) => {
+                switch (sortValue) {
+                    case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
+                    case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
+                    case 'dateAddedDesc': return (b.interactionDate?.seconds || 0) - (a.interactionDate?.seconds || 0);
+                    case 'dateAddedAsc': return (a.interactionDate?.seconds || 0) - (b.interactionDate?.seconds || 0);
+                    case 'dateWatchedDesc': return (b.interactionDate?.seconds || 0) - (a.interactionDate?.seconds || 0);
+                    case 'ratingDesc': return (b.rating || 0) - (a.rating || 0);
+                    case 'ratingAsc': return (a.rating || 0) - (b.rating || 0);
+                    default: return 0;
+                }
+            });
+
+            if (mediaToDisplay.length === 0) {
+                gridContainer.innerHTML = `<p class="empty-grid-message">No media found.</p>`;
+                return;
+            }
+
+            gridContainer.innerHTML = mediaToDisplay.map(item => {
+                const badgeHTML = item.contentType === 'tv' 
+                    ? `<span class="badge badge-tv" title="TV Show"></span>` 
+                    : `<span class="badge badge-movie" title="Movie"></span>`;
+                
+                return `
+                <div class="profile-media-item">
+                    ${badgeHTML}
+                    <a href="library.html?id=${item.id}">
+                        <img src="${item.posterUrl || 'https://placehold.co/300x300/2D194D/DEF0F7?text=No+Poster'}" alt="${item.title || 'Untitled'}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x300/2D194D/DEF0F7?text=Error';">
+                        <div class="profile-media-title">${item.title || 'Untitled'}</div>
+                    </a>
+                </div>
+            `}).join('');
         }
     </script>
 </body>

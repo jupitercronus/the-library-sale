@@ -31,7 +31,7 @@ const StarUtils = {
     },
 
     /**
-     * Set up interactive star rating component
+     * Set up interactive star rating component with mobile and desktop support
      * @param {string} containerId - ID of the star rating container
      * @param {function} onRatingChange - Callback when rating changes
      * @param {number} initialRating - Initial rating value
@@ -41,55 +41,155 @@ const StarUtils = {
         if (!container) return;
 
         let currentRating = initialRating;
+        let isDragging = false;
+        let isTouching = false;
         const stars = Array.from(container.children);
 
-        const updateStars = () => {
+        // Detect if device supports touch
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        const updateStars = (ratingToDisplay) => {
             stars.forEach((star, index) => {
                 star.classList.remove('full', 'half');
-                if (currentRating > index + 0.5) {
+                if (ratingToDisplay > index + 0.5) {
                     star.classList.add('full');
-                } else if (currentRating > index) {
+                } else if (ratingToDisplay > index) {
                     star.classList.add('half');
                 }
             });
         };
 
-        container.addEventListener('mousemove', e => {
-            const rect = container.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            const hoverValue = Math.round(percent * 5 * 2) / 2;
-            
-            stars.forEach((star, index) => {
-                star.classList.remove('hover-full', 'hover-half');
-                if (hoverValue > index + 0.5) {
-                    star.classList.add('hover-full');
-                } else if (hoverValue > index) {
-                    star.classList.add('hover-half');
-                }
-            });
-        });
-
-        container.addEventListener('mouseleave', () => {
+        const clearHoverStates = () => {
             stars.forEach(star => {
                 star.classList.remove('hover-full', 'hover-half');
             });
-            updateStars();
-        });
+        };
 
-        container.addEventListener('click', e => {
-            const rect = container.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            currentRating = Math.round(percent * 5 * 2) / 2;
-            updateStars();
+        const calculateRatingFromPosition = (clientX) => {
+            const containerRect = container.getBoundingClientRect();
+            const posX = clientX - containerRect.left;
+            
+            // Find which star we're over
+            let ratingValue = 0;
+            let foundStar = false;
+            
+            stars.forEach((star, index) => {
+                const starRect = star.getBoundingClientRect();
+                const starLeft = starRect.left - containerRect.left;
+                const starRight = starRect.right - containerRect.left;
+                const starCenter = starLeft + (starRect.width / 2);
+                
+                if (posX >= starLeft && posX <= starRight && !foundStar) {
+                    foundStar = true;
+                    // Determine if it's left half (half star) or right half (full star)
+                    if (posX < starCenter) {
+                        ratingValue = index + 0.5;
+                    } else {
+                        ratingValue = index + 1;
+                    }
+                }
+            });
+            
+            return ratingValue;
+        };
+
+        const applyHoverStates = (ratingValue) => {
+            clearHoverStates();
+            stars.forEach((star, index) => {
+                if (ratingValue > index + 0.5) {
+                    star.classList.add('hover-full');
+                } else if (ratingValue > index) {
+                    star.classList.add('hover-half');
+                }
+            });
+        };
+
+        const setRating = (ratingValue) => {
+            currentRating = ratingValue;
+            updateStars(currentRating);
             if (onRatingChange) onRatingChange(currentRating);
-        });
+        };
 
-        updateStars();
+        // Desktop mouse events
+        const handleMouseMove = (e) => {
+            if (isTouchDevice && !isDragging) return; // Ignore mouse events on touch devices unless dragging
+            
+            const ratingValue = calculateRatingFromPosition(e.clientX);
+            applyHoverStates(ratingValue);
+        };
+
+        const handleMouseLeave = () => {
+            if (isTouchDevice) return; // Touch devices don't need mouse leave
+            clearHoverStates();
+            updateStars(currentRating);
+        };
+
+        const handleClick = (e) => {
+            if (isTouching) return; // Prevent double events on touch devices
+            
+            const ratingValue = calculateRatingFromPosition(e.clientX);
+            setRating(ratingValue);
+        };
+
+        // Touch events for mobile
+        const handleTouchStart = (e) => {
+            e.preventDefault(); // Prevent scrolling and mouse events
+            isTouching = true;
+            isDragging = true;
+            
+            const touch = e.touches[0];
+            const ratingValue = calculateRatingFromPosition(touch.clientX);
+            applyHoverStates(ratingValue);
+        };
+
+        const handleTouchMove = (e) => {
+            if (!isDragging) return;
+            e.preventDefault(); // Prevent scrolling
+            
+            const touch = e.touches[0];
+            const ratingValue = calculateRatingFromPosition(touch.clientX);
+            applyHoverStates(ratingValue);
+        };
+
+        const handleTouchEnd = (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const touch = e.changedTouches[0];
+            const ratingValue = calculateRatingFromPosition(touch.clientX);
+            setRating(ratingValue);
+            
+            // Clear touch states
+            isDragging = false;
+            setTimeout(() => {
+                isTouching = false;
+            }, 100); // Small delay to prevent mouse events
+        };
+
+        // Add event listeners based on device capabilities
+        if (isTouchDevice) {
+            // Touch events for mobile
+            container.addEventListener('touchstart', handleTouchStart, { passive: false });
+            container.addEventListener('touchmove', handleTouchMove, { passive: false });
+            container.addEventListener('touchend', handleTouchEnd, { passive: false });
+            container.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+        } else {
+            // Mouse events for desktop
+            container.addEventListener('mousemove', handleMouseMove);
+            container.addEventListener('mouseleave', handleMouseLeave);
+        }
+        
+        // Click event for both (fallback for single taps)
+        container.addEventListener('click', handleClick);
+
+        // Set initial rating
+        updateStars(currentRating);
+        
         return {
             getRating: () => currentRating,
             setRating: (rating) => {
                 currentRating = rating;
-                updateStars();
+                updateStars(currentRating);
             }
         };
     }
@@ -328,8 +428,12 @@ const UIUtils = {
         if (!btn) return;
 
         btn.disabled = true;
-        btn.dataset.originalText = btn.textContent;
-        btn.textContent = loadingText;
+        if (btn.classList.contains('btn-icon')) {
+            btn.classList.add('loading');
+        } else {
+            btn.dataset.originalText = btn.textContent;
+            btn.textContent = loadingText;
+        }
     },
 
     /**
@@ -341,9 +445,13 @@ const UIUtils = {
         if (!btn) return;
 
         btn.disabled = false;
-        if (btn.dataset.originalText) {
-            btn.textContent = btn.dataset.originalText;
-            delete btn.dataset.originalText;
+        if (btn.classList.contains('btn-icon')) {
+            btn.classList.remove('loading');
+        } else {
+            if (btn.dataset.originalText) {
+                btn.textContent = btn.dataset.originalText;
+                delete btn.dataset.originalText;
+            }
         }
     },
 
