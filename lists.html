@@ -7,48 +7,39 @@
     <!-- Google Fonts Import -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <!-- App Scripts -->
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
 </head>
 <body>
-    <div>
-        <header id="navbar-placeholder"></header>
-        <!-- The rest of your page content -->
-    </div>
+    <header id="navbar-placeholder"></header>
 
     <div class="main-container">
-        <div class="lists-header">
-            <h1 class="section-title">Public Lists</h1>
-            <div class="header-controls">
-                <a href="create-list.html" class="btn-create">Create a List</a>
-                <div class="search-bar">
-                    <input type="text" id="listSearchInput" placeholder="Search lists...">
-                </div>
-                <div class="filter-buttons">
-                    <button id="allListsBtn" class="active">All Lists</button>
-                    <button id="myListsBtn">My Lists</button>
-                </div>
+        <div class="controls-section">
+            <div class="search-bar">
+                <input type="text" id="listSearchInput" placeholder="Search for a list...">
+            </div>
+            <div class="list-controls">
+                <select id="sortDropdown" class="filter-dropdown">
+                    <option value="createdAtDesc">Recently Created</option>
+                    <option value="createdAtAsc">Oldest</option>
+                    <option value="nameAsc">Name (A-Z)</option>
+                    <option value="nameDesc">Name (Z-A)</option>
+                </select>
+                <button id="myListsBtn" class="list-toggle-btn">My Lists</button>
+                <button id="allListsBtn" class="list-toggle-btn active">All Lists</button>
+                <a href="create-list.html" class="btn-create-list" title="Create New List"></a>
             </div>
         </div>
-        <div id="listsContainer">
-            </div>
 
-        <hr style="margin: 40px 0;">
-
-        <div class="activity-section">
-            <h2 class="section-title" style="text-align: left; font-size: 1.5em; margin-bottom: 15px;">Recently Watched</h2>
-            <div id="recentlyWatchedContainer" class="activity-grid">
-                </div>
-        </div>
-        
-        <div class="activity-section">
-            <h2 class="section-title" style="text-align: left; font-size: 1.5em; margin-bottom: 15px;">Recently Purchased</h2>
-            <div id="recentlyBoughtContainer" class="activity-grid">
-                </div>
+        <div id="listGrid" class="list-grid">
+            <!-- Lists will be loaded here by JavaScript -->
         </div>
     </div>
     
@@ -57,8 +48,8 @@
             <h3 id="confirmationModalTitle">Confirm Action</h3>
             <p id="confirmationModalMessage">Are you sure?</p>
             <div class="modal-buttons">
-                <button class="modal-btn confirm" id="confirmModalYes">Yes</button>
-                <button class="modal-btn cancel" id="confirmModalNo">No</button>
+                <button class="modal-btn confirm" id="confirmModalYes" title="Yes"></button>
+                <button class="modal-btn cancel" id="confirmModalNo" title="No"></button>
             </div>
         </div>
     </div>
@@ -73,278 +64,163 @@
           appId: "1:250872474692:web:969e0b1302ae3cb4666011"
         };
         const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(); 
+        const db = firebase.firestore();
         const auth = firebase.auth();
 
         let currentUser = null;
         let allLists = [];
-        let currentListView = 'all';
-        let debouncedRender = null;
-
-        // === SKELETON UI UTILITIES ===
-        const SkeletonUI = {
-            showListsSkeleton: (containerId, count = 4) => {
-                const container = document.getElementById(containerId);
-                const skeletonHTML = Array(count).fill(0).map(() => `
-                    <div class="skeleton-list-card">
-                        <div class="skeleton skeleton-list-poster"></div>
-                        <div class="skeleton-list-info">
-                            <div class="skeleton skeleton-list-title"></div>
-                            <div class="skeleton skeleton-list-meta"></div>
-                            <div class="skeleton skeleton-list-description"></div>
-                            <div class="skeleton skeleton-list-description"></div>
-                            <div class="skeleton-list-actions">
-                                <div class="skeleton skeleton-list-button"></div>
-                                <div class="skeleton skeleton-list-button"></div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-                container.innerHTML = skeletonHTML;
-            },
-
-            showActivitySkeleton: (containerId, count = 5) => {
-                const container = document.getElementById(containerId);
-                const skeletonHTML = Array(count).fill(0).map(() => `
-                    <div class="skeleton-activity-item">
-                        <div class="skeleton skeleton-activity-poster"></div>
-                        <div class="skeleton skeleton-activity-text"></div>
-                    </div>
-                `).join('');
-                container.innerHTML = skeletonHTML;
-            },
-
-            showLoadingSpinner: (containerId, message = 'Loading...') => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = `
-                    <div class="loading-container">
-                        <div class="loading-spinner"></div>
-                        <div class="loading-text">${message}</div>
-                    </div>
-                `;
-            }
-        };
+        let currentView = 'all'; 
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 識 SKELETON LOADING IMPLEMENTATION - Show skeletons immediately
-            SkeletonUI.showListsSkeleton('listsContainer', 6);
-            SkeletonUI.showActivitySkeleton('recentlyWatchedContainer', 8);
-            SkeletonUI.showActivitySkeleton('recentlyBoughtContainer', 8);
-
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
-                if (!user) {
-                    document.querySelector('.btn-create').href = 'auth.html';
+                if (!currentUser) {
                     document.getElementById('myListsBtn').style.display = 'none';
-                } else {
-                    document.getElementById('myListsBtn').style.display = 'inline-block';
                 }
-                loadPageData();
+                loadLists();
             });
 
-            debouncedRender = LibraryUtils.search.createDebouncedSearch(() => {
-                renderPublicLists();
-            });
-
-            document.getElementById('authBtn').addEventListener('click', handleAuthButtonClick);
-            document.getElementById('listSearchInput').addEventListener('input', () => debouncedRender());
-            document.getElementById('allListsBtn').addEventListener('click', () => setListView('all'));
-            document.getElementById('myListsBtn').addEventListener('click', () => setListView('my'));
+            setupEventListeners();
         });
 
-        async function handleAuthButtonClick() {
-            if (currentUser) await auth.signOut();
-            else window.location.href = 'auth.html';
+        function setupEventListeners() {
+            document.getElementById('listSearchInput').addEventListener('input', renderLists);
+            document.getElementById('sortDropdown').addEventListener('change', renderLists);
+            document.getElementById('myListsBtn').addEventListener('click', () => setView('my'));
+            document.getElementById('allListsBtn').addEventListener('click', () => setView('all'));
         }
-        
-        function setListView(view) {
-            currentListView = view;
-            document.getElementById('allListsBtn').classList.toggle('active', view === 'all');
+
+        function setView(view) {
+            currentView = view;
             document.getElementById('myListsBtn').classList.toggle('active', view === 'my');
-            renderPublicLists();
+            document.getElementById('allListsBtn').classList.toggle('active', view === 'all');
+            renderLists();
         }
 
-        function loadPageData() {
-            loadRecentlyWatched();
-            loadRecentlyBought();
-            loadPublicLists();
-        }
-
-        async function loadRecentlyWatched() {
-            const container = document.getElementById('recentlyWatchedContainer');
+        async function loadLists() {
+            const grid = document.getElementById('listGrid');
+            grid.innerHTML = '<p>Loading lists...</p>';
             try {
-                // 識 SKELETON LOADING IMPLEMENTATION
-                SkeletonUI.showActivitySkeleton('recentlyWatchedContainer', 8);
-                
-                const snapshot = await db.collection('watchHistory').orderBy('watchedDate', 'desc').limit(10).get();
-                if (snapshot.empty) {
-                    container.innerHTML = "<p>No watched activity yet.</p>";
-                    return;
-                }
-                container.innerHTML = snapshot.docs.map(doc => {
-                    const item = doc.data();
-                    return `
-                        <div class="activity-item">
-                            <a href="library.html?id=${item.mediaId}">
-                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/EEE/333?text=Error'">
-                            </a>
-                            <p><a href="profile.html?id=${item.userId}">${item.userDisplayName}</a> watched</p>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error("Error loading recently watched:", error);
-                container.innerHTML = "<p>Could not load activity.</p>";
-            }
-        }
-        
-        async function loadRecentlyBought() {
-            const container = document.getElementById('recentlyBoughtContainer');
-            try {
-                // 識 SKELETON LOADING IMPLEMENTATION
-                SkeletonUI.showActivitySkeleton('recentlyBoughtContainer', 8);
-                
-                const snapshot = await db.collection('purchaseHistory').orderBy('timestamp', 'desc').limit(10).get();
-                if (snapshot.empty) {
-                    container.innerHTML = "<p>No new purchases yet.</p>";
-                    return;
-                }
-
-                const mediaIds = [...new Set(snapshot.docs.map(doc => doc.data().mediaId))];
-                const mediaData = {};
-                if (mediaIds.length > 0) {
-                    const mediaSnapshot = await db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', mediaIds).get();
-                    mediaSnapshot.forEach(doc => {
-                        mediaData[doc.id] = doc.data();
-                    });
-                }
-
-                container.innerHTML = snapshot.docs.map(doc => {
-                    const item = doc.data();
-                    const media = mediaData[item.mediaId];
-                    const titleWithYear = media ? `${media.title} (${media.year})` : item.mediaTitle;
-                    return `
-                        <div class="activity-item">
-                            <a href="library.html?id=${item.mediaId}">
-                                <img src="${item.posterUrl || 'https://placehold.co/200x300?text=No+Poster'}" alt="${item.mediaTitle}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/EEE/333?text=Error'">
-                            </a>
-                             <a href="library.html?id=${item.mediaId}" style="font-weight: normal;">${titleWithYear}</a>
-                            <p>by <a href="profile.html?id=${item.userId}">${item.userDisplayName}</a></p>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error("Error loading recently purchased:", error);
-                container.innerHTML = "<p>Could not load activity.</p>";
-            }
-        }
-
-        async function loadPublicLists() {
-            try {
-                // 識 SKELETON LOADING IMPLEMENTATION
-                SkeletonUI.showListsSkeleton('listsContainer', 6);
-                
-                // FIX: This query now correctly fetches only public lists from the database
-                const listsSnapshot = await db.collection('lists').where('isPublic', '==', true).orderBy('createdAt', 'desc').get();
-                
-                const allMediaSnapshot = await db.collection('movies').get();
-                const allMedia = {};
-                allMediaSnapshot.forEach(doc => {
-                    allMedia[doc.id] = doc.data();
-                });
-
-                allLists = listsSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    media: (doc.data().mediaIds || []).map(id => allMedia[id]).filter(Boolean)
-                }));
-                
-                renderPublicLists();
-
+                const snapshot = await db.collection('lists').get();
+                allLists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderLists();
             } catch (error) {
                 console.error("Error loading lists:", error);
-                document.getElementById('listsContainer').innerHTML = '<div class="empty-state"><h3>Could not load lists. Please check your Firestore indexes and try again.</h3></div>';
+                grid.innerHTML = '<p>Error loading lists. Please try again later.</p>';
             }
         }
-        
-        function renderPublicLists() {
-            const container = document.getElementById('listsContainer');
-            const searchTerm = LibraryUtils.validation.sanitizeInput(document.getElementById('listSearchInput').value).toLowerCase();
 
-            let listsToDisplay = allLists;
-            
-            if(currentListView === 'my') {
-                if(!currentUser) return;
-                listsToDisplay = allLists.filter(list => list.creatorId === currentUser.uid);
+        function renderLists() {
+            const grid = document.getElementById('listGrid');
+            const searchTerm = document.getElementById('listSearchInput').value.toLowerCase();
+            const sort = document.getElementById('sortDropdown').value;
+
+            let listsToDisplay = [...allLists];
+
+            if (currentView === 'my') {
+                if (currentUser) {
+                    listsToDisplay = listsToDisplay.filter(list => list.creatorId === currentUser.uid);
+                } else {
+                    listsToDisplay = [];
+                }
+            } else {
+                 listsToDisplay = listsToDisplay.filter(list => list.isPublic || (currentUser && list.creatorId === currentUser.uid));
             }
-            // No need for an else, since we now fetch only public lists by default
 
             if (searchTerm) {
-                listsToDisplay = listsToDisplay.filter(list => list.listName.toLowerCase().includes(searchTerm));
+                listsToDisplay = listsToDisplay.filter(list => 
+                    list.listName.toLowerCase().includes(searchTerm) ||
+                    (list.creatorDisplayName || '').toLowerCase().includes(searchTerm)
+                );
             }
 
+            listsToDisplay.sort((a, b) => {
+                switch (sort) {
+                    case 'nameAsc':
+                        return a.listName.localeCompare(b.listName);
+                    case 'nameDesc':
+                        return b.listName.localeCompare(a.listName);
+                    case 'createdAtAsc':
+                        return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+                    case 'createdAtDesc':
+                    default:
+                        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+                }
+            });
+
             if (listsToDisplay.length === 0) {
-                container.innerHTML = '<div class="empty-state"><h3>No lists found.</h3></div>';
+                grid.innerHTML = `<div class="empty-state" style="text-align:center; color: #aaa; padding: 40px; grid-column: 1 / -1;"><h3>No lists found.</h3><p>Try adjusting your search or create a new list!</p></div>`;
                 return;
             }
 
-            container.innerHTML = listsToDisplay.map(list => {
-                const firstItem = list.media[0];
-                const posterUrl = firstItem ? firstItem.posterUrl : 'https://placehold.co/300x450?text=Empty+List';
+            grid.innerHTML = listsToDisplay.map(list => {
+                const isOwner = currentUser && currentUser.uid === list.creatorId;
                 
-                let description = list.description || '';
-                const words = description.split(' ');
-                if (words.length > 10) {
-                    description = words.slice(0, 10).join(' ') + '...';
+                let actionsHTML = `
+                    <a href="view-list.html?id=${list.id}" class="btn-small btn-details" title="View Details"></a>
+                `;
+
+                if (isOwner) {
+                    actionsHTML += `
+                        <a href="edit-list.html?id=${list.id}" class="btn-small btn-edit" title="Edit List"></a>
+                        <button class="btn-small btn-delete" onclick="confirmDeleteList('${list.id}')" title="Delete List"></button>
+                    `;
                 }
 
-                const isOwner = currentUser && currentUser.uid === list.creatorId;
-                const actionsHTML = isOwner ? `
-                    <div class="list-actions">
-                        <a href="edit-list.html?id=${list.id}" class="btn-small btn-edit">Edit</a>
-                        <button class="btn-small btn-delete" onclick="deleteList('${list.id}')">Delete</button>
-                    </div>
-                ` : '';
-
                 return `
-                    <div class="list-card-grid">
-                        <img src="${posterUrl}" alt="${list.listName}" class="list-poster-single" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x180/EEE/333?text=Error'">
+                    <div class="list-card">
+                        <div class="list-poster">
+                           <!-- In a real app, you might fetch a poster image from the first item in the list -->
+                           ${list.listName.substring(0, 12)}
+                        </div>
                         <div class="list-info">
-                            <h3><a href="edit-list.html?id=${list.id}">${list.listName}</a></h3>
-                            <p class="list-meta">Created by <a href="profile.html?id=${list.creatorId}">${list.creatorDisplayName || 'Anonymous'}</a></p>
-                            <p>${description}</p>
-                            ${actionsHTML}
+                            <h3>${list.listName}</h3>
+                            <p>by <a href="profile.html?id=${list.creatorId}" title="View ${list.creatorDisplayName || 'Anonymous'}'s Profile">${list.creatorDisplayName || 'Anonymous'}</a></p>
+                            <div class="list-actions">
+                                ${actionsHTML}
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
         }
         
-        function showConfirmationModal(title, message, onConfirm) {
+        function confirmDeleteList(listId) {
             const modal = document.getElementById('confirmationModal');
-            document.getElementById('confirmationModalTitle').textContent = title;
-            document.getElementById('confirmationModalMessage').textContent = message;
-            modal.style.display = 'flex'; 
+            document.getElementById('confirmationModalTitle').textContent = 'Delete List';
+            document.getElementById('confirmationModalMessage').textContent = 'Are you sure you want to permanently delete this list? This action cannot be undone.';
+            modal.style.display = 'flex';
 
             const yesBtn = document.getElementById('confirmModalYes');
             const noBtn = document.getElementById('confirmModalNo');
 
-            yesBtn.onclick = () => { modal.style.display = 'none'; onConfirm(true); };
-            noBtn.onclick = () => { modal.style.display = 'none'; onConfirm(false); };
+            const yesHandler = () => {
+                modal.style.display = 'none';
+                deleteList(listId);
+                yesBtn.removeEventListener('click', yesHandler);
+            };
+
+            const noHandler = () => {
+                modal.style.display = 'none';
+                noBtn.removeEventListener('click', noHandler);
+            };
+
+            yesBtn.addEventListener('click', yesHandler, { once: true });
+            noBtn.addEventListener('click', noHandler, { once: true });
         }
 
-        function deleteList(listId) {
-            showConfirmationModal('Delete List', 'Are you sure you want to permanently delete this list?', async (confirmed) => {
-                if (confirmed) {
-                    try {
-                        await db.collection('lists').doc(listId).delete();
-                        loadPublicLists();
-                    } catch (error) {
-                        LibraryUtils.errors.handleError(error, "Deleting list");
-                    }
-                }
-            });
+        async function deleteList(listId) {
+            if (!currentUser) {
+                alert("You must be logged in to delete a list.");
+                return;
+            }
+            try {
+                await db.collection('lists').doc(listId).delete();
+                loadLists();
+            } catch (error) {
+                console.error("Error deleting list:", error);
+                alert('There was an error deleting the list.');
+            }
         }
     </script>
 </body>
