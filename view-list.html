@@ -20,12 +20,16 @@
 <body>
     <header id="navbar-placeholder"></header>
 
-    <div class="main-container">
+    <div class="main-container view-list-container">
         <div id="list-content">
             <!-- List details will be loaded here -->
             <div class="list-header">
                 <h1 id="listName">Loading List...</h1>
+            </div>
+            <!-- FIX: New container for creator info and edit button -->
+            <div class="list-meta-container">
                 <p id="creatorName"></p>
+                <a id="editListBtn" class="btn-icon btn-edit-list" style="display: none;" title="Edit List"></a>
             </div>
             <p id="listDescription"></p>
             <hr class="list-divider">
@@ -48,6 +52,7 @@
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        let currentUser = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -57,8 +62,12 @@
                 document.getElementById('list-content').innerHTML = '<h1>Error: No List ID provided.</h1>';
                 return;
             }
-
-            loadListData(listId);
+            
+            // Listen for auth state changes to get the current user
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                loadListData(listId);
+            });
         });
 
         async function loadListData(listId) {
@@ -74,6 +83,13 @@
                 document.getElementById('listName').textContent = listData.listName;
                 document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${listData.creatorId}">${listData.creatorDisplayName || 'Anonymous'}</a>`;
                 document.getElementById('listDescription').textContent = listData.description || '';
+
+                // FIX: Show edit button only if the current user is the owner
+                const editButton = document.getElementById('editListBtn');
+                if (currentUser && currentUser.uid === listData.creatorId) {
+                    editButton.style.display = 'inline-flex';
+                    editButton.href = `edit-list.html?id=${listId}`;
+                }
 
                 // 3. Fetch all media items in the list
                 const mediaIds = listData.mediaIds;

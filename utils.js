@@ -619,29 +619,30 @@ const SkeletonUtils = {
 };
 
 const SearchUtils = {
+    /**
+     * Creates a debounced function that delays invoking `searchFunction` until after `delay`
+     * milliseconds have elapsed since the last time the debounced function was invoked.
+     * The debounced function comes with a `cancel` method to cancel delayed `searchFunction`
+     * invocations.
+     * @param {Function} searchFunction The function to debounce.
+     * @param {number} delay The number of milliseconds to delay.
+     * @returns {{run: Function, cancel: Function}} An object with the debounced function and a cancel method.
+     */
     createDebouncedSearch: (searchFunction, delay = 300) => {
-        let timeout;
-        let isLoading = false;
-        
-        return function executedFunction(query, loadingElement) {
-            clearTimeout(timeout);
-            
-            if (loadingElement && !isLoading) {
-                loadingElement.style.display = 'block';
-                isLoading = true;
-            }
-            
-            timeout = setTimeout(async () => {
-                try {
-                    await searchFunction(query);
-                } finally {
-                    if (loadingElement) {
-                        loadingElement.style.display = 'none';
-                        isLoading = false;
-                    }
-                }
+        let timeoutId;
+
+        const run = (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                searchFunction(...args);
             }, delay);
         };
+
+        const cancel = () => {
+            clearTimeout(timeoutId);
+        };
+
+        return { run, cancel };
     }
 };
 

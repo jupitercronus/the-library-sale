@@ -16,6 +16,24 @@
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
+    <!-- Custom styles for clickable list items -->
+    <style>
+        .list-card-link {
+            text-decoration: none;
+            color: inherit;
+            display: block; /* Ensures the poster link behaves like a block */
+        }
+        .list-card-link .list-poster {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .list-card-link:hover .list-poster {
+            transform: scale(1.03);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .list-info h3 .list-card-link:hover {
+            color: #fdfb76;
+        }
+    </style>
 </head>
 <body>
     <header id="navbar-placeholder"></header>
@@ -245,13 +263,16 @@
                 
                 const posterHTML = generatePosterCollageHTML(list.posterUrls);
 
+                // FIX: Wrapped poster and title in <a> tags linking to the view page
                 return `
                     <div class="list-card">
-                        <div class="list-poster">
-                            ${posterHTML}
-                        </div>
+                        <a href="view-list.html?id=${list.id}" class="list-card-link" title="View ${list.listName}">
+                            <div class="list-poster">
+                                ${posterHTML}
+                            </div>
+                        </a>
                         <div class="list-info">
-                            <h3>${list.listName}</h3>
+                            <h3><a href="view-list.html?id=${list.id}" class="list-card-link" title="View ${list.listName}">${list.listName}</a></h3>
                             <p>by <a href="profile.html?id=${list.creatorId}" title="View ${list.creatorDisplayName || 'Anonymous'}'s Profile">${list.creatorDisplayName || 'Anonymous'}</a></p>
                             <div class="list-actions">
                                 ${actionsHTML}

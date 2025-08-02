@@ -435,7 +435,10 @@ h2, h3 {
 .btn-submit::before,
 .btn-icon::before,
 .modal-btn::before,
-.btn-back::before {
+.btn-back::before,
+.btn-save-list::before,
+.btn-remove-item::before,
+.btn-edit-list::before { /* Added btn-edit-list */
     content: '';
     display: inline-block;
     width: 1em; 
@@ -454,7 +457,8 @@ h2, h3 {
 .hamburger-btn::before { -webkit-mask-image: url(icons/hamburger.svg); mask-image: url(icons/hamburger.svg); }
 .add-media-btn::before, .btn-add::before { -webkit-mask-image: url(icons/add.svg); mask-image: url(icons/add.svg); }
 .btn-submit.btn-icon::before { -webkit-mask-image: url(icons/confirm.svg); mask-image: url(icons/confirm.svg); }
-.btn-edit::before { -webkit-mask-image: url(icons/edit.svg); mask-image: url(icons/edit.svg); width: 0.85em; height: 0.85em; }
+#mediaSearchBtn::before { -webkit-mask-image: url(icons/search.svg); mask-image: url(icons/search.svg); }
+.btn-edit::before, .btn-edit-list::before { -webkit-mask-image: url(icons/edit.svg); mask-image: url(icons/edit.svg); width: 0.85em; height: 0.85em; }
 .btn-delete::before { -webkit-mask-image: url(icons/trash.svg); mask-image: url(icons/trash.svg); }
 .owned-status.owned::before, .owned-status.not-owned::before { -webkit-mask-image: url(icons/dvds.svg); mask-image: url(icons/dvds.svg); }
 .watched::before { -webkit-mask-image: url(icons/watched.svg); mask-image: url(icons/watched.svg); }
@@ -463,6 +467,8 @@ h2, h3 {
 .modal-btn.confirm::before, .modal-btn.ok::before { -webkit-mask-image: url(icons/confirm.svg); mask-image: url(icons/confirm.svg); }
 .modal-btn.cancel::before { -webkit-mask-image: url(icons/close.svg); mask-image: url(icons/close.svg); }
 .btn-back::before { -webkit-mask-image: url(icons/back.svg); mask-image: url(icons/back.svg); }
+.btn-save-list::before { -webkit-mask-image: url(icons/confirm.svg); mask-image: url(icons/confirm.svg); }
+.btn-remove-item::before { -webkit-mask-image: url(icons/close.svg); mask-image: url(icons/close.svg); }
 
 
 /* === SKELETON LOADING STYLES === */
@@ -1074,6 +1080,12 @@ textarea { resize: vertical; }
 }
 
 /* === VIEW LIST PAGE STYLES === */
+.view-list-container {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .list-header {
     display: flex;
     justify-content: space-between;
@@ -1082,23 +1094,34 @@ textarea { resize: vertical; }
     gap: 10px;
 }
 
-.list-header h1 {
+.list-header h1,
+#editListForm .list-name-input {
     margin: 0;
+    flex-grow: 1;
 }
 
-.list-header p {
+/* FIX: New styles for the container holding creator name and edit button */
+.list-meta-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.list-meta-container p {
     margin: 0;
     font-size: 1.1em;
     color: #aaa;
 }
 
-.list-header p a {
+.list-meta-container p a {
     color: #90dcff;
     text-decoration: none;
     font-weight: bold;
 }
 
-.list-header p a:hover {
+.list-meta-container p a:hover {
     color: #fdfb76;
 }
 
@@ -1131,6 +1154,7 @@ textarea { resize: vertical; }
     text-decoration: none;
     color: #DEF0F7;
     transition: background-color 0.2s ease;
+    position: relative;
 }
 
 .list-media-item:hover {
@@ -1183,7 +1207,6 @@ textarea { resize: vertical; }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-top: 40px;
     transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
@@ -1191,4 +1214,170 @@ textarea { resize: vertical; }
     background: #fdfb76;
     color: #24143E;
     transform: scale(1.1);
+}
+
+/* === EDIT LIST PAGE STYLES === */
+#editListForm .list-name-input,
+#editListForm .list-description-textarea {
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 5px;
+    border-radius: 4px;
+    transition: border-color 0.3s, background-color 0.3s;
+}
+
+#editListForm .list-name-input:focus,
+#editListForm .list-description-textarea:focus {
+    border-color: #90dcff;
+    background-color: #2D194D;
+    outline: none;
+}
+
+#editListForm .list-name-input {
+    font-family: 'Syne Mono', cursive;
+    font-size: 2.5em;
+    color: #DEF0F7;
+}
+
+#editListForm .list-description-textarea {
+    font-family: 'M PLUS 2', sans-serif;
+    font-size: 1em;
+    color: #DEF0F7;
+    resize: vertical;
+    min-height: 50px;
+}
+
+.edit-list-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.edit-list-search .search-bar {
+    flex-grow: 1;
+}
+
+.search-result-item-add {
+    padding: 10px 15px;
+    background-color: #2D194D;
+    border-bottom: 1px solid #3a2a5c;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    justify-content: space-between;
+}
+.search-result-item-add:hover {
+    background-color: #3a2a5c;
+}
+.search-result-item-add.disabled {
+    cursor: not-allowed;
+    color: #aaa;
+}
+.search-result-item-add.disabled:hover {
+    background-color: #2D194D;
+}
+
+.list-media-item.draggable .drag-handle {
+    width: 20px;
+    height: 30px;
+    cursor: grab;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>');
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+.list-media-item.draggable:hover .drag-handle {
+    opacity: 1;
+}
+
+.btn-remove-item {
+    background: transparent;
+    border: none;
+    color: #e10086;
+    cursor: pointer;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    font-size: 25px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: background-color 0.3s, color 0.3s;
+}
+.btn-remove-item:hover {
+    background-color: #e10086;
+    color: #DEF0F7;
+}
+
+.edit-list-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 40px;
+    gap: 20px;
+}
+
+.btn-save-list {
+    background: #00db96;
+    color: #24143E;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.btn-save-list:hover {
+    background: #fdfb76;
+    transform: scale(1.1);
+}
+.btn-save-list.saving {
+    pointer-events: none;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* === CREATE LIST PAGE STYLES === */
+.privacy-control {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.privacy-toggle-group {
+    display: flex;
+    border: 1px solid #3a2a5c;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.privacy-btn {
+    font-family: 'B612 Mono', monospace;
+    padding: 10px 20px;
+    border: none;
+    background-color: transparent;
+    color: #DEF0F7;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.privacy-btn.active {
+    background-color: #90dcff;
+    color: #24143E;
 }

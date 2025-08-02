@@ -7,58 +7,49 @@
     <!-- Google Fonts Import -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">    <!-- Firebase SDKs -->
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
-    <!-- SortableJS Library -->
+    <!-- SortableJS Library for Drag & Drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <!-- App Scripts -->
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
 </head>
 <body>
-    <div>
-        <header id="navbar-placeholder"></header>
-        <!-- The rest of your page content -->
-    </div>
+    <header id="navbar-placeholder"></header>
 
-    <div class="main-container">
-        <form id="listDetailsForm">
-            <div class="form-group">
-                <input type="text" id="listName" placeholder="List Name" required>
-            </div>
-            <div class="form-group">
-                <textarea id="listDescription" placeholder="List description..."></textarea>
-            </div>
-        </form>
+    <div class="main-container view-list-container">
+        <div id="list-content">
+            <form id="editListForm">
+                <!-- FIX: Title field now shares space with creator name -->
+                <div class="list-header">
+                    <input type="text" id="listName" class="list-name-input" placeholder="List Name" required>
+                    <p id="creatorName"></p>
+                </div>
+                <textarea id="listDescription" class="list-description-textarea" placeholder="Add a description..."></textarea>
+            </form>
 
-        <div id="addMediaSection" class="add-media-section" style="display: none;">
-            <h3>Add Media to Your List</h3>
-            <div class="search-bar">
-                <input type="text" id="mediaSearchInput" placeholder="Search for media to add...">
+            <!-- FIX: Simplified search bar structure -->
+            <div class="edit-list-search">
+                <input type="text" id="mediaSearchInput" placeholder="Search media to add to list..." autocomplete="off">
+                <button id="mediaSearchBtn" class="btn-icon" title="Search"></button>
+                <!-- Search results will be positioned absolutely relative to this container -->
+                <div id="searchResultsContainer"></div>
             </div>
-            <div id="searchResults" class="search-results"></div>
-        </div>
 
-        <div id="listItemsContainer">
-            <div id="listItemsGrid" class="list-items-grid"></div>
-        </div>
-        
-        <div class="save-button-container" id="saveButtonContainer" style="display: none;">
-             <button type="submit" form="listDetailsForm" class="btn-save">Save Changes</button>
-             <button type="button" class="btn-delete-list" onclick="deleteList()">Delete List</button>
-        </div>
-    </div>
-    
-    <div id="confirmationModal" class="modal">
-        <div class="modal-content">
-            <h3 id="confirmationModalTitle">Confirm Action</h3>
-            <p id="confirmationModalMessage">Are you sure?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn confirm" id="confirmModalYes">Yes</button>
-                <button class="modal-btn cancel" id="confirmModalNo">No</button>
+            <hr class="list-divider">
+
+            <div id="media-list-container">
+                <!-- Media items will be rendered here -->
             </div>
+        </div>
+        <div class="edit-list-actions">
+            <button type="submit" form="editListForm" class="btn-save-list" title="Save Changes"></button>
+            <button onclick="history.back()" class="btn-back" title="Go Back"></button>
         </div>
     </div>
 
@@ -72,209 +63,209 @@
           appId: "1:250872474692:web:969e0b1302ae3cb4666011"
         };
         const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(); 
+        const db = firebase.firestore();
         const auth = firebase.auth();
 
-        let currentUser = null;
         let listId = null;
         let listData = null;
-        let allMedia = {};
         let sortable = null;
+        let currentUser = null;
 
-
-        const SkeletonUI = {
-         showMediaGridSkeleton: (containerId, count = 6) => { /* ... */ },
-         showSearchSkeleton: (containerId, count = 3) => { /* ... */ },
-         showListsSkeleton: (containerId, count = 4) => { /* ... */ },
-         showActivitySkeleton: (containerId, count = 5) => { /* ... */ },
-         showProfileSkeleton: (containerId) => { /* ... */ },
-         showLoadingSpinner: (containerId, message = 'Loading...') => { /* ... */ },
-         clearSkeleton: (containerId) => { /* ... */ }
-        };
-        
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             listId = urlParams.get('id');
+
             if (!listId) {
-                document.body.innerHTML = "<h1>Error: No List ID provided.</h1>";
+                document.getElementById('list-content').innerHTML = '<h1>Error: No List ID provided.</h1>';
                 return;
             }
 
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
-                loadInitialData();
+                loadListData(listId);
             });
-            document.getElementById('authBtn').addEventListener('click', () => {
-                if (currentUser) auth.signOut();
-                else window.location.href = 'auth.html';
+
+            document.getElementById('editListForm').addEventListener('submit', saveListChanges);
+            
+            // FIX: Correctly implemented search logic
+            const searchInput = document.getElementById('mediaSearchInput');
+            const searchButton = document.getElementById('mediaSearchBtn');
+            const resultsContainer = document.getElementById('searchResultsContainer');
+
+            const performSearch = async (query) => {
+                if (!query || query.length < 2) {
+                    resultsContainer.innerHTML = '';
+                    resultsContainer.style.display = 'none';
+                    return;
+                }
+                
+                const moviesRef = db.collection('movies');
+                const snapshot = await moviesRef.where('title_lowercase', '>=', query.toLowerCase()).where('title_lowercase', '<=', query.toLowerCase() + '\\uf8ff').limit(5).get();
+                
+                resultsContainer.style.display = 'block';
+                if (snapshot.empty) {
+                    resultsContainer.innerHTML = '<div class="search-result-item-add">No results found.</div>';
+                    return;
+                }
+
+                resultsContainer.innerHTML = snapshot.docs.map(doc => {
+                    const media = { id: doc.id, ...doc.data() };
+                    const isAlreadyInList = listData.mediaIds.includes(media.id);
+                    // Disable clicks on items already in the list
+                    const clickAction = isAlreadyInList ? '' : `onclick="addMediaItem('${media.id}')"`;
+                    return `
+                        <div class="search-result-item-add ${isAlreadyInList ? 'disabled' : ''}" ${clickAction}>
+                            <span>${media.title} (${media.year || 'N/A'})</span>
+                            ${isAlreadyInList ? '<span>Added</span>' : ''}
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const debouncer = LibraryUtils.search.createDebouncedSearch(performSearch, 300);
+
+            searchInput.addEventListener('input', () => debouncer.run(searchInput.value.trim()));
+            searchInput.addEventListener('focus', () => performSearch(searchInput.value.trim()));
+
+            searchButton.addEventListener('click', () => {
+                debouncer.cancel();
+                performSearch(searchInput.value.trim());
             });
-            document.getElementById('mediaSearchInput').addEventListener('input', handleMediaSearch);
-            document.getElementById('listDetailsForm').addEventListener('submit', saveListDetails);
+
+            // Hide results when clicking away
+            document.addEventListener('click', (e) => {
+                if (!document.querySelector('.edit-list-search').contains(e.target)) {
+                    resultsContainer.style.display = 'none';
+                }
+            });
         });
 
-        async function loadInitialData() {
+        async function loadListData(listId) {
             try {
                 const listDoc = await db.collection('lists').doc(listId).get();
                 if (!listDoc.exists) throw new Error("List not found.");
+                
                 listData = listDoc.data();
 
-                const canEdit = currentUser && currentUser.uid === listData.creatorId;
+                if (!currentUser || currentUser.uid !== listData.creatorId) {
+                    window.location.href = `view-list.html?id=${listId}`;
+                    return;
+                }
 
                 document.getElementById('listName').value = listData.listName;
+                document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${listData.creatorId}">${listData.creatorDisplayName || 'Anonymous'}</a>`;
                 document.getElementById('listDescription').value = listData.description || '';
-                
-                document.getElementById('listName').disabled = !canEdit;
-                document.getElementById('listDescription').disabled = !canEdit;
-                document.getElementById('saveButtonContainer').style.display = canEdit ? 'flex' : 'none';
-                document.getElementById('addMediaSection').style.display = canEdit ? 'block' : 'none';
 
-                const mediaSnapshot = await db.collection('movies').get();
-                mediaSnapshot.forEach(doc => {
-                    allMedia[doc.id] = { id: doc.id, ...doc.data() };
-                });
+                await renderMediaItems(listData.mediaIds);
+                initializeSortable();
 
-                renderListItems();
-                initializeRanking(); // Initialize sortable state
             } catch (error) {
-                LibraryUtils.errors.handleError(error, "Loading List", "listDetailsForm");
-            }
-        }
-        
-        async function saveListDetails(e) {
-            e.preventDefault();
-            const newName = LibraryUtils.validation.sanitizeInput(document.getElementById('listName').value, 100);
-            const newDescription = LibraryUtils.validation.sanitizeInput(document.getElementById('listDescription').value, 500);
-
-            if (!newName) {
-                LibraryUtils.errors.showErrorModal("Input Error", "List name cannot be empty.");
-                return;
-            }
-            try {
-                await db.collection('lists').doc(listId).update({
-                    listName: newName,
-                    description: newDescription,
-                    mediaIds: listData.mediaIds // Save the potentially reordered list
-                });
-                LibraryUtils.errors.showErrorModal("Success", "List details saved!", () => {
-                    window.location.href = 'lists.html'; // Redirect after save
-                });
-            } catch (error) {
-                LibraryUtils.errors.handleError(error, "Saving list details");
+                console.error("Error loading list data:", error);
+                document.getElementById('list-content').innerHTML = `<h1>Error: ${error.message}</h1>`;
             }
         }
 
-        function renderListItems() {
-            const grid = document.getElementById('listItemsGrid');
-            if (!listData.mediaIds || listData.mediaIds.length === 0) {
-                grid.innerHTML = "<p>This list is empty. Add some media using the search bar above!</p>";
+        async function renderMediaItems(mediaIds) {
+            const container = document.getElementById('media-list-container');
+            if (!mediaIds || mediaIds.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #aaa;">This list is empty. Search for media to add.</p>';
                 return;
             }
-            grid.innerHTML = listData.mediaIds.map((mediaId, index) => {
-                const media = allMedia[mediaId];
+
+            const mediaDataMap = new Map();
+            if (mediaIds.length > 0) {
+                const moviePromises = [];
+                // Firestore 'in' queries are limited to 10 items per query
+                for (let i = 0; i < mediaIds.length; i += 10) {
+                    const chunk = mediaIds.slice(i, i + 10);
+                    moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
+                }
+
+                const movieSnapshots = await Promise.all(moviePromises);
+                movieSnapshots.forEach(snapshot => {
+                    snapshot.forEach(doc => mediaDataMap.set(doc.id, doc.data()));
+                });
+            }
+
+            container.innerHTML = mediaIds.map((id, index) => {
+                const media = mediaDataMap.get(id);
                 if (!media) return '';
-                const canEdit = currentUser && currentUser.uid === listData.creatorId;
-                const rankNumber = `<div class="rank-number">${index + 1}</div>`;
+                
                 return `
-                    <div class="list-item" data-id="${media.id}">
-                        ${rankNumber}
-                        <a href="library.html?id=${media.id}">
-                            <img src="${media.posterUrl || ''}" alt="${media.title}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/200x300/EEE/333?text=Error'">
-                        </a>
-                        ${canEdit ? `<button class="btn-remove" onclick="removeMedia('${media.id}')">X</button>` : ''}
+                    <div class="list-media-item draggable" data-id="${id}">
+                        <span class="drag-handle"></span>
+                        <span class="list-item-number">${index + 1}.</span>
+                        <img src="${media.posterUrl || 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A'}" class="list-item-poster" alt="Poster for ${media.title}">
+                        <div class="list-item-info">
+                            <span class="list-item-title">${media.title}</span>
+                            <span class="list-item-year">(${media.year || 'N/A'})</span>
+                        </div>
+                        <button class="btn-remove-item" onclick="removeMediaItem('${id}')" title="Remove from list"></button>
                     </div>
                 `;
             }).join('');
         }
-        
-        function initializeRanking() {
-            const grid = document.getElementById('listItemsGrid');
-            const canEdit = currentUser && currentUser.uid === listData.creatorId;
+
+        function initializeSortable() {
+            const container = document.getElementById('media-list-container');
+            if (sortable) sortable.destroy();
             
-            if (sortable) sortable.destroy(); // Always destroy existing instance to be safe
-            
-            if (canEdit) {
-                sortable = new Sortable(grid, {
-                    animation: 150,
-                    onEnd: function (evt) {
-                        const newOrder = Array.from(evt.to.children).map(item => item.dataset.id);
-                        listData.mediaIds = newOrder; // Update local array
-                        renderListItems(); // Re-render to show new numbers
-                    },
-                });
-            }
-        }
-
-        function handleMediaSearch(e) {
-            const query = LibraryUtils.validation.sanitizeInput(e.target.value).toLowerCase();
-            const resultsContainer = document.getElementById('searchResults');
-            if (query.length < 3) {
-                resultsContainer.innerHTML = '';
-                return;
-            }
-            const results = Object.values(allMedia).filter(m => m.title.toLowerCase().includes(query));
-            resultsContainer.innerHTML = results.slice(0, 5).map(media => `
-                <div class="search-result-item" onclick="addMedia('${media.id}')">
-                    ${media.title} (${media.year})
-                </div>
-            `).join('');
-        }
-
-        async function addMedia(mediaId) {
-            if (listData.mediaIds.includes(mediaId)) {
-                LibraryUtils.errors.showErrorModal("Duplicate", "This item is already in the list.");
-                return;
-            }
-            try {
-                await db.collection('lists').doc(listId).update({
-                    mediaIds: firebase.firestore.FieldValue.arrayUnion(mediaId)
-                });
-                listData.mediaIds.push(mediaId);
-                renderListItems();
-                document.getElementById('mediaSearchInput').value = '';
-                document.getElementById('searchResults').innerHTML = '';
-            } catch (error) {
-                LibraryUtils.errors.handleError(error, "Adding media to list");
-            }
-        }
-        
-        async function removeMedia(mediaId) {
-             try {
-                await db.collection('lists').doc(listId).update({
-                    mediaIds: firebase.firestore.FieldValue.arrayRemove(mediaId)
-                });
-                listData.mediaIds = listData.mediaIds.filter(id => id !== mediaId);
-                renderListItems();
-            } catch (error) {
-                LibraryUtils.errors.handleError(error, "Removing media from list");
-            }
-        }
-        
-        function showConfirmationModal(title, message, onConfirm) {
-            const modal = document.getElementById('confirmationModal');
-            document.getElementById('confirmationModalTitle').textContent = title;
-            document.getElementById('confirmationModalMessage').textContent = message;
-            modal.style.display = 'flex'; 
-
-            const yesBtn = document.getElementById('confirmModalYes');
-            const noBtn = document.getElementById('confirmModalNo');
-
-            yesBtn.onclick = () => { modal.style.display = 'none'; onConfirm(true); };
-            noBtn.onclick = () => { modal.style.display = 'none'; onConfirm(false); };
-        }
-
-        function deleteList() {
-            showConfirmationModal('Delete List', 'Are you sure you want to permanently delete this list?', async (confirmed) => {
-                if (confirmed) {
-                    try {
-                        await db.collection('lists').doc(listId).delete();
-                        window.location.href = 'lists.html';
-                    } catch (error) {
-                        LibraryUtils.errors.handleError(error, "Deleting list");
-                    }
+            sortable = new Sortable(container, {
+                animation: 150,
+                handle: '.drag-handle',
+                onEnd: (evt) => {
+                    const items = container.querySelectorAll('.list-media-item');
+                    const newMediaIds = Array.from(items).map(item => item.dataset.id);
+                    listData.mediaIds = newMediaIds;
+                    // Re-render to update numbers and maintain consistency
+                    renderMediaItems(listData.mediaIds); 
                 }
             });
         }
+
+        async function saveListChanges(e) {
+            e.preventDefault();
+            const saveButton = document.querySelector('.btn-save-list');
+            saveButton.classList.add('saving');
+
+            const newName = document.getElementById('listName').value.trim();
+            const newDescription = document.getElementById('listDescription').value.trim();
+
+            try {
+                await db.collection('lists').doc(listId).update({
+                    listName: newName,
+                    description: newDescription,
+                    mediaIds: listData.mediaIds
+                });
+                
+                setTimeout(() => {
+                    saveButton.classList.remove('saving');
+                    window.location.href = `view-list.html?id=${listId}`;
+                }, 1000);
+
+            } catch (error) {
+                console.error("Error saving list:", error);
+                alert("Could not save changes. Please try again.");
+                saveButton.classList.remove('saving');
+            }
+        }
+        
+        async function addMediaItem(mediaId) {
+            if (listData.mediaIds.includes(mediaId)) return;
+
+            listData.mediaIds.push(mediaId);
+            await renderMediaItems(listData.mediaIds);
+            
+            // Clear search and hide results
+            document.getElementById('mediaSearchInput').value = '';
+            document.getElementById('searchResultsContainer').style.display = 'none';
+        }
+
+        function removeMediaItem(mediaId) {
+            listData.mediaIds = listData.mediaIds.filter(id => id !== mediaId);
+            renderMediaItems(listData.mediaIds);
+        }
+
     </script>
 </body>
 </html>

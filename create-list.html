@@ -7,40 +7,44 @@
     <!-- Google Fonts Import -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">    <!-- Firebase SDKs -->
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    <!-- App Scripts -->
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
 </head>
 <body>
-    <div>
-        <header id="navbar-placeholder"></header>
-        <!-- The rest of your page content -->
-    </div>
+    <header id="navbar-placeholder"></header>
 
-    <div class="main-container">
-        <h1>New List</h1>
+    <div class="main-container view-list-container">
         <form id="createListForm">
-            <div class="form-group">
-                <label for="listName">Name *</label>
-                <input type="text" id="listName" required>
+            <!-- FIX: This layout is now controlled by new CSS rules in style.css -->
+            <div class="list-header">
+                <input type="text" id="listName" class="list-name-input" placeholder="My Awesome List" required>
+                <p id="creatorName"></p>
             </div>
-            <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description"></textarea>
+            <textarea id="listDescription" class="list-description-textarea" placeholder="A description for my awesome list..."></textarea>
+            
+            <div class="privacy-control">
+                <label>List Visibility:</label>
+                <div class="privacy-toggle-group">
+                    <button type="button" id="publicBtn" class="privacy-btn active" data-value="true">Public</button>
+                    <button type="button" id="privateBtn" class="privacy-btn" data-value="false">Private</button>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="isPublic">Who can view?</label>
-                <select id="isPublic">
-                    <option value="true" selected>Anyone - Public list</option>
-                    <option value="false">Only you - Private list</option>
-                </select>
-            </div>
-            <button type="submit" class="btn-save">Save & Add Media</button>
         </form>
+
+        <hr class="list-divider">
+        <p style="text-align: center; color: #aaa;">You can add media after creating the list.</p>
+
+        <div class="edit-list-actions">
+            <button type="submit" form="createListForm" class="btn-save-list" title="Create List"></button>
+            <button onclick="history.back()" class="btn-back" title="Go Back"></button>
+        </div>
     </div>
 
     <script>
@@ -57,73 +61,75 @@
         const auth = firebase.auth();
 
         let currentUser = null;
-        let mediaIdToAdd = null;
-        
-        const SkeletonUI = {
-         showMediaGridSkeleton: (containerId, count = 6) => { /* ... */ },
-         showSearchSkeleton: (containerId, count = 3) => { /* ... */ },
-         showListsSkeleton: (containerId, count = 4) => { /* ... */ },
-         showActivitySkeleton: (containerId, count = 5) => { /* ... */ },
-         showProfileSkeleton: (containerId) => { /* ... */ },
-         showLoadingSpinner: (containerId, message = 'Loading...') => { /* ... */ },
-         clearSkeleton: (containerId) => { /* ... */ }
-        };
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            mediaIdToAdd = urlParams.get('mediaId'); // Check for a media ID to auto-add
+        let isPublic = true;
 
+        document.addEventListener('DOMContentLoaded', () => {
             auth.onAuthStateChanged(user => {
-                const authBtn = document.getElementById('authBtn');
                 if (user) {
                     currentUser = user;
-                    authBtn.textContent = 'Logout';
+                    document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${currentUser.uid}">${currentUser.displayName || 'Anonymous'}</a>`;
                 } else {
-                    authBtn.textContent = 'Login';
-                    window.location.href = 'auth.html';
+                    window.location.href = 'auth.html'; // Redirect if not logged in
                 }
             });
-            document.getElementById('authBtn').addEventListener('click', () => {
-                if (currentUser) auth.signOut();
-                else window.location.href = 'auth.html';
-            });
+
             document.getElementById('createListForm').addEventListener('submit', handleCreateList);
+            
+            // Privacy toggle logic
+            const publicBtn = document.getElementById('publicBtn');
+            const privateBtn = document.getElementById('privateBtn');
+            
+            publicBtn.addEventListener('click', () => {
+                isPublic = true;
+                publicBtn.classList.add('active');
+                privateBtn.classList.remove('active');
+            });
+
+            privateBtn.addEventListener('click', () => {
+                isPublic = false;
+                privateBtn.classList.add('active');
+                publicBtn.classList.remove('active');
+            });
         });
         
         async function handleCreateList(e) {
             e.preventDefault();
             if (!currentUser) {
-                LibraryUtils.errors.showErrorModal("Authentication Error", "You must be logged in to create a list.");
+                alert("You must be logged in to create a list.");
                 return;
             }
 
-            // ✅ VALIDATION: Sanitize and validate inputs
-            const listName = LibraryUtils.validation.sanitizeInput(document.getElementById('listName').value, 100);
-            const description = LibraryUtils.validation.sanitizeInput(document.getElementById('description').value, 500);
+            const listName = document.getElementById('listName').value.trim();
+            const description = document.getElementById('listDescription').value.trim();
 
             if (!listName) {
-                LibraryUtils.errors.showErrorModal("Input Error", "List name is required.");
+                alert("List name is required.");
                 return;
             }
 
-            try {
-                const initialMediaIds = mediaIdToAdd ? [mediaIdToAdd] : [];
+            const saveButton = document.querySelector('.btn-save-list');
+            saveButton.classList.add('saving');
 
+            try {
                 const newList = {
                     listName: listName,
                     description: description,
-                    isPublic: document.getElementById('isPublic').value === 'true',
+                    isPublic: isPublic,
                     creatorId: currentUser.uid,
                     creatorDisplayName: currentUser.displayName || currentUser.email,
-                    mediaIds: initialMediaIds,
+                    mediaIds: [], // Start with an empty list
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
                 const docRef = await db.collection('lists').add(newList);
+                
+                // Redirect to the edit page for the newly created list
                 window.location.href = `edit-list.html?id=${docRef.id}`;
 
             } catch (error) {
-                LibraryUtils.errors.handleError(error, "Creating list");
+                console.error("Error creating list:", error);
+                alert("There was an error creating the list. Please try again.");
+                saveButton.classList.remove('saving');
             }
         }
     </script>
