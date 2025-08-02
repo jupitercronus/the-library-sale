@@ -101,14 +101,99 @@
             const grid = document.getElementById('listGrid');
             grid.innerHTML = '<p>Loading lists...</p>';
             try {
-                const snapshot = await db.collection('lists').get();
-                allLists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Step 1: Fetch the lists themselves
+                const listsRef = db.collection('lists');
+                const publicListsQuery = listsRef.where('isPublic', '==', true);
+                const queryPromises = [publicListsQuery.get()];
+
+                if (currentUser) {
+                    const myListsQuery = listsRef.where('creatorId', '==', currentUser.uid).where('isPublic', '==', false);
+                    queryPromises.push(myListsQuery.get());
+                }
+
+                const listSnapshots = await Promise.all(queryPromises);
+                const listDocs = listSnapshots.flatMap(snap => snap.docs);
+
+                // Step 2: Gather all unique movie IDs from the lists
+                const allMovieIds = new Set();
+                listDocs.forEach(doc => {
+                    const mediaIds = doc.data().mediaIds;
+                    if (mediaIds && mediaIds.length > 0) {
+                        mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
+                    }
+                });
+
+                // Step 3: Fetch all required movie documents in batches
+                const movieDataMap = new Map();
+                if (allMovieIds.size > 0) {
+                    const movieIdsArray = Array.from(allMovieIds);
+                    const moviePromises = [];
+                    // Use chunks of 10 for 'in' query to be safe
+                    for (let i = 0; i < movieIdsArray.length; i += 10) {
+                        const chunk = movieIdsArray.slice(i, i + 10);
+                        moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
+                    }
+                    const movieSnapshots = await Promise.all(moviePromises);
+                    movieSnapshots.forEach(snapshot => {
+                        snapshot.forEach(doc => {
+                            movieDataMap.set(doc.id, doc.data());
+                        });
+                    });
+                }
+
+                // Step 4: Combine list data with poster data
+                const combinedLists = {};
+                listDocs.forEach(doc => {
+                    const list = { id: doc.id, ...doc.data() };
+                    list.posterUrls = [];
+                    if (list.mediaIds && list.mediaIds.length > 0) {
+                        list.posterUrls = list.mediaIds
+                            .slice(0, 3)
+                            .map(id => movieDataMap.get(id)?.posterUrl)
+                            .filter(Boolean); // Filter out any undefined URLs
+                    }
+                    combinedLists[doc.id] = list;
+                });
+
+                allLists = Object.values(combinedLists);
                 renderLists();
+
             } catch (error) {
                 console.error("Error loading lists:", error);
-                grid.innerHTML = '<p>Error loading lists. Please try again later.</p>';
+                grid.innerHTML = '<p>Error loading lists. Please check your Firestore security rules and indexes.</p>';
             }
         }
+        
+        function generatePosterCollageHTML(urls) {
+            if (!urls || urls.length === 0) {
+                return '<div class="no-poster-text">No Posters</div>';
+            }
+
+            // Fallback: Single poster
+            if (urls.length < 2) {
+                return `<img src="${urls[0]}" alt="List poster" class="single-poster-img" onerror="this.style.display='none'; this.parentElement.innerHTML = '<div class=\\'no-poster-text\\'>No Poster</div>';">`;
+            }
+
+            // Layout B: One large, two (or one) small
+            const mainImage = urls[0];
+            const sideImage1 = urls[1];
+            const sideImage2 = urls[2]; // This might be undefined
+
+            let sideImagesHTML = `<img src="${sideImage1}" alt="List poster collage" onerror="this.style.display='none';">`;
+            if (sideImage2) {
+                sideImagesHTML += `<img src="${sideImage2}" alt="List poster collage" onerror="this.style.display='none';">`;
+            }
+
+            return `
+                <div class="list-poster-collage">
+                    <div class="collage-main">
+                        <img src="${mainImage}" alt="Main list poster" onerror="this.style.display='none';">
+                    </div>
+                    ${sideImagesHTML}
+                </div>
+            `;
+        }
+
 
         function renderLists() {
             const grid = document.getElementById('listGrid');
@@ -123,10 +208,8 @@
                 } else {
                     listsToDisplay = [];
                 }
-            } else {
-                 listsToDisplay = listsToDisplay.filter(list => list.isPublic || (currentUser && list.creatorId === currentUser.uid));
             }
-
+            
             if (searchTerm) {
                 listsToDisplay = listsToDisplay.filter(list => 
                     list.listName.toLowerCase().includes(searchTerm) ||
@@ -136,15 +219,10 @@
 
             listsToDisplay.sort((a, b) => {
                 switch (sort) {
-                    case 'nameAsc':
-                        return a.listName.localeCompare(b.listName);
-                    case 'nameDesc':
-                        return b.listName.localeCompare(a.listName);
-                    case 'createdAtAsc':
-                        return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
-                    case 'createdAtDesc':
-                    default:
-                        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+                    case 'nameAsc': return a.listName.localeCompare(b.listName);
+                    case 'nameDesc': return b.listName.localeCompare(a.listName);
+                    case 'createdAtAsc': return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+                    case 'createdAtDesc': default: return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
                 }
             });
 
@@ -156,9 +234,7 @@
             grid.innerHTML = listsToDisplay.map(list => {
                 const isOwner = currentUser && currentUser.uid === list.creatorId;
                 
-                let actionsHTML = `
-                    <a href="view-list.html?id=${list.id}" class="btn-small btn-details" title="View Details"></a>
-                `;
+                let actionsHTML = `<a href="view-list.html?id=${list.id}" class="btn-small btn-details" title="View Details"></a>`;
 
                 if (isOwner) {
                     actionsHTML += `
@@ -166,12 +242,13 @@
                         <button class="btn-small btn-delete" onclick="confirmDeleteList('${list.id}')" title="Delete List"></button>
                     `;
                 }
+                
+                const posterHTML = generatePosterCollageHTML(list.posterUrls);
 
                 return `
                     <div class="list-card">
                         <div class="list-poster">
-                           <!-- In a real app, you might fetch a poster image from the first item in the list -->
-                           ${list.listName.substring(0, 12)}
+                            ${posterHTML}
                         </div>
                         <div class="list-info">
                             <h3>${list.listName}</h3>
@@ -197,12 +274,9 @@
             const yesHandler = () => {
                 modal.style.display = 'none';
                 deleteList(listId);
-                yesBtn.removeEventListener('click', yesHandler);
             };
-
             const noHandler = () => {
                 modal.style.display = 'none';
-                noBtn.removeEventListener('click', noHandler);
             };
 
             yesBtn.addEventListener('click', yesHandler, { once: true });
@@ -210,10 +284,7 @@
         }
 
         async function deleteList(listId) {
-            if (!currentUser) {
-                alert("You must be logged in to delete a list.");
-                return;
-            }
+            if (!currentUser) return;
             try {
                 await db.collection('lists').doc(listId).delete();
                 loadLists();
