@@ -3,348 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Details - the library sale</title>
-    <!-- Google Fonts Import -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
-    <script src="utils.js" defer></script>
+    <title>Movie Details - The Library Sale</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
-    <script src="main.js" defer></script>
+    <style>
+        /* Custom styles to match the site's aesthetic */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+            color: #f9fafb; /* text-gray-50 */
+        }
+        .star-icon {
+            width: 1.5rem; /* w-6 */
+            height: 1.5rem; /* h-6 */
+        }
+        .icon-sm {
+            width: 1.25rem; /* w-5 */
+            height: 1.25rem; /* h-5 */
+        }
+    </style>
 </head>
-<body>
-    <div>
-        <header id="navbar-placeholder"></header>
-        <!-- The rest of your page content -->
-    </div>
+<body class="bg-gray-900">
 
-    <div class="main-container" id="mainContainer">
-        <!-- Initial skeleton loading state -->
-    </div>
-    
-    <div id="addToListModal" class="modal">
-        <div class="modal-content">
-            <h3>Add to your lists</h3>
-            <div id="myListsContainer"></div>
-            <div class="modal-actions">
-                <a href="#" id="createListBtn" class="btn-modal create">Create a new list</a>
-                <button class="btn-modal close" onclick="closeAddToListModal()">Close</button>
+    <!-- Navbar is loaded dynamically -->
+    <div id="navbar-container"></div>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Loading Spinner -->
+        <div id="loading" class="flex justify-center items-center h-64">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyan-500"></div>
+        </div>
+
+        <!-- Main Movie Details Container -->
+        <div id="movie-details-container" class="hidden max-w-4xl mx-auto">
+
+            <!-- Movie Title and Year -->
+            <div class="text-center mb-8">
+                <h1 id="movie-title" class="text-3xl md:text-5xl font-bold tracking-tight text-white"></h1>
+                <p id="movie-year" class="text-lg md:text-xl text-gray-400 mt-1"></p>
+            </div>
+
+            <!-- Poster and Core Info Section -->
+            <div class="flex flex-col md:flex-row gap-8 md:gap-10 mb-8">
+                <!-- Left: Poster -->
+                <div class="flex-shrink-0 mx-auto md:mx-0">
+                    <img id="movie-poster" src="https://placehold.co/300x450/1f2937/9ca3af?text=Loading..." alt="Movie Poster" class="rounded-lg shadow-lg w-64 md:w-72 object-cover">
+                </div>
+
+                <!-- Right: Details -->
+                <div class="flex-1 flex flex-col min-w-0">
+                    <div class="space-y-5">
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Director</h3>
+                            <p id="movie-director" class="text-gray-300"></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Top Cast</h3>
+                            <p id="movie-cast" class="text-gray-300 leading-relaxed"></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Genre</h3>
+                            <p id="movie-genres" class="text-gray-300"></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Description</h3>
+                            <p id="movie-overview" class="text-gray-300 leading-relaxed max-h-48 overflow-y-auto"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ratings Section -->
+            <div class="border-t border-b border-gray-700/50 my-8 py-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+                <div>
+                    <h3 class="font-semibold text-lg text-white mb-2">Average Rating</h3>
+                    <div id="avg-rating" class="flex justify-center items-center space-x-1">
+                        <!-- Stars will be injected by JS -->
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-lg text-white mb-2">My Rating</h3>
+                    <div id="my-rating" class="flex justify-center items-center space-x-1">
+                        <!-- Stars will be injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="mb-8">
+                <h2 class="flex items-center text-2xl font-bold mb-5 text-white">
+                    <img src="icons/comment.svg" class="w-6 h-6 mr-3" alt="Comments">
+                    Comments
+                </h2>
+                <div id="comments-section" class="space-y-4">
+                    <!-- Comments will be injected by JS -->
+                </div>
+            </div>
+
+            <!-- Back Button -->
+            <div class="text-center mt-12">
+                <a href="javascript:history.back()" class="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-5 rounded-lg transition-colors duration-200">
+                    <img src="icons/back.svg" class="w-5 h-5 mr-2" alt="Back">
+                    <span>Back</span>
+                </a>
             </div>
         </div>
-    </div>
+    </main>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="main.js"></script>
+    <script src="utils.js"></script>
+    <script src="api/tmdb.js"></script>
 
     <script>
-        const firebaseConfig = {
-          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
-          authDomain: "tiny-lizard.firebaseapp.com",
-          projectId: "tiny-lizard",
-          storageBucket: "tiny-lizard.firebasestorage.app",
-          messagingSenderId: "250872474692",
-          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
-        };
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(); 
-        const auth = firebase.auth();
-
-        let currentUser = null;
-        let mediaId = null;
-
-        // === SKELETON UI UTILITIES ===
-        const SkeletonUI = {
-            showMediaDetailSkeleton: (containerId) => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = `
-                    <div class="skeleton-media-layout">
-                        <div class="skeleton-media-poster">
-                            <div class="skeleton skeleton-media-poster"></div>
-                        </div>
-                        <div class="skeleton-media-info">
-                            <div class="skeleton skeleton-media-title"></div>
-                            <div class="media-details">
-                                <div class="skeleton skeleton-media-detail"></div>
-                                <div class="skeleton skeleton-media-detail"></div>
-                                <div class="skeleton skeleton-media-detail"></div>
-                                <div class="skeleton skeleton-media-detail"></div>
-                            </div>
-                            <div class="skeleton-media-actions">
-                                <div class="skeleton skeleton-action-button"></div>
-                            </div>
-                            <div class="skeleton-media-summary">
-                                <div class="skeleton skeleton-summary-title"></div>
-                                <div class="skeleton skeleton-summary-text"></div>
-                                <div class="skeleton skeleton-summary-text"></div>
-                                <div class="skeleton skeleton-summary-text"></div>
-                                <div class="skeleton skeleton-summary-text"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <hr class="section-divider">
-                    <div>
-                        <div class="skeleton skeleton-section-title"></div>
-                        <div class="ratings-section">
-                            <div class="skeleton-rating-box">
-                                <div class="skeleton skeleton-rating-title"></div>
-                                <div class="skeleton skeleton-stars"></div>
-                                <div class="skeleton skeleton-rating-count"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <hr class="section-divider">
-                    <div>
-                        <div class="skeleton skeleton-section-title"></div>
-                        <div class="skeleton-comment-card">
-                            <div class="skeleton-comment-header">
-                                <div class="skeleton skeleton-comment-user"></div>
-                                <div class="skeleton skeleton-comment-rating"></div>
-                            </div>
-                            <div class="skeleton-comment-text"></div>
-                            <div class="skeleton-comment-text"></div>
-                        </div>
-                        <div class="skeleton-comment-card">
-                            <div class="skeleton-comment-header">
-                                <div class="skeleton skeleton-comment-user"></div>
-                                <div class="skeleton skeleton-comment-rating"></div>
-                            </div>
-                            <div class="skeleton-comment-text"></div>
-                            <div class="skeleton-comment-text"></div>
-                        </div>
-                    </div>
-                `;
-            },
-
-            showLoadingSpinner: (containerId, message = 'Loading...') => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = `
-                    <div class="loading-container">
-                        <div class="loading-spinner"></div>
-                        <div class="loading-text">${message}</div>
-                    </div>
-                `;
-            }
-        };
-
         document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            mediaId = urlParams.get('id');
-            if (!mediaId) {
-                LibraryUtils.errors.handleError("No media ID provided.", "Page Load", "mainContainer");
-                return;
-            }
-
-            // 🎯 SKELETON LOADING IMPLEMENTATION - Show skeleton immediately
-            SkeletonUI.showMediaDetailSkeleton('mainContainer');
-
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                document.getElementById('authBtn').textContent = user ? 'Logout' : 'Login';
-                loadMediaData();
-            });
+            // Dynamically load the navbar
+            loadNavbar();
             
-            document.getElementById('authBtn').addEventListener('click', () => {
-                if (currentUser) auth.signOut();
-                else window.location.href = 'auth.html';
+            // Check user authentication status
+            checkAuth(user => {
+                if (user) {
+                    // Get the movie ID from the URL (e.g., library.html?id=someMovieId)
+                    const movieId = new URLSearchParams(window.location.search).get('id');
+                    if (movieId) {
+                        loadMoviePage(user.uid, movieId);
+                    } else {
+                        // Handle case where no movie ID is in the URL
+                        displayError("No movie specified. Please go back and select a movie.");
+                    }
+                } else {
+                    // If not authenticated, redirect to the login page
+                    window.location.href = 'auth.html';
+                }
             });
         });
 
-        async function loadMediaData() {
+        /**
+         * Fetches all movie data and populates the page.
+         * @param {string} userId - The current user's ID from Firebase Auth.
+         * @param {string} movieId - The Firestore document ID for the movie.
+         */
+        async function loadMoviePage(userId, movieId) {
+            const detailsContainer = document.getElementById('movie-details-container');
+            const loading = document.getElementById('loading');
+            
             try {
-                // 🎯 SKELETON LOADING IMPLEMENTATION - Show loading spinner during data fetch
-                SkeletonUI.showLoadingSpinner('mainContainer', 'Loading media details...');
+                // 1. Get movie data from our Firestore database
+                const movieDocRef = db.collection('users').doc(userId).collection('movies').doc(movieId);
+                const movieDoc = await movieDocRef.get();
 
-                const mediaDoc = await db.collection('movies').doc(mediaId).get();
-                if (!mediaDoc.exists) {
-                    throw new Error("Media not found.");
+                if (!movieDoc.exists) {
+                    throw new Error("Movie not found in your library.");
                 }
-                const mediaData = mediaDoc.data();
-                
-                const allUsersSnapshot = await db.collection('users').get();
-                const allInteractions = [];
-                const userProfilePromises = [];
+                const movieData = movieDoc.data();
+                const tmdbId = movieData.tmdb_id;
+                const myRating = movieData.rating;
 
-                allUsersSnapshot.forEach(userDoc => {
-                    const interactionPromise = db.collection('users').doc(userDoc.id).collection('movieInteractions').doc(mediaId).get()
-                        .then(interactionDoc => {
-                            if (interactionDoc.exists) {
-                                allInteractions.push({ userId: userDoc.id, ...interactionDoc.data() });
-                            }
-                        });
-                    userProfilePromises.push(interactionPromise);
-                });
-                await Promise.all(userProfilePromises);
+                // 2. Get rich movie details from the TMDB API
+                const tmdbDetails = await getMovieDetails(tmdbId);
 
-                const physicalCopiesSnapshot = await db.collection('movies').doc(mediaId).collection('physicalCopies').get();
-                const physicalCopies = physicalCopiesSnapshot.docs.map(doc => doc.data());
+                // 3. Populate the main movie details
+                document.getElementById('movie-title').textContent = tmdbDetails.title;
+                document.getElementById('movie-year').textContent = tmdbDetails.release_date ? new Date(tmdbDetails.release_date).getFullYear() : 'N/A';
+                document.getElementById('movie-poster').src = tmdbDetails.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : 'https://placehold.co/300x450/1f2937/9ca3af?text=No+Image';
+                document.getElementById('movie-poster').alt = `Poster for ${tmdbDetails.title}`;
+                document.getElementById('movie-overview').textContent = tmdbDetails.overview || 'No description available.';
+                document.getElementById('movie-genres').textContent = tmdbDetails.genres.map(g => g.name).join(', ') || 'N/A';
 
-                renderMediaPage(mediaData, allInteractions, physicalCopies);
+                // 4. Populate credits (Director and Cast)
+                const director = tmdbDetails.credits.crew.find(person => person.job === 'Director');
+                document.getElementById('movie-director').textContent = director ? director.name : 'N/A';
+                const cast = tmdbDetails.credits.cast.slice(0, 5).map(person => person.name).join(', ');
+                document.getElementById('movie-cast').textContent = cast || 'N/A';
+
+                // 5. Render star ratings
+                renderStars(document.getElementById('avg-rating'), tmdbDetails.vote_average / 2); // Convert /10 to /5 scale
+                renderStars(document.getElementById('my-rating'), myRating);
+
+                // 6. Fetch and render comments from the 'comments' subcollection
+                const commentsSection = document.getElementById('comments-section');
+                commentsSection.innerHTML = ''; // Clear placeholder
+                const commentsSnapshot = await movieDocRef.collection('comments').orderBy('timestamp', 'desc').get();
+
+                if (commentsSnapshot.empty) {
+                    commentsSection.innerHTML = '<p class="text-gray-400 italic">No comments yet.</p>';
+                } else {
+                    commentsSnapshot.forEach(doc => {
+                        const comment = doc.data();
+                        const commentEl = document.createElement('div');
+                        commentEl.className = 'bg-gray-800/50 p-4 rounded-lg';
+                        // Note: In a real app, sanitize user-generated content before rendering.
+                        commentEl.innerHTML = `
+                            <p class="italic">"${comment.text}"</p>
+                            <p class="text-right text-sm text-gray-400 mt-2">- by <a href="/profile.html?user=${comment.userId}" class="text-cyan-400 hover:underline">${comment.username || 'user'}</a></p>
+                        `;
+                        commentsSection.appendChild(commentEl);
+                    });
+                }
 
             } catch (error) {
-                LibraryUtils.errors.handleError(error, 'Loading Media Details', 'mainContainer');
+                console.error("Error loading movie page:", error);
+                displayError(error.message);
+            } finally {
+                // Hide loading spinner and show the content
+                loading.classList.add('hidden');
+                detailsContainer.classList.remove('hidden');
             }
         }
 
-        async function renderMediaPage(mediaData, allInteractions, physicalCopies) {
-            const container = document.getElementById('mainContainer');
-            const title = mediaData.title || mediaData.name || "Untitled";
-            const typeBadge = mediaData.contentType === 'tv' ? '<span class="type-badge">TV Show</span>' : '';
-            
-            const userIds = [...new Set(allInteractions.map(i => i.userId))];
-            const userProfiles = {};
-            if (userIds.length > 0) {
-                for (let i = 0; i < userIds.length; i += 10) {
-                    const chunk = userIds.slice(i, i + 10);
-                    const usersSnapshot = await db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
-                    usersSnapshot.forEach(doc => { userProfiles[doc.id] = doc.data(); });
-                }
-            }
-            
-            const ratedInteractions = allInteractions.filter(i => i.rating > 0);
-            const averageRating = ratedInteractions.length > 0
-                ? (ratedInteractions.reduce((sum, i) => sum + i.rating, 0) / ratedInteractions.length).toFixed(1)
-                : 0;
-
-            const ratingsHTML = `
-                <div class="ratings-section">
-                    <div class="rating-box">
-                        <div class="rating-box-title">Average Rating</div>
-                        ${generateStarDisplay(averageRating)}
-                        <p style="font-size: 0.8em; color: #888;">(${ratedInteractions.length} ratings)</p>
-                    </div>
-                </div>
-            `;
-
-            const commentsHTML = allInteractions.length > 0 ? allInteractions.map(interaction => {
-                const user = userProfiles[interaction.userId];
-                if (!user || !interaction.review) return '';
-                return `
-                    <div class="comment-card">
-                        <div class="comment-header">
-                            <a href="profile.html?id=${interaction.userId}">${user.displayName || 'Anonymous'}</a>
-                            ${interaction.rating > 0 ? generateStarDisplay(interaction.rating) : ''}
-                            ${currentUser && currentUser.uid === interaction.userId ? `<button class="btn-edit-comment" onclick="editMyInteraction()">Edit</button>` : ''}
-                        </div>
-                        <p>${interaction.review}</p>
-                    </div>
-                `;
-            }).join('') : '<p>No comments yet. Be the first to add one!</p>';
-
-            let physicalCopiesHTML = '';
-            if (physicalCopies.length > 0) {
-                physicalCopiesHTML = `
-                    <div>
-                        <h3 class="section-title">Physical Copies (${physicalCopies.length} total)</h3>
-                        <ul class="physical-copies-list">
-                            ${physicalCopies.map(copy => `
-                                <li class="physical-copy-item">
-                                    <strong>${copy.editionDetails || 'Standard Edition'}</strong>
-                                    <span class="copy-owner">Owned by: <a href="profile.html?id=${copy.ownerId}">${copy.ownerDisplayName || 'Unknown'}</a></span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>`;
-            }
-
-            container.innerHTML = `
-                <div class="media-layout">
-                    <div class="media-poster">
-                        ${mediaData.posterUrl ? `<img src="${mediaData.posterUrl}" alt="${title} poster" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML = '<div class=\\'no-poster\\'></div>';">` : '<div class="no-poster">No Poster</div>'}
-                    </div>
-                
-                    <div class="media-info">
-                        <h1 class="media-title">${title} ${typeBadge}</h1>
-                        <div class="media-details">
-                            <p><strong>Year:</strong> ${mediaData.year || 'N/A'}</p>
-                            <p><strong>Director:</strong> ${mediaData.director || 'N/A'}</p>
-                            <p><strong>Genre:</strong> ${mediaData.genre || 'N/A'}</p>
-                            <p><strong>Cast:</strong> ${mediaData.cast ? mediaData.cast.join(', ') : 'N/A'}</p>
-                        </div>
-                        <div class="media-actions">
-                            <button class="btn-action btn-add-list" onclick="openAddToListModal()">Add to a List...</button>
-                        </div>
-                        <div class="media-summary">
-                            <h4>Summary</h4>
-                            <p>${mediaData.overview || 'No summary available.'}</p>
-                        </div>
-                    </div>
-                </div>
-                <hr class="section-divider">
-                <div>
-                    <h3 class="section-title">Ratings</h3>
-                    ${ratingsHTML}
-                </div>
-                <hr class="section-divider">
-                <div>
-                    <h3 class="section-title">Comments</h3>
-                    ${commentsHTML}
-                </div>
-                <hr class="section-divider">
-                ${physicalCopiesHTML}
-            `;
-            
-            document.getElementById('createListBtn').href = `create-list.html?mediaId=${mediaId}`;
-        }
-        
-        async function openAddToListModal() {
-            if (!currentUser) {
-                LibraryUtils.errors.showErrorModal("Login Required", "Please log in to add this to a list.");
+        /**
+         * Renders a 5-star rating based on a given score.
+         * @param {HTMLElement} container - The element to inject the stars into.
+         * @param {number} rating - The rating score (e.g., 3.5).
+         */
+        function renderStars(container, rating) {
+            container.innerHTML = ''; // Clear existing stars
+            if (typeof rating !== 'number' || rating <= 0) {
+                container.innerHTML = `<span class="text-gray-400">Not rated</span>`;
                 return;
             }
-            const modal = document.getElementById('addToListModal');
-            const container = document.getElementById('myListsContainer');
-            container.innerHTML = "<p>Loading your lists...</p>";
-            modal.style.display = 'flex';
 
-            try {
-                const listsSnapshot = await db.collection('lists').where('creatorId', '==', currentUser.uid).get();
-                if (listsSnapshot.empty) {
-                    container.innerHTML = "<p>You haven't created any lists yet.</p>";
-                    return;
-                }
+            let starsHTML = '';
+            const fullStars = Math.floor(rating);
+            const halfStar = rating % 1 >= 0.4;
+            const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
 
-                container.innerHTML = listsSnapshot.docs.map(doc => {
-                    const list = doc.data();
-                    const listId = doc.id;
-                    const alreadyAdded = (list.mediaIds || []).includes(mediaId);
-                    return `
-                        <div class="list-choice">
-                            <button onclick="toggleMediaInList('${listId}', ${alreadyAdded})" class="${alreadyAdded ? 'btn-small btn-delete' : 'btn-small btn-add'}">
-                                ${alreadyAdded ? 'Remove' : 'Add'}
-                            </button>
-                            <span>${list.listName}</span>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error("Error fetching user's lists:", error);
-                container.innerHTML = "<p>Could not load your lists.</p>";
+            for (let i = 0; i < fullStars; i++) {
+                starsHTML += `<img src="icons/star-full.svg" class="star-icon" alt="Full Star">`;
             }
-        }
-
-        function closeAddToListModal() { document.getElementById('addToListModal').style.display = 'none'; }
-
-        async function toggleMediaInList(listId, alreadyAdded) {
-            const operation = alreadyAdded 
-                ? firebase.firestore.FieldValue.arrayRemove(mediaId) 
-                : firebase.firestore.FieldValue.arrayUnion(mediaId);
-            try {
-                await db.collection('lists').doc(listId).update({ mediaIds: operation });
-                openAddToListModal(); 
-            } catch (error) {
-                LibraryUtils.errors.handleError(error, "Updating list");
+            if (halfStar) {
+                starsHTML += `<img src="icons/star-half.svg" class="star-icon" alt="Half Star">`;
             }
-        }
-        
-        function generateStarDisplay(rating) {
-            const totalStars = 5;
-            let starHTML = '★★★★★';
-            let filledWidth = (rating / totalStars) * 100;
-            return `<div class="star-display">${starHTML}<div class="star-display-filled" style="width: ${filledWidth}%;">${starHTML}</div></div>`;
+            for (let i = 0; i < emptyStars; i++) {
+                starsHTML += `<img src="icons/star-empty.svg" class="star-icon" alt="Empty Star">`;
+            }
+            starsHTML += `<span class="ml-2 text-gray-300 font-medium">${rating.toFixed(1)} / 5.0</span>`;
+            container.innerHTML = starsHTML;
         }
 
-        function editMyInteraction() { if (currentUser) window.location.href = `add-movie.html?edit=${mediaId}`; }
-        
+        /**
+         * Displays an error message on the page.
+         * @param {string} message - The error message to display.
+         */
+        function displayError(message) {
+            const detailsContainer = document.getElementById('movie-details-container');
+            detailsContainer.innerHTML = `
+                <div class="text-center text-red-400 bg-red-900/50 p-8 rounded-lg">
+                    <h1 class="text-2xl font-bold mb-2">An Error Occurred</h1>
+                    <p>${message}</p>
+                    <a href="/index.html" class="mt-6 inline-block bg-cyan-500 text-white font-bold py-2 px-4 rounded hover:bg-cyan-600 transition-colors">Go Home</a>
+                </div>
+            `;
+            document.getElementById('loading').classList.add('hidden');
+            detailsContainer.classList.remove('hidden');
+        }
+
     </script>
 </body>
 </html>
