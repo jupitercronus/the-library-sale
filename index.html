@@ -80,7 +80,221 @@
         let debouncedRender = null;
 
         // === SKELETON UI UTILITIES ===
+        // Replace your existing SkeletonUI object in index.html with this enhanced version
+
         const SkeletonUI = {
+    showMediaGridSkeleton: (containerId, count = 8) => {
+        const container = document.getElementById(containerId);
+        const skeletonHTML = Array(count).fill(0).map(() => `
+            <div class="skeleton-media-card">
+                <div class="media-top-section">
+                    <div class="skeleton media-poster"></div>
+                    <div class="media-actions">
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                    </div>
+                </div>
+                <div class="media-card-content">
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-year"></div>
+                    <div class="skeleton-rating">
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        container.innerHTML = skeletonHTML;
+    },
+
+    showLoadingSpinner: (containerId, message = 'Loading your media collection...') => {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-content">
+                    <div class="loading-skeleton-hero">
+                        <div class="skeleton skeleton-hero-title"></div>
+                        <div class="skeleton skeleton-hero-subtitle"></div>
+                    </div>
+                    <div class="loading-text">${message}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    showEmptyState: (containerId, searchTerm = '') => {
+        const container = document.getElementById(containerId);
+        const message = searchTerm 
+            ? 'No media found. Try adjusting your search terms.'
+            : 'Your collection is empty. Add some media to get started!';
+        const actionButton = !searchTerm 
+            ? '<a href="add-movie.html" class="add-media-btn" title="Add Your First Movie"></a>' 
+            : '';
+        
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <div class="skeleton skeleton-empty-icon"></div>
+                </div>
+                <h3>No media found</h3>
+                <p>${message}</p>
+                ${actionButton}
+            </div>
+        `;
+    }
+};
+
+// Enhanced loadAllMedia function with better skeleton timing
+async function loadAllMedia() {
+    try {
+        // Show skeleton immediately
+        SkeletonUI.showMediaGridSkeleton('mediaContainer', 8);
+
+        const mediaSnapshot = await db.collection('movies').get();
+        allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        myInteractions = {};
+        if (currentUser) {
+            const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
+            interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
+        }
+        
+        // Minimum loading time for smooth UX (prevents flash)
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        renderMedia();
+    } catch (error) {
+        console.error("Error loading media:", error);
+        document.getElementById('mediaContainer').innerHTML = `
+            <div class="error-state">
+                <h3>Oops! Something went wrong</h3>
+                <p>Unable to load your media collection. Please try again.</p>
+                <button class="btn" onclick="loadAllMedia()" style="margin-top: 15px;">Try Again</button>
+            </div>
+        `;
+    }
+}
+
+// Enhanced renderMedia function with empty state handling
+function renderMedia() {
+    const container = document.getElementById('mediaContainer');
+    const view = document.getElementById('viewDropdown').value;
+    const sort = document.getElementById('sortDropdown').value;
+    const searchTerm = (document.getElementById('searchInput').value || '').trim();
+
+    let mediaToDisplay = [...allMedia];
+
+    if (view === 'my' && currentUser) {
+        mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
+    }
+
+    if (searchTerm) {
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        mediaToDisplay = mediaToDisplay.filter(media => {
+            const title = (media.title || '').toLowerCase();
+            const director = (media.director || '').toLowerCase();
+            const genre = (media.genre || '').toLowerCase();
+            const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+            return title.includes(lowerCaseSearchTerm) || 
+                   director.includes(lowerCaseSearchTerm) ||
+                   genre.includes(lowerCaseSearchTerm) ||
+                   cast.includes(lowerCaseSearchTerm);
+        });
+    }
+
+    mediaToDisplay.sort((a, b) => {
+        const interactionA = myInteractions[a.id] || { rating: 0 };
+        const interactionB = myInteractions[b.id] || { rating: 0 };
+        switch (sort) {
+            case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
+            case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
+            case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
+            case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
+            default:
+                const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
+                const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
+                return timeB - timeA;
+        }
+    });
+
+    // Use skeleton empty state instead of basic HTML
+    if (mediaToDisplay.length === 0) {
+        SkeletonUI.showEmptyState('mediaContainer', searchTerm);
+        return;
+    }
+
+    // Render the actual media cards with smooth transition
+    container.innerHTML = mediaToDisplay.map(media => {
+        const title = media.title || 'Untitled';
+        const interaction = myInteractions[media.id];
+        
+        let actionsHTML = '';
+
+        if (currentUser && interaction) {
+            actionsHTML = `
+                <div class="media-actions">
+                    <button 
+                        class="btn-small owned-status ${interaction.owned ? 'owned' : 'not-owned'}" 
+                        title="${interaction.owned ? 'Mark as Not Owned' : 'Mark as Owned'}"
+                        onclick="toggleOwnedStatus('${media.id}', ${interaction.owned || false})">
+                    </button>
+                    <button 
+                        class="btn-small media-status ${interaction.watched ? 'watched' : 'unwatched'}" 
+                        title="${interaction.watched ? 'Mark as Unwatched' : 'Mark as Watched'}"
+                        onclick="toggleWatchedStatus('${media.id}', ${interaction.watched || false})">
+                    </button>
+                    <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details"></a>
+                    <button class="btn-small btn-edit" onclick="editMovie('${media.id}')" title="Edit"></button>
+                    <button class="btn-small btn-delete" onclick="deleteMovie('${media.id}')" title="Remove"></button>
+                </div>
+            `;
+        } else if (currentUser) {
+             actionsHTML = `
+                <div class="media-actions">
+                     <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details"></a>
+                     <button class="btn-small btn-add" onclick="addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"></button>
+                </div>
+            `;
+        } else {
+             actionsHTML = `
+                <div class="media-actions">
+                    <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details"></a>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="media-card fade-in">
+                <div class="media-top-section">
+                    <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
+                        ${media.posterUrl ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x450/EEE/333?text=Error'">` : '<div class="no-poster">No Poster</div>'}
+                    </div>
+                    ${actionsHTML}
+                </div>
+                <div class="media-card-content">
+                    <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
+                    <p class="media-year">${media.year || ''}</p>
+                    ${generateStarDisplay(interaction ? interaction.rating : 0)}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add fade-in animation to new cards
+    setTimeout(() => {
+        container.querySelectorAll('.media-card').forEach((card, index) => {
+            setTimeout(() => {
+                card.classList.add('visible');
+            }, index * 50); // Stagger the animations
+        });
+    }, 50);
+}
             showMediaGridSkeleton: (containerId, count = 6) => {
                 const container = document.getElementById(containerId);
                 const skeletonHTML = Array(count).fill(0).map(() => `
@@ -93,7 +307,8 @@
                                 <div class="skeleton"></div>
                             </div>
                         </div>
-                        <div class="media-card-content">
+
+                    <div class="media-card-content">
                             <div class="skeleton"></div>
                             <div class="skeleton"></div>
                         </div>
@@ -102,7 +317,7 @@
                 container.innerHTML = skeletonHTML;
             },
 
-            showLoadingSpinner: (containerId, message = 'Loading...') => {
+            showLoadingSpinner; (containerId, message = 'Loading...') => {
                 const container = document.getElementById(containerId);
                 container.innerHTML = `
                     <div class="loading-container">
@@ -111,7 +326,6 @@
                     </div>
                 `;
             }
-        };
 
         document.addEventListener('DOMContentLoaded', () => {
             SkeletonUI.showMediaGridSkeleton('mediaContainer', 8);
@@ -170,59 +384,243 @@
             }
         }
 
+        // Enhanced renderMedia function optimized for square grid layout
+        // Replace your existing renderMedia function in index.html
+
         function renderMedia() {
-            const container = document.getElementById('mediaContainer');
-            const view = document.getElementById('viewDropdown').value;
-            const sort = document.getElementById('sortDropdown').value;
-            const searchTerm = (document.getElementById('searchInput').value || '').trim();
+    const container = document.getElementById('mediaContainer');
+    const view = document.getElementById('viewDropdown').value;
+    const sort = document.getElementById('sortDropdown').value;
+    const searchTerm = (document.getElementById('searchInput').value || '').trim();
 
-            let mediaToDisplay = [...allMedia];
+    let mediaToDisplay = [...allMedia];
 
-            if (view === 'my' && currentUser) {
-                mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
-            }
+    if (view === 'my' && currentUser) {
+        mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
+    }
 
-            if (searchTerm) {
-                const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                mediaToDisplay = mediaToDisplay.filter(media => {
-                    const title = (media.title || '').toLowerCase();
-                    const director = (media.director || '').toLowerCase();
-                    const genre = (media.genre || '').toLowerCase();
-                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
-                    return title.includes(lowerCaseSearchTerm) || 
-                           director.includes(lowerCaseSearchTerm) ||
-                           genre.includes(lowerCaseSearchTerm) ||
-                           cast.includes(lowerCaseSearchTerm);
-                });
-            }
+    if (searchTerm) {
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        mediaToDisplay = mediaToDisplay.filter(media => {
+            const title = (media.title || '').toLowerCase();
+            const director = (media.director || '').toLowerCase();
+            const genre = (media.genre || '').toLowerCase();
+            const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+            return title.includes(lowerCaseSearchTerm) || 
+                   director.includes(lowerCaseSearchTerm) ||
+                   genre.includes(lowerCaseSearchTerm) ||
+                   cast.includes(lowerCaseSearchTerm);
+        });
+    }
 
-            mediaToDisplay.sort((a, b) => {
-                const interactionA = myInteractions[a.id] || { rating: 0 };
-                const interactionB = myInteractions[b.id] || { rating: 0 };
-                switch (sort) {
-                    case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
-                    case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
-                    case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
-                    case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
-                    default:
-                        const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
-                        const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
-                        return timeB - timeA;
-                }
-            });
+    mediaToDisplay.sort((a, b) => {
+        const interactionA = myInteractions[a.id] || { rating: 0 };
+        const interactionB = myInteractions[b.id] || { rating: 0 };
+        switch (sort) {
+            case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
+            case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
+            case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
+            case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
+            default:
+                const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
+                const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
+                return timeB - timeA;
+        }
+    });
 
-            if (mediaToDisplay.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No media found</h3>
-                        <p>${searchTerm ? 'Try adjusting your search terms.' : 'Your collection is empty. Add some media to get started!'}</p>
-                        ${!searchTerm ? '<a href="add-movie.html" class="add-media-btn" title="Add Your First Movie"></a>' : ''}
+    // Use enhanced empty state for square grid
+    if (mediaToDisplay.length === 0) {
+        SkeletonUI.showEmptyState('mediaContainer', searchTerm);
+        return;
+    }
+
+    // Enhanced media card rendering for square grid
+    container.innerHTML = mediaToDisplay.map(media => {
+        const title = media.title || 'Untitled';
+        const interaction = myInteractions[media.id];
+        
+        // Enhanced poster handling for square format
+        const posterImg = media.posterUrl 
+            ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
+            : '<div class="no-poster">No Poster</div>';
+        
+        let actionsHTML = '';
+
+        if (currentUser && interaction) {
+            actionsHTML = `
+                <div class="media-actions">
+                    <button 
+                        class="btn-small owned-status ${interaction.owned ? 'owned' : 'not-owned'}" 
+                        title="${interaction.owned ? 'Mark as Not Owned' : 'Mark as Owned'}"
+                        onclick="event.stopPropagation(); toggleOwnedStatus('${media.id}', ${interaction.owned || false})">
+                    </button>
+                    <button 
+                        class="btn-small media-status ${interaction.watched ? 'watched' : 'unwatched'}" 
+                        title="${interaction.watched ? 'Mark as Unwatched' : 'Mark as Watched'}"
+                        onclick="event.stopPropagation(); toggleWatchedStatus('${media.id}', ${interaction.watched || false})">
+                    </button>
+                    <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
+                    <button class="btn-small btn-edit" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit"></button>
+                    <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteMovie('${media.id}')" title="Remove"></button>
+                </div>
+            `;
+        } else if (currentUser) {
+             actionsHTML = `
+                <div class="media-actions">
+                     <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
+                     <button class="btn-small btn-add" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"></button>
+                </div>
+            `;
+        } else {
+             actionsHTML = `
+                <div class="media-actions">
+                    <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="media-card fade-in">
+                <div class="media-top-section">
+                    <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
+                        ${posterImg}
                     </div>
-                `;
-                return;
-            }
+                    ${actionsHTML}
+                </div>
+                <div class="media-card-content">
+                    <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
+                    <p class="media-year">${media.year || ''}</p>
+                    ${generateStarDisplay(interaction ? interaction.rating : 0)}
+                </div>
+            </div>
+        `;
+    }).join('');
 
-            container.innerHTML = mediaToDisplay.map(media => {
+    // Enhanced staggered animation for square grid
+    setTimeout(() => {
+        container.querySelectorAll('.media-card').forEach((card, index) => {
+            setTimeout(() => {
+                card.classList.add('visible');
+            }, index * 30); // Faster stagger for more items
+        });
+    }, 50);
+}
+
+        // Enhanced skeleton UI specifically for square grid
+        const SquareGridSkeleton = {
+    showMediaGridSkeleton: (containerId, count = 12) => {
+        const container = document.getElementById(containerId);
+        const skeletonHTML = Array(count).fill(0).map(() => `
+            <div class="skeleton-media-card">
+                <div class="media-top-section">
+                    <div class="skeleton media-poster"></div>
+                    <div class="media-actions">
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                        <div class="skeleton skeleton-action-btn"></div>
+                    </div>
+                </div>
+                <div class="media-card-content">
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-year"></div>
+                    <div class="skeleton-rating">
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        container.innerHTML = skeletonHTML;
+    }
+};
+
+    // Update the loadAllMedia function to use the square grid skeleton
+    async function loadAllMedia() {
+        try {
+            // Show square grid skeleton
+            SquareGridSkeleton.showMediaGridSkeleton('mediaContainer', 12);
+
+            const mediaSnapshot = await db.collection('movies').get();
+            allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            myInteractions = {};
+            if (currentUser) {
+                const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
+                interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
+            }
+            
+            // Minimum loading time for smooth UX
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            renderMedia();
+        } catch (error) {
+            console.error("Error loading media:", error);
+            document.getElementById('mediaContainer').innerHTML = `
+                <div class="error-state">
+                    <h3>Oops! Something went wrong</h3>
+                    <p>Unable to load your media collection. Please try again.</p>
+                    <button class="btn" onclick="loadAllMedia()" style="margin-top: 15px;">Try Again</button>
+                </div>
+            `;
+        }
+    }
+                const container = document.getElementById('mediaContainer');
+                const view = document.getElementById('viewDropdown').value;
+                const sort = document.getElementById('sortDropdown').value;
+                const searchTerm = (document.getElementById('searchInput').value || '').trim();
+
+                let mediaToDisplay = [...allMedia];
+
+                if (view === 'my' && currentUser) {
+                    mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
+                }
+
+                if (searchTerm) {
+                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+                    mediaToDisplay = mediaToDisplay.filter(media => {
+                        const title = (media.title || '').toLowerCase();
+                        const director = (media.director || '').toLowerCase();
+                        const genre = (media.genre || '').toLowerCase();
+                        const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+                        return title.includes(lowerCaseSearchTerm) || 
+                            director.includes(lowerCaseSearchTerm) ||
+                            genre.includes(lowerCaseSearchTerm) ||
+                            cast.includes(lowerCaseSearchTerm);
+                    });
+                }
+
+                mediaToDisplay.sort((a, b) => {
+                    const interactionA = myInteractions[a.id] || { rating: 0 };
+                    const interactionB = myInteractions[b.id] || { rating: 0 };
+                    switch (sort) {
+                        case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
+                        case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
+                        case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
+                        case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
+                        default:
+                            const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
+                            const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
+                            return timeB - timeA;
+                    }
+                });
+
+                if (mediaToDisplay.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No media found</h3>
+                            <p>${searchTerm ? 'Try adjusting your search terms.' : 'Your collection is empty. Add some media to get started!'}</p>
+                            ${!searchTerm ? '<a href="add-movie.html" class="add-media-btn" title="Add Your First Movie"></a>' : ''}
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = mediaToDisplay.map(media => {
                 const title = media.title || 'Untitled';
                 const interaction = myInteractions[media.id];
                 
@@ -277,7 +675,6 @@
                     </div>
                 `;
             }).join('');
-        }
         
         function generateStarDisplay(rating) {
             if (!rating || rating <= 0) return '<div class="media-rating"></div>'; 

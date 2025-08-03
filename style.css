@@ -482,6 +482,214 @@ h2, h3 {
 .skeleton-media-card .media-card-content .skeleton { height: 20px; margin-bottom: 8px; }
 .skeleton-media-card .media-card-content .skeleton:last-child { width: 40%; height: 16px; }
 
+/* === ENHANCED SKELETON LOADING STYLES FOR INDEX === */
+/* Enhanced skeleton media cards */
+.skeleton-media-card {
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.skeleton-media-card .media-top-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.skeleton-media-card .media-poster {
+    width: calc(100% - 55px);
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+}
+
+.skeleton-media-card .media-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 40px;
+    flex-shrink: 0;
+}
+
+.skeleton-action-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.skeleton-media-card .media-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeleton-title {
+    height: 20px;
+    width: 85%;
+    border-radius: 4px;
+}
+
+.skeleton-year {
+    height: 16px;
+    width: 40%;
+    border-radius: 4px;
+}
+
+.skeleton-rating {
+    display: flex;
+    gap: 2px;
+    margin-top: 4px;
+}
+
+.skeleton-star {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+}
+
+/* Loading container for initial load */
+.loading-container {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    padding: 40px;
+}
+
+.loading-content {
+    text-align: center;
+    max-width: 400px;
+}
+
+.loading-skeleton-hero {
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.skeleton-hero-title {
+    height: 32px;
+    width: 200px;
+    border-radius: 6px;
+}
+
+.skeleton-hero-subtitle {
+    height: 20px;
+    width: 150px;
+    border-radius: 4px;
+}
+
+.loading-text {
+    font-size: 1.1em;
+    color: #90dcff;
+    font-weight: 500;
+    margin-top: 20px;
+}
+
+/* Enhanced empty state */
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: #aaa;
+}
+
+.empty-state-icon {
+    margin: 0 auto 20px;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.skeleton-empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+}
+
+.empty-state h3 {
+    margin: 20px 0 10px;
+    font-size: 1.5em;
+    color: #DEF0F7;
+}
+
+.empty-state p {
+    margin: 0 0 20px;
+    font-size: 1.1em;
+    line-height: 1.5;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Error state styling */
+.error-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    background: #2D194D;
+    border-radius: 8px;
+    border: 1px solid rgba(225, 0, 134, 0.3);
+}
+
+.error-state h3 {
+    color: #e10086;
+    margin-bottom: 15px;
+}
+
+.error-state p {
+    color: #DEF0F7;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.error-state .btn {
+    background: #90dcff;
+    color: #24143E;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.error-state .btn:hover {
+    background: #fdfb76;
+}
+
+/* Fade-in animation for media cards */
+.media-card {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.media-card.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.media-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Smooth transitions for filter changes */
+.media-grid {
+    transition: opacity 0.2s ease;
+}
+
+.media-grid.updating {
+    opacity: 0.7;
+}
+
 /* === RESPONSIVE STYLES === */
 @media (max-width: 768px) {
     .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #2D194D; flex-direction: column; align-items: flex-end; padding: 20px 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; }
@@ -684,7 +892,9 @@ select.skeleton-loading {
     -webkit-mask-size: contain; 
     mask-size: contain; 
     -webkit-mask-repeat: no-repeat; 
+    mask-repeat: no-repeat;
     -webkit-mask-position: center;
+    mask-position: center;
     background-color: #fdfb76;
     -webkit-mask-image: url(icons/star-empty.svg); 
     mask-image: url(icons/star-empty.svg);
@@ -778,7 +988,9 @@ textarea { resize: vertical; }
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
     -webkit-mask-position: center;
+    mask-position: center;
     vertical-align: middle;
     margin-left: 8px;
 }
@@ -1012,7 +1224,9 @@ textarea { resize: vertical; }
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
     -webkit-mask-position: center;
+    mask-position: center;
 }
 
 .profile-media-item .badge.badge-movie::before {
@@ -1509,11 +1723,6 @@ textarea { resize: vertical; }
     color: #24143E;
 }
 
-
-/* =================================
-   NEW STYLES FOR AUTH & LIBRARY PAGES
-   ================================= */
-
 /* --- Auth Page (auth.html) --- */
 html, body.auth-page {
     height: 100%;
@@ -1790,4 +1999,232 @@ input.error {
 .details-footer {
     text-align: center;
     margin-top: 20px;
+}
+
+/* === INDEX.HTML SPECIFIC - 1:1 SQUARE GRID LAYOUT === */
+/* Add this to your style.css - this overrides the default media card styles for index.html only */
+
+/* Index page specific grid layout */
+body:has(.main-container .hero-section) .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px 20px;
+}
+
+body:has(.main-container .hero-section) .media-card {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+body:has(.main-container .hero-section) .media-card:hover {
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+/* Square poster container */
+body:has(.main-container .hero-section) .media-poster {
+    width: 100%;
+    aspect-ratio: 1 / 1; /* Perfect square */
+    background: #2D194D;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    margin-bottom: 12px;
+}
+
+body:has(.main-container .hero-section) .media-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Crop to fill the square */
+    object-position: center top; /* Focus on top portion of poster */
+}
+
+/* Overlay actions on hover */
+body:has(.main-container .hero-section) .media-top-section {
+    display: block;
+    position: relative;
+}
+
+body:has(.main-container .hero-section) .media-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 5;
+}
+
+body:has(.main-container .hero-section) .media-card:hover .media-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Smaller action buttons for overlay */
+body:has(.main-container .hero-section) .media-actions .btn-small {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 18px;
+    backdrop-filter: blur(4px);
+    border: 2px solid rgba(222, 240, 247, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Content below poster */
+body:has(.main-container .hero-section) .media-card-content {
+    padding: 0;
+    text-align: center;
+}
+
+body:has(.main-container .hero-section) .media-title {
+    font-family: 'Syne Mono', monospace;
+    font-size: 1em;
+    font-weight: bold;
+    margin-bottom: 4px;
+    cursor: pointer;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 2.4em; /* Ensure consistent height */
+}
+
+body:has(.main-container .hero-section) .media-title:hover {
+    color: #fdfb76;
+}
+
+body:has(.main-container .hero-section) .media-year {
+    font-family: 'Dokdo', cursive;
+    color: #aaa;
+    font-size: 0.85em;
+    margin-bottom: 8px;
+}
+
+body:has(.main-container .hero-section) .media-rating {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    height: 1em;
+}
+
+body:has(.main-container .hero-section) .media-rating .star {
+    width: 14px;
+    height: 14px;
+}
+
+/* No poster state for squares */
+body:has(.main-container .hero-section) .no-poster {
+    color: #fdfb76;
+    font-size: 0.9em;
+    font-family: 'Syne Mono', monospace;
+    text-align: center;
+}
+
+/* Enhanced skeleton for square grid */
+body:has(.main-container .hero-section) .skeleton-media-card {
+    display: flex;
+    flex-direction: column;
+}
+
+body:has(.main-container .hero-section) .skeleton-media-card .media-top-section {
+    display: block;
+    position: relative;
+    margin-bottom: 12px;
+}
+
+body:has(.main-container .hero-section) .skeleton-media-card .media-poster {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+    margin-bottom: 0;
+}
+
+body:has(.main-container .hero-section) .skeleton-media-card .media-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+body:has(.main-container .hero-section) .skeleton-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+}
+
+body:has(.main-container .hero-section) .skeleton-media-card .media-card-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+body:has(.main-container .hero-section) .skeleton-title {
+    height: 16px;
+    width: 80%;
+    border-radius: 4px;
+}
+
+body:has(.main-container .hero-section) .skeleton-year {
+    height: 14px;
+    width: 40%;
+    border-radius: 4px;
+}
+
+body:has(.main-container .hero-section) .skeleton-rating {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+}
+
+body:has(.main-container .hero-section) .skeleton-star {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+}
+
+/* Responsive adjustments for square grid */
+@media (max-width: 768px) {
+    body:has(.main-container .hero-section) .media-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    body:has(.main-container .hero-section) .media-actions .btn-small {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+    
+    body:has(.main-container .hero-section) .skeleton-action-btn {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    body:has(.main-container .hero-section) .media-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
+    }
 }
