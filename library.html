@@ -4,364 +4,321 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Movie Details - The Library Sale</title>
-    <!-- Google Fonts & Styles -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>   
-    <!-- App Utilities & Main Script -->
-    <script src="utils.js" defer></script>
-    <script src="main.js" defer></script>
+    <!-- App Scripts (deferred to prevent race conditions) -->
+    <script src="main.js"></script>
+    <script src="utils.js"></script>
 </head>
-<body>
-    <header id="navbar-placeholder"></header>
+<body class="bg-gray-900">
 
-    <!-- Replace your detailsContainer div with this updated structure: -->
-    <div id="detailsContainer" class="details-page-container" style="display: none;">
+    <!-- Navbar is loaded dynamically -->
+    <div id="navbar-container"></div>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        <!-- Centered Title, Year, and Ratings (Ticket Style) -->
-        <div class="details-ticket">
-            <h1 id="movieTitle" class="details-title"></h1>
-            <p id="movieYear" class="details-year"></p>
+        <!-- Loading Spinner -->
+        <div id="loading" class="flex justify-center items-center h-64">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-cyan-500"></div>
+        </div>
+
+        <!-- Main Movie Details Container -->
+        <div id="movie-details-container" class="hidden max-w-4xl mx-auto">
+
+            <!-- Movie Title and Year -->
+            <div class="text-center mb-8">
+                <h1 id="movie-title" class="text-3xl md:text-5xl font-bold tracking-tight text-white"></h1>
+                <p id="movie-year" class="text-lg md:text-xl text-gray-400 mt-1"></p>
+            </div>
+
+            <!-- Poster and Core Info Section -->
+            <div class="flex flex-col md:flex-row gap-8 md:gap-10 mb-8">
+                <!-- Left: Poster -->
+                <div class="flex-shrink-0 mx-auto md:mx-0">
+                    <img id="movie-poster" src="https://placehold.co/300x450/1f2937/9ca3af?text=Loading..." alt="Movie Poster" class="rounded-lg shadow-lg w-64 md:w-72 object-cover">
+                </div>
+
+                <!-- Right: Details -->
+                <div class="flex-1 flex flex-col min-w-0">
+                    <div class="space-y-5">
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Director</h3>
+                            <p id="movie-director" class="text-gray-300"></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Top Cast</h3>
+                            <p id="movie-cast" class="text-gray-300 leading-relaxed"></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Genre</h3>
+                            <p id="movie-genres" class="text-gray-300"></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg text-cyan-400 mb-1">Description</h3>
+                            <p id="movie-overview" class="text-gray-300 leading-relaxed max-h-48 overflow-y-auto"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ratings Section -->
+            <div class="border-t border-b border-gray-700/50 my-8 py-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+                <div>
+                    <h3 class="font-semibold text-lg text-white mb-2">Average Rating</h3>
+                    <div id="avg-rating" class="flex justify-center items-center space-x-1">
+                        <!-- Stars will be injected by JS -->
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-lg text-white mb-2">My Rating</h3>
+                    <div id="my-rating" class="flex justify-center items-center space-x-1">
+                        <!-- Stars will be injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="mb-8">
+                <h2 class="flex items-center text-2xl font-bold mb-5 text-white">
+                    <img src="icons/comment.svg" class="w-6 h-6 mr-3" alt="Comments">
+                    Comments
+                </h2>
+                <div id="comments-section" class="space-y-4">
+                    <!-- Comments will be injected by JS -->
+                </div>
+            </div>
+
+            <!-- Back Button -->
+            <div class="text-center mt-12">
+                <a href="javascript:history.back()" class="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-5 rounded-lg transition-colors duration-200">
+                    <img src="icons/back.svg" class="w-5 h-5 mr-2" alt="Back">
+                    <span>Back</span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // This listener will now correctly run AFTER all deferred scripts have executed.
+        document.addEventListener('DOMContentLoaded', () => {
+            // Dynamically load the navbar
+            loadNavbar();
             
-            <!-- Ratings Section - NOW INSIDE THE TICKET -->
-            <div class="details-ratings">
-                <div class="rating-box">
-                    <h3>Average Rating</h3>
-                    <div id="averageRating" class="media-rating"></div>
-                </div>
-                <div class="rating-box">
-                    <h3>My Rating</h3>
-                    <div id="myRating" class="media-rating"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Content Grid (Poster + Info) -->
-        <div class="details-main-content">
-            <div class="details-poster">
-                <img id="moviePoster" src="" alt="Movie Poster">
-            </div>
-            <div class="details-info">
-                <div class="details-info-group">
-                    <h3>Director</h3>
-                    <p id="movieDirector"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Top Cast</h3>
-                    <p id="movieCast"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Genre</h3>
-                    <p id="movieGenre"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Summary</h3>
-                    <p id="movieOverview"></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Comments Section -->
-        <div class="details-comments-section">
-            <h2 class="comments-header">
-                <span class="icon"></span>
-                Comments
-            </h2>
-            <div id="commentsContainer" class="comments-list">
-                <!-- Comments will be injected by JS -->
-            </div>
-        </div>
-
-        <!-- Footer with Back Button -->
-        <footer class="details-footer">
-            <a href="index.html" class="btn-back"></a>
-        </footer>
-    </div>
-
-    <!-- Loading and Error States -->
-    <div id="loadingState" class="main-container" style="text-align: center; padding: 50px;">
-        <h2>Loading...</h2>
-    </div>
-    <div id="errorState" class="main-container" style="display: none; text-align: center; padding: 50px;">
-        <h2 id="errorMessage"></h2>
-        <a href="index.html" class="btn-back" style="margin-top: 20px;"></a>
-    </div>
-
-<script>
-                // Replace your entire script section in library.html with this fixed version:
-
-                // --- FIREBASE INITIALIZATION ---
-                    const firebaseConfig = {
-                    apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
-                    authDomain: "tiny-lizard.firebaseapp.com",
-                    projectId: "tiny-lizard",
-                    storageBucket: "tiny-lizard.firebasestorage.app",
-                    messagingSenderId: "250872474692",
-                    appId: "1:250872474692:web:969e0b1302ae3cb4666011"
-                    };
-                    const app = firebase.initializeApp(firebaseConfig);
-                    const db = firebase.firestore(); 
-                    const auth = firebase.auth();
-
-                // Define all functions first, then set up event listeners
-                function populateMovieDetails(movieData, myInteraction, allInteractions) {
-                    document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
-                    document.getElementById('movieYear').textContent = movieData.year || 'N/A';
-                    document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/1a1a1a/4a4a4a?text=No+Poster';
-                    document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
-                    document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
-                    document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
-                    document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
-                    document.getElementById('movieOverview').textContent = movieData.overview || 'No description available.';
-
-                    // Calculate average rating from all fetched interactions
-                    const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
-                    const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
-
-                    renderStars(document.getElementById('averageRating'), avgRating); 
-                    renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
-                }
-
-                async function commentsContainer(interactions) {
-                    const commentsContainer = document.getElementById('commentsContainer');
-                    commentsContainer.innerHTML = ''; // Clear previous comments
-
-                    const comments = interactions.filter(i => i.review && i.review.trim() !== '');
-
-                    if (comments.length === 0) {
-                        commentsContainer.innerHTML = `<p class="review-text-empty">No comments yet. Be the first to leave a review!</p>`;
-                        return;
+            // Check user authentication status
+            checkAuth(user => {
+                if (user) {
+                    // Get the movie ID from the URL (e.g., library.html?id=someMovieId)
+                    const movieId = new URLSearchParams(window.location.search).get('id');
+                    if (movieId) {
+                        loadMoviePage(user.uid, movieId);
+                    } else {
+                        // Handle case where no movie ID is in the URL
+                        displayError("No movie specified. Please go back and select a movie.");
                     }
-
-                    // Fetch user profiles to get display names, avoiding duplicate fetches
-                    const userIds = [...new Set(comments.map(c => c.userId))];
-                    const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-                    
-                    // Await all profile fetches
-                    const userDocs = await Promise.all(userPromises);
-                    
-                    // Create a map for easy lookup: userId -> username
-                    const userMap = new Map();
-                    userDocs.forEach(doc => {
-                        if (doc.exists) {
-                            userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-                        }
-                    });
-
-                    comments.forEach(comment => {
-                        const username = userMap.get(comment.userId) || 'Anonymous';
-                        const commentEl = document.createElement('div');
-                        commentEl.className = 'comment-item';
-                        commentEl.innerHTML = `
-                            <p class="review-text">"${comment.review}"</p>
-                            <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
-                        `;
-                        commentsContainer.appendChild(commentEl);
-                    });
+                } else {
+                    // If not authenticated, redirect to the login page
+                    window.location.href = 'auth.html';
                 }
+            });
+        });
 
-                function renderStars(container, rating) {
-                    container.innerHTML = '';
-                    if (typeof rating !== 'number' || rating <= 0) {
-                        container.innerHTML = `<span class="not-rated">Not Rated</span>`;
-                        return;
-                    }
-                    let starsHTML = '';
-                    for (let i = 1; i <= 5; i++) {
-                        if (i <= rating) starsHTML += `<span class="star star-full"></span>`;
-                        else if (i - 0.5 <= rating) starsHTML += `<span class="star star-half"></span>`;
-                        else starsHTML += `<span class="star star-empty"></span>`;
-                    }
-                    starsHTML += `<span class="rating-text">${rating.toFixed(1)} / 5.0</span>`;
-                    container.innerHTML = starsHTML;
-                }
+        /**
+         * Fetches movie details via the Vercel proxy.
+         * @param {string} tmdbId - The movie ID from The Movie Database.
+         * @returns {Promise<object>} A promise that resolves to the movie details object.
+         */
+        async function getMovieDetails(tmdbId) {
+            // The URL points to our own serverless function which acts as a proxy.
+            const url = `/api/tmdb?id=${tmdbId}&append_to_response=credits`;
 
-                function displayError(message) {
-                    const loadingState = document.getElementById('loadingState');
-                    const errorState = document.getElementById('errorState');
-                    const errorMessage = document.getElementById('errorMessage');
-                    
-                    if (loadingState) loadingState.style.display = 'none';
-                    if (errorState) errorState.style.display = 'block';
-                    if (errorMessage) errorMessage.textContent = message;
-                }
-
-                async function loadMoviePage(user, movieId) {
-                    try {
-                        // Get the main movie document
-                        const movieDocRef = db.collection('movies').doc(movieId);
-                        const movieDoc = await movieDocRef.get();
-
-                        if (!movieDoc.exists) {
-                            throw new Error("This movie could not be found in the main library.");
-                        }
-                        const movieData = { id: movieDoc.id, ...movieDoc.data() };
-
-                        // FIXED: Use movieId field instead of documentId()
-                        const interactionsSnapshot = await db.collectionGroup('movieInteractions')
-                            .where('movieId', '==', movieId)
-                            .get();
-                        
-                        const allInteractions = interactionsSnapshot.docs.map(doc => {
-                            // Extract the userId from the document's path
-                            const pathParts = doc.ref.path.split('/');
-                            const userId = pathParts[1]; 
-                            return { userId: userId, ...doc.data() };
-                        });
-                        
-                        // Find the current user's specific interaction from the aggregated list
-                        const myInteraction = allInteractions.find(interaction => interaction.userId === user.uid);
-
-                        // Populate page content
-                        populateMovieDetails(movieData, myInteraction, allInteractions);
-                        commentsContainer(allInteractions);
-
-                        // Show the content (with null checks)
-                        const loadingState = document.getElementById('loadingState');
-                        const detailsContainer = document.getElementById('detailsContainer');
-                        
-                        if (loadingState) loadingState.style.display = 'none';
-                        if (detailsContainer) detailsContainer.style.display = 'block';
-
-                    } catch (error) {
-                        console.error("Error loading movie page:", error);
-                        displayError(error.message || "An unknown error occurred.");
-                    }
-                }
-
-                // Set up event listeners after DOM is loaded
-                document.addEventListener('DOMContentLoaded', () => {
-                    auth.onAuthStateChanged(user => {
-                        if (user) {
-                            const movieId = new URLSearchParams(window.location.search).get('id');
-                            if (movieId) {
-                                loadMoviePage(user, movieId);
-                            } else {
-                                displayError("No movie was selected. Please return to the library.");
-                            }
-                        } else {
-                            window.location.href = 'auth.html';
-                        }
-                    });
-                });
-
-            async function loadMoviePage(user, movieId) {
-            try {
-                // Get the main movie document
-                const movieDocRef = db.collection('movies').doc(movieId);
-                const movieDoc = await movieDocRef.get();
-
-                if (!movieDoc.exists) {
-                    throw new Error("This movie could not be found in the main library.");
-                }
-                const movieData = { id: movieDoc.id, ...movieDoc.data() };
-
-                // ✅ FIXED: Use movieId field instead of documentId()
-                const interactionsSnapshot = await db.collectionGroup('movieInteractions')
-                    .where('movieId', '==', movieId)
-                    .get();
-                
-                const allInteractions = interactionsSnapshot.docs.map(doc => {
-                    // Extract the userId from the document's path
-                    const pathParts = doc.ref.path.split('/');
-                    const userId = pathParts[1]; 
-                    return { userId: userId, ...doc.data() };
-                });
-                
-                // Find the current user's specific interaction from the aggregated list
-                const myInteraction = allInteractions.find(interaction => interaction.userId === user.uid);
-
-                // Populate page content
-                populateMovieDetails(movieData, myInteraction, allInteractions);
-                commentsContainer(allInteractions);
-
-                // Show the content
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('detailsContainer').style.display = 'block';
-
-            } catch (error) {
-                console.error("Error loading movie page:", error);
-                displayError(error.message || "An unknown error occurred.");
+            const response = await fetch(url);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+                throw new Error(`Failed to fetch movie details: ${errorData.message}`);
             }
+            return await response.json();
         }
+
+        /**
+         * Fetches all movie data and populates the page.
+         * @param {string} userId - The current user's ID from Firebase Auth.
+         * @param {string} movieId - The Firestore document ID for the movie.
+         */
+ // Replace your loadMoviePage function in library.html with this fixed version
+
+async function loadMoviePage(user, movieId) {
+    try {
+        // Get the main movie document
+        const movieDocRef = db.collection('movies').doc(movieId);
+        const movieDoc = await movieDocRef.get();
+
+        if (!movieDoc.exists) {
+            throw new Error("This movie could not be found in the main library.");
+        }
+        const movieData = { id: movieDoc.id, ...movieDoc.data() };
+
+        // ✅ FIXED: Use collectionGroup query with movieId field
+        console.log('Searching for interactions with movieId:', movieId);
         
-        function populatePage(movieData, myInteraction, allInteractions) {
-            document.getElementById('movieTitle').textContent = movieData.title || 'N/A';
-            document.getElementById('movieYear').textContent = movieData.year || 'N/A';
-            document.getElementById('moviePoster').src = movieData.posterUrl || '';
-            document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
-            document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
-            document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
-            document.getElementById('movieOverview').textContent = movieData.overview || 'No summary available.';
+        const interactionsSnapshot = await db.collectionGroup('movieInteractions')
+            .where('movieId', '==', movieId)
+            .get();
+        
+        console.log('Found interactions:', interactionsSnapshot.size);
+        
+        const allInteractions = interactionsSnapshot.docs.map(doc => {
+            // Extract the userId from the document's path
+            const pathParts = doc.ref.path.split('/');
+            const userId = pathParts[1]; 
+            const data = doc.data();
+            console.log('Interaction data:', { userId, data });
+            return { userId: userId, ...data };
+        });
+        
+        // Find the current user's specific interaction from the aggregated list
+        const myInteraction = allInteractions.find(interaction => interaction.userId === user.uid);
 
-            const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
-            const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+        // Populate page content
+        populateMovieDetails(movieData, myInteraction, allInteractions);
+        await loadCommentsWithUserData(allInteractions);
 
-            renderStars(document.getElementById('averageRating'), avgRating); 
-            renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
-            
-            commentsContainer(allInteractions);
+        // Show the content
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('detailsContainer').style.display = 'block';
+
+    } catch (error) {
+        console.error("Error loading movie page:", error);
+        displayError(error.message || "An unknown error occurred.");
+    }
+}
+
+// ✅ NEW: Separate function to load comments with proper user data fetching
+async function loadCommentsWithUserData(interactions) {
+    const commentsContainer = document.getElementById('commentsContainer');
+    commentsContainer.innerHTML = ''; // Clear previous comments
+
+    // Filter for interactions that have reviews
+    const commentsWithReviews = interactions.filter(i => i.review && i.review.trim() !== '');
+    
+    console.log('Comments with reviews:', commentsWithReviews);
+
+    if (commentsWithReviews.length === 0) {
+        commentsContainer.innerHTML = `<p class="review-text-empty">No comments yet. Be the first to leave a review!</p>`;
+        return;
+    }
+
+    // Get unique user IDs to fetch display names
+    const userIds = [...new Set(commentsWithReviews.map(c => c.userId))];
+    console.log('Fetching user data for:', userIds);
+    
+    // Fetch user profiles in parallel
+    const userPromises = userIds.map(async id => {
+        try {
+            const userDoc = await db.collection('users').doc(id).get();
+            return {
+                id: id,
+                displayName: userDoc.exists ? userDoc.data().displayName : 'Anonymous'
+            };
+        } catch (error) {
+            console.error(`Error fetching user ${id}:`, error);
+            return { id: id, displayName: 'Anonymous' };
         }
+    });
+    
+    const userData = await Promise.all(userPromises);
+    console.log('User data fetched:', userData);
+    
+    // Create a map for easy lookup: userId -> displayName
+    const userMap = new Map();
+    userData.forEach(user => {
+        userMap.set(user.id, user.displayName);
+    });
 
-        async function commentsContainer(interactions) {
-            const commentsContainer = document.getElementById('commentsList');
-            commentsContainer.innerHTML = '';
+    // Render comments
+    commentsWithReviews.forEach(comment => {
+        const username = userMap.get(comment.userId) || 'Anonymous';
+        const commentEl = document.createElement('div');
+        commentEl.className = 'comment-item';
+        commentEl.innerHTML = `
+            <p class="review-text">"${comment.review}"</p>
+            <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
+        `;
+        commentsContainer.appendChild(commentEl);
+    });
+}
 
-            const comments = interactions.filter(i => i.review && i.review.trim() !== '');
-            if (comments.length === 0) {
-                commentsContainer.innerHTML = `<p class="no-comments">No comments yet.</p>`;
-                return;
-            }
+// ✅ UPDATED: Simplified populateMovieDetails function
+function populateMovieDetails(movieData, myInteraction, allInteractions) {
+    document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
+    document.getElementById('movieYear').textContent = movieData.year || 'N/A';
+    document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/1a1a1a/4a4a4a?text=No+Poster';
+    document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
+    document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
+    document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
+    document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
+    document.getElementById('movieOverview').textContent = movieData.overview || 'No description available.';
 
-            const userIds = [...new Set(comments.map(c => c.userId))];
-            const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-            const userDocs = await Promise.all(userPromises);
-            
-            const userMap = new Map();
-            userDocs.forEach(doc => {
-                if (doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-            });
+    // Calculate average rating from all fetched interactions
+    const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
+    const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
 
-            comments.forEach(comment => {
-                const username = userMap.get(comment.userId) || 'Anonymous';
-                const commentEl = document.createElement('div');
-                commentEl.className = 'comment-item';
-                commentEl.innerHTML = `
-                    <p class="comment-text">"${comment.review}"</p>
-                    <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
-                `;
-                commentsContainer.appendChild(commentEl);
-            });
-        }
-
+    renderStars(document.getElementById('averageRating'), avgRating); 
+    renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
+}
+        /**
+         * Renders a 5-star rating based on a given score.
+         * @param {HTMLElement} container - The element to inject the stars into.
+         * @param {number} rating - The rating score (e.g., 3.5).
+         */
         function renderStars(container, rating) {
-            container.innerHTML = '';
+            container.innerHTML = ''; // Clear existing stars
             if (typeof rating !== 'number' || rating <= 0) {
-                container.innerHTML = `<span class="not-rated">Not Rated</span>`;
+                container.innerHTML = `<span class="text-gray-400">Not rated</span>`;
                 return;
             }
+
             let starsHTML = '';
-            for (let i = 1; i <= 5; i++) {
-                if (i <= rating) starsHTML += `<span class="star star-full"></span>`;
-                else if (i - 0.5 <= rating) starsHTML += `<span class="star star-half"></span>`;
-                else starsHTML += `<span class="star star-empty"></span>`;
+            const fullStars = Math.floor(rating);
+            const halfStar = rating % 1 >= 0.4;
+            const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+
+            for (let i = 0; i < fullStars; i++) {
+                starsHTML += `<img src="icons/star-full.svg" class="star-icon" alt="Full Star">`;
             }
-            starsHTML += `<span class="rating-text">${rating.toFixed(1)} / 5.0</span>`;
+            if (halfStar) {
+                starsHTML += `<img src="icons/star-half.svg" class="star-icon" alt="Half Star">`;
+            }
+            for (let i = 0; i < emptyStars; i++) {
+                starsHTML += `<img src="icons/star-empty.svg" class="star-icon" alt="Empty Star">`;
+            }
+            starsHTML += `<span class="ml-2 text-gray-300 font-medium">${rating.toFixed(1)} / 5.0</span>`;
             container.innerHTML = starsHTML;
         }
 
+        /**
+         * Displays an error message on the page.
+         * @param {string} message - The error message to display.
+         */
         function displayError(message) {
-            document.getElementById('loadingState').style.display = 'none';
-            const errorState = document.getElementById('errorState');
-            errorState.style.display = 'block';
-            document.getElementById('errorMessage').textContent = `Error: ${message}`;
+            const detailsContainer = document.getElementById('movie-details-container');
+            detailsContainer.innerHTML = `
+                <div class="text-center text-red-400 bg-red-900/50 p-8 rounded-lg">
+                    <h1 class="text-2xl font-bold mb-2">An Error Occurred</h1>
+                    <p>${message}</p>
+                    <a href="/index.html" class="mt-6 inline-block bg-cyan-500 text-white font-bold py-2 px-4 rounded hover:bg-cyan-600 transition-colors">Go Home</a>
+                </div>
+            `;
+            document.getElementById('loading').classList.add('hidden');
+            detailsContainer.classList.remove('hidden');
         }
+
     </script>
 </body>
 </html>
