@@ -108,6 +108,7 @@
                 
                 if (!validateForm()) return;
                 
+                // This will now correctly show a spinner without text
                 LibraryUtils.ui.setButtonLoading(authSubmitBtn);
                 authMessageDiv.style.display = 'none';
 
@@ -126,6 +127,7 @@
                     console.error('Authentication Error:', error);
                     displayAuthMessage(LibraryUtils.errors.getUserFriendlyMessage(error.message), 'error');
                 } finally {
+                    // This will correctly stop the spinner
                     LibraryUtils.ui.resetButton(authSubmitBtn);
                 }
             });

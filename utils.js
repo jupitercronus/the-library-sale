@@ -423,7 +423,7 @@ const UIUtils = {
      * @param {string|HTMLElement} button - Button element or ID
      * @param {string} loadingText - Text to show while loading
      */
-    setButtonLoading: (button, loadingText = 'Loading...') => {
+    setButtonLoading: (button, loadingText = '') => {
         const btn = typeof button === 'string' ? document.getElementById(button) : button;
         if (!btn) return;
 

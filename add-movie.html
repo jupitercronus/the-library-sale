@@ -267,7 +267,7 @@
             });
         }
         
- // FIXED addMedia() function - add this to your add-movie.html
+         // FIXED addMedia() function - add this to your add-movie.html
         async function addMedia() {
             const submitBtn = document.getElementById('submitBtn');
             LibraryUtils.ui.setButtonLoading(submitBtn);
@@ -332,7 +332,7 @@
         } finally {
             LibraryUtils.ui.resetButton(submitBtn);
         }
-}
+    }
         async function updateMedia() {
             const submitBtn = document.getElementById('submitBtn');
             LibraryUtils.ui.setButtonLoading(submitBtn);
@@ -360,6 +360,132 @@
             } finally {
                 LibraryUtils.ui.resetButton(submitBtn);
             }
+        }
+        // Replace your lookupMovieByBarcode function with this version that uses skeleton loading
+        async function lookupMovieByBarcode(barcode) {
+            if (!LibraryUtils.validation.isValidBarcode(barcode)) {
+                showStatusMessage('Invalid barcode format.', 'error');
+                return;
+            }
+
+            // Show skeleton loading in the form instead of spinner/text
+            showBarcodeLoadingSkeleton();
+
+            try {
+                // Step 1: Lookup the barcode to get product info
+                const upcResponse = await fetch(`${UPC_BASE_URL}?upc=${barcode}`);
+                const upcData = await upcResponse.json();
+
+                if (!upcResponse.ok || !upcData.items || upcData.items.length === 0) {
+                    throw new Error('Product not found for this barcode.');
+                }
+
+                const product = upcData.items[0];
+                const productTitle = extractMovieTitle(product.title);
+
+                // Update skeleton to show we're searching for movie details
+                updateBarcodeLoadingSkeleton('Searching movie database...');
+
+                // Step 2: Search TMDb for the extracted title
+                const searchResponse = await fetch(`${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(productTitle)}`);
+                const searchData = await searchResponse.json();
+
+                if (!searchResponse.ok || !searchData.results || searchData.results.length === 0) {
+                    throw new Error(`No movie/TV show found for "${productTitle}".`);
+                }
+
+                // Find the best match (movie or TV show)
+                const bestMatch = searchData.results.find(item => 
+                    (item.media_type === 'movie' || item.media_type === 'tv') &&
+                    (item.title || item.name)
+                );
+
+                if (!bestMatch) {
+                    throw new Error(`No suitable movie/TV match found for "${productTitle}".`);
+                }
+
+                // Step 3: Get detailed info for the best match
+                const detailsResponse = await fetch(`${TMDB_BASE_URL}/${bestMatch.media_type}/${bestMatch.id}?append_to_response=credits`);
+                const detailsData = await detailsResponse.json();
+
+                if (!detailsResponse.ok) {
+                    throw new Error('Failed to fetch detailed movie information.');
+                }
+
+                // Step 4: Hide skeleton and populate the form with the movie data
+                hideBarcodeLoadingSkeleton();
+                populateFormWithData(detailsData);
+                
+                // Step 5: Store edition details from barcode lookup
+                document.getElementById('editionDetails').value = product.title || '';
+                document.getElementById('editionDetailsInput').value = product.title || '';
+                
+                // Step 6: Auto-set as owned since they scanned a physical copy
+                document.getElementById('ownedToggle').dataset.owned = 'true';
+                document.getElementById('editionDetailsGroup').style.display = 'block';
+
+                // Show success message briefly
+                showStatusMessage(`Found: ${detailsData.title || detailsData.name}`, 'success');
+                setTimeout(() => {
+                    document.getElementById('statusMessage').innerHTML = '';
+                }, 3000);
+
+            } catch (error) {
+                console.error('Barcode lookup error:', error);
+                hideBarcodeLoadingSkeleton();
+                showStatusMessage(error.message || 'Barcode lookup failed.', 'error');
+            }
+        }
+            // New functions to handle skeleton loading UI
+            function showBarcodeLoadingSkeleton() {
+                // Clear any existing status messages
+                document.getElementById('statusMessage').innerHTML = '';
+                
+                // Show skeleton loading in the form fields
+                const formFields = ['title', 'year', 'director', 'genre', 'summary', 'cast'];
+                
+                formFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        field.classList.add('skeleton-loading');
+                        field.value = '';
+                        field.placeholder = '';
+                    }
+                });
+                
+                // Add a loading message with skeleton animation
+                document.getElementById('statusMessage').innerHTML = `
+                    <div class="barcode-loading-container">
+                        <div class="barcode-loading-text">
+                            <div class="skeleton skeleton-text-line"></div>
+                            <div class="skeleton skeleton-text-line short"></div>
+                        </div>
+                        <div class="barcode-loading-message">Looking up product...</div>
+                    </div>
+                `;
+            }
+            function updateBarcodeLoadingSkeleton(message) {
+                    const messageEl = document.querySelector('.barcode-loading-message');
+                    if (messageEl) {
+                        messageEl.textContent = message;
+                    }
+            }
+            function hideBarcodeLoadingSkeleton() {
+                // Remove skeleton loading from form fields
+                const formFields = ['title', 'year', 'director', 'genre', 'summary', 'cast'];
+                
+                formFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        field.classList.remove('skeleton-loading');
+                    }
+                });
+                
+                // Clear the loading message
+                const loadingContainer = document.querySelector('.barcode-loading-container');
+                if (loadingContainer) {
+                    loadingContainer.remove();
+                }
         }
 
         async function checkEditMode() {
@@ -521,8 +647,42 @@
         function setupStarRating() { starRatingController = LibraryUtils.stars.setupInteractiveStarRating('starRating', (rating) => { currentRating = rating; }, currentRating); }
         function togglePublicFieldsReadonly(isReadonly) { const fields = ['title', 'year', 'director', 'genre', 'summary', 'cast', 'contentType']; fields.forEach(id => { const el = document.getElementById(id); if (el.tagName === 'SELECT') el.disabled = isReadonly; else el.readOnly = isReadonly; }); }
         function showStatusMessage(message, type) { const statusDiv = document.getElementById('statusMessage'); statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`; }
-        function extractMovieTitle(productName) { let title = productName; title = title.replace(/\b(DVD|Blu-ray|4K|UHD|Digital|Copy|Widescreen|Full Screen|Special Edition|Collector's Edition)\b/gi, ''); title = title.replace(/\s*\(.*?\)\s*/g, ' ').trim(); title = title.replace(/\s*\[.*?\]\s*/g, ' ').trim(); title = title.replace(/\s+/g, ' ').trim(); return LibraryUtils.validation.sanitizeInput(title) || productName; }
-        // Setup for search and barcode scanner remains the same
+        // Replace your existing extractMovieTitle function with this improved version
+        function extractMovieTitle(productName) {
+            if (!productName) return '';
+            
+            let title = productName;
+            
+            // Remove common DVD/Blu-ray related terms (case insensitive)
+            const termsToRemove = [
+                /\b(DVD|Blu-ray|4K|UHD|Ultra HD|Digital|Copy|Widescreen|Full Screen|Fullscreen)\b/gi,
+                /\b(Special Edition|Collector's Edition|Director's Cut|Extended Edition|Anniversary Edition)\b/gi,
+                /\b(Movie|Film|Cinema|Video)\b/gi,
+                /\b(New|Used|Sealed|Region \d+)\b/gi
+            ];
+            
+            termsToRemove.forEach(regex => {
+                title = title.replace(regex, ' ');
+            });
+            
+            // Remove content in parentheses and brackets
+            title = title.replace(/\s*\([^)]*\)\s*/g, ' ');
+            title = title.replace(/\s*\[[^\]]*\]\s*/g, ' ');
+            
+            // Remove year patterns like "2019" or "'19" 
+            title = title.replace(/\b(19|20)\d{2}\b/g, '');
+            title = title.replace(/'\d{2}\b/g, '');
+            
+            // Clean up extra whitespace
+            title = title.replace(/\s+/g, ' ').trim();
+            
+            // If title is too short or empty, return original
+            if (title.length < 2) {
+                return productName;
+            }
+            
+            return title;
+        }
         function setupSearch() { const searchInput = document.getElementById('movieSearch'); const searchSpinner = document.getElementById('searchSpinner'); const searchResultsContainer = document.getElementById('searchResults'); const loadMoreBtn = document.getElementById('loadMoreBtn'); const debouncedSearch = LibraryUtils.search.createDebouncedSearch((query) => { const sanitizedQuery = LibraryUtils.validation.sanitizeInput(query); if (sanitizedQuery.length > 2) { performSearch(sanitizedQuery, 1); } else { document.getElementById('searchResults').innerHTML = ''; document.getElementById('searchFooter').style.display = 'none'; } }); searchInput.addEventListener('input', (e) => { debouncedSearch(e.target.value, searchSpinner); }); document.getElementById('searchBtn').addEventListener('click', () => { const sanitizedQuery = LibraryUtils.validation.sanitizeInput(searchInput.value); performSearch(sanitizedQuery, 1); }); searchResultsContainer.addEventListener('scroll', () => { if (isLoadingMore || currentPage >= totalPages) return; const { scrollTop, scrollHeight, clientHeight } = searchResultsContainer; if (scrollHeight - scrollTop <= clientHeight + 100) { loadNextPage(); } }); loadMoreBtn.addEventListener('click', loadNextPage); }
         function loadNextPage() { if (isLoadingMore || currentPage >= totalPages) return; performSearch(currentSearchQuery, currentPage + 1); }
         async function performSearch(query, page = 1) { if (!query || isLoadingMore) return; const isNewSearch = page === 1; if (isNewSearch) { currentSearchQuery = query; currentPage = 1; } isLoadingMore = true; const cacheKey = `search_${query.toLowerCase().replace(/\s+/g, '_')}_p${page}`; const cachedData = apiCache.get('multi-search', cacheKey); if (cachedData) { processAndDisplayResults(cachedData, query, isNewSearch); isLoadingMore = false; return; } if (isNewSearch) { LibraryUtils.skeleton.showSkeleton('searchResults', 'search-results', 5); } else { document.getElementById('loadMoreBtn').textContent = 'Loading...'; document.getElementById('loadMoreBtn').disabled = true; } try { const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}&page=${page}`; const response = await fetch(searchUrl); const data = await response.json(); apiCache.set('multi-search', cacheKey, data); processAndDisplayResults(data, query, isNewSearch); } catch (error) { LibraryUtils.errors.handleError(error, 'Search'); showStatusMessage('Search failed.', 'error'); } finally { isLoadingMore = false; const loadMoreBtn = document.getElementById('loadMoreBtn'); loadMoreBtn.textContent = 'Load More'; loadMoreBtn.disabled = currentPage >= totalPages; } }
@@ -531,7 +691,163 @@
         function displayResults(results, isNewSearch) { const resultsDiv = document.getElementById('searchResults'); if (isNewSearch) { resultsDiv.innerHTML = ''; } if (results.length === 0 && isNewSearch) { resultsDiv.innerHTML = '<p style="text-align: center; padding: 20px;">No results found.</p>'; return; } const resultsHTML = results.map((item) => { const title = item.title || item.name; const year = (item.release_date || item.first_air_date || '').substring(0, 4); const overview = LibraryUtils.ui.truncateText(item.overview, 100); const badgeHTML = item.media_type === 'tv' ? `<span class="badge badge-tv" title="TV Show"></span>` : `<span class="badge badge-movie" title="Movie"></span>`; return ` <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')"> <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : ''}" class="search-result-poster" onerror="this.style.display='none'"> <div class="search-result-info"> <h4>${title} (${year}) ${badgeHTML}</h4> <p>${overview}</p> </div> </div> `; }).join(''); resultsDiv.insertAdjacentHTML('beforeend', resultsHTML); }
         function updateSearchFooter() { const footer = document.getElementById('searchFooter'); const countSpan = document.getElementById('resultCount'); const loadMoreBtn = document.getElementById('loadMoreBtn'); if (totalResults > 0) { footer.style.display = 'flex'; const itemsShown = document.getElementById('searchResults').children.length; countSpan.textContent = `Showing ${itemsShown} of ${totalResults} results`; if (currentPage < totalPages) { loadMoreBtn.style.display = 'block'; loadMoreBtn.disabled = false; } else { loadMoreBtn.style.display = 'none'; } } else { footer.style.display = 'none'; } }
         function updateUrl(query, page) { const url = new URL(window.location); url.searchParams.set('query', query); url.searchParams.set('page', page); window.history.pushState({ path: url.href }, '', url.href); }
-        async function selectMedia(id, type) { showStatusMessage('Loading details...', 'info'); const cacheKey = `details_${type}_${id}`; const cachedData = apiCache.get('details', cacheKey); if (cachedData) { populateFormWithData(cachedData); return; } try { const response = await fetch(`${TMDB_BASE_URL}/${type}/${id}?append_to_response=credits`); const data = await response.json(); apiCache.set('details', cacheKey, data); populateFormWithData(data); } catch (error) { LibraryUtils.errors.handleError(error, 'Loading media details'); } }
+       
+        // Replace your selectMedia function with this improved version
+        async function selectMedia(id, type) {
+            // Immediate visual feedback - highlight the selected item
+            const selectedResult = event.target.closest('.search-result');
+            if (selectedResult) {
+                selectedResult.classList.add('selected');
+                // Disable other search results to prevent double-clicking
+                const allResults = document.querySelectorAll('.search-result');
+                allResults.forEach(result => {
+                    if (result !== selectedResult) {
+                        result.style.opacity = '0.5';
+                        result.style.pointerEvents = 'none';
+                    }
+                });
+            }
+
+            // Show skeleton loading for form fields instead of text message
+            showMovieSelectionSkeleton();
+            
+            const cacheKey = `details_${type}_${id}`;
+            const cachedData = apiCache.get('details', cacheKey);
+            
+            if (cachedData) {
+                // Even with cached data, show brief loading for user feedback
+                setTimeout(() => {
+                    hideMovieSelectionSkeleton();
+                    populateFormWithData(cachedData);
+                    clearSearchResults();
+                    showStatusMessage('Movie details loaded successfully!', 'success');
+                    // Clear success message after 3 seconds
+                    setTimeout(() => {
+                        document.getElementById('statusMessage').innerHTML = '';
+                    }, 3000);
+                }, 300);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${TMDB_BASE_URL}/${type}/${id}?append_to_response=credits`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load movie details');
+                }
+                
+                apiCache.set('details', cacheKey, data);
+                hideMovieSelectionSkeleton();
+                populateFormWithData(data);
+                clearSearchResults();
+                
+                showStatusMessage('Movie details loaded successfully!', 'success');
+                // Clear success message after 3 seconds
+                setTimeout(() => {
+                    document.getElementById('statusMessage').innerHTML = '';
+                }, 3000);
+                
+            } catch (error) {
+                // Restore search results on error
+                hideMovieSelectionSkeleton();
+                if (selectedResult) {
+                    selectedResult.classList.remove('selected');
+                    const allResults = document.querySelectorAll('.search-result');
+                    allResults.forEach(result => {
+                        result.style.opacity = '';
+                        result.style.pointerEvents = '';
+                    });
+                }
+                
+                LibraryUtils.errors.handleError(error, 'Loading media details');
+                showStatusMessage('Failed to load movie details. Please try again.', 'error');
+            }
+        }
+        // New function to clear search results and provide clean state
+        function clearSearchResults() {
+            // Clear search results
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('searchFooter').style.display = 'none';
+            
+            // Clear search input to show the selection was successful
+            document.getElementById('movieSearch').value = '';
+            
+            // Reset search state
+            currentSearchQuery = '';
+            currentPage = 1;
+            totalPages = 1;
+            totalResults = 0;
+            isLoadingMore = false;
+        }
+        // Skeleton loading functions for movie selection (consistent with barcode loading)
+        function showMovieSelectionSkeleton() {
+            // Clear any existing status messages
+            document.getElementById('statusMessage').innerHTML = '';
+            
+            // Show skeleton loading in the form fields (same as barcode)
+            const formFields = ['title', 'year', 'director', 'genre', 'summary', 'cast'];
+            
+            formFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.classList.add('skeleton-loading');
+                    field.value = '';
+                    field.placeholder = '';
+                }
+            });
+            
+            // Add loading message with same styling as barcode loading
+            document.getElementById('statusMessage').innerHTML = `
+                <div class="barcode-loading-container">
+                    <div class="barcode-loading-text">
+                        <div class="skeleton skeleton-text-line"></div>
+                        <div class="skeleton skeleton-text-line short"></div>
+                    </div>
+                    <div class="barcode-loading-message">Loading movie details...</div>
+                </div>
+            `;
+        }
+        function hideMovieSelectionSkeleton() {
+            // Remove skeleton loading from form fields (same as barcode)
+            const formFields = ['title', 'year', 'director', 'genre', 'summary', 'cast'];
+            
+            formFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.classList.remove('skeleton-loading');
+                }
+            });
+            
+            // Clear the loading message
+            const loadingContainer = document.querySelector('.barcode-loading-container');
+            if (loadingContainer) {
+                loadingContainer.remove();
+            }
+        }
+        function populateFormWithData(data) {
+    document.getElementById('title').value = data.title || data.name;
+    document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);
+    document.getElementById('summary').value = data.overview;
+    document.getElementById('genre').value = data.genres.map(g => g.name).join(', ');
+    document.getElementById('cast').value = data.credits.cast.slice(0, 5).map(c => c.name).join(', ');
+    const director = data.credits.crew.find(c => c.job === 'Director');
+    document.getElementById('director').value = director ? director.name : '';
+    document.getElementById('contentType').value = data.media_type || (data.seasons ? 'tv' : 'movie');
+    
+    document.getElementById('movieForm').dataset.tmdbId = data.id;
+    document.getElementById('movieForm').dataset.posterUrl = data.poster_path ? TMDB_IMAGE_BASE + data.poster_path : '';
+    document.getElementById('movieForm').dataset.runtime = data.runtime || (data.episode_run_time ? data.episode_run_time[0] : null);
+
+    togglePublicFieldsReadonly(true); 
+    isPublicFieldsEditable = false;
+    
+    // Scroll to the form so user can see the populated data
+    document.getElementById('movieForm').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+    });
+}
         async function setupBarcodeScanner() { const cameraBtn = document.getElementById('cameraBtn'); const manualBtn = document.getElementById('manualBarcodeBtn'); const lookupBtn = document.getElementById('lookupBarcodeBtn'); const cancelBtn = document.getElementById('cancelBarcodeBtn'); const stopBtn = document.getElementById('stopScanBtn'); const barcodeInput = document.getElementById('barcodeInput'); manualBtn.addEventListener('click', showManualInput); lookupBtn.addEventListener('click', lookupManualBarcode); cancelBtn.addEventListener('click', hideManualInput); stopBtn.addEventListener('click', stopScanner); barcodeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); lookupManualBarcode(); } }); barcodeInput.addEventListener('input', (e) => { const value = e.target.value; if (!/^\d{0,18}$/.test(value)) { e.target.value = value.replace(/\D/g, '').slice(0, 18); } document.getElementById('lookupBarcodeBtn').disabled = !LibraryUtils.validation.isValidBarcode(e.target.value); }); cameraBtn.addEventListener('click', startScanner); try { if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) { codeReader = new ZXing.BrowserMultiFormatReader(); videoInputDevices = await codeReader.listVideoInputDevices(); if (videoInputDevices.length === 0) { cameraBtn.disabled = true; cameraBtn.textContent = 'No Camera'; } } else { cameraBtn.disabled = true; cameraBtn.textContent = 'Scanner N/A'; } } catch (err) { console.error("Error setting up barcode scanner:", err); cameraBtn.disabled = true; cameraBtn.textContent = 'Scanner Error'; } }
         function showManualInput() { document.getElementById('manualBarcodeInput').style.display = 'block'; document.getElementById('barcodeInput').focus(); document.getElementById('lookupBarcodeBtn').disabled = true; }
         function hideManualInput() { document.getElementById('manualBarcodeInput').style.display = 'none'; }

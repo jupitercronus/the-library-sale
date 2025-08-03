@@ -16,6 +16,34 @@
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
+    <!-- FIX: Added styles for user search results dropdown -->
+    <style>
+        .sidebar-search {
+            position: relative;
+        }
+        #userSearchResultsContainer {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: #24143E;
+            border: 1px solid #3a2a5c;
+            border-radius: 5px;
+            z-index: 100;
+            max-height: 250px;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .user-search-result {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .user-search-result:hover {
+            background-color: #3a2a5c;
+        }
+    </style>
 </head>
 <body>
     <header id="navbar-placeholder"></header>
@@ -24,9 +52,11 @@
         <!-- Left Sidebar -->
         <aside class="profile-sidebar">
             <div class="sidebar-block">
+                <!-- FIX: User search container -->
                 <div class="sidebar-search">
-                    <input type="text" id="userSearchInput" placeholder="Find user...">
+                    <input type="text" id="userSearchInput" placeholder="Find user..." autocomplete="off">
                     <button id="userSearchBtn" class="btn-icon" title="Search Users"></button>
+                    <div id="userSearchResultsContainer"></div>
                 </div>
             </div>
 
@@ -105,6 +135,7 @@
         let viewedUserId = null;
         let allOwnedMedia = [];
         let allWatchedMedia = [];
+        let allUsersCache = []; // Cache for user search
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -122,16 +153,50 @@
                     window.location.href = 'auth.html';
                 }
 
+                fetchAllUsers();
                 setupEventListeners();
             });
         });
 
         function setupEventListeners() {
-            document.getElementById('userSearchBtn').addEventListener('click', searchForUser);
-            document.getElementById('userSearchInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') searchForUser();
+            // FIX: Updated user search event listeners
+            const userSearchInput = document.getElementById('userSearchInput');
+            const userSearchBtn = document.getElementById('userSearchBtn');
+            const userResultsContainer = document.getElementById('userSearchResultsContainer');
+
+            const performUserSearch = (query) => {
+                const lowerCaseQuery = query.toLowerCase();
+                userResultsContainer.style.display = 'block';
+
+                const filteredUsers = allUsersCache.filter(user =>
+                    user.displayName && user.displayName.toLowerCase().includes(lowerCaseQuery)
+                ).slice(0, 10);
+
+                if (filteredUsers.length === 0) {
+                    userResultsContainer.innerHTML = '<div class="user-search-result">No users found.</div>';
+                    return;
+                }
+
+                userResultsContainer.innerHTML = filteredUsers.map(user => `
+                    <div class="user-search-result" onclick="window.location.href='profile.html?id=${user.id}'">
+                        ${user.displayName}
+                    </div>
+                `).join('');
+            };
+            
+            const debouncedUserSearch = LibraryUtils.ui.debounce(performUserSearch, 300);
+
+            userSearchInput.addEventListener('input', () => debouncedUserSearch(userSearchInput.value.trim()));
+            userSearchInput.addEventListener('focus', () => performUserSearch(userSearchInput.value.trim()));
+            userSearchBtn.addEventListener('click', () => userSearchInput.focus());
+
+            document.addEventListener('click', (e) => {
+                if (!document.querySelector('.sidebar-search').contains(e.target)) {
+                    userResultsContainer.style.display = 'none';
+                }
             });
 
+            // Media search listeners
             document.getElementById('ownedSearchInput').addEventListener('input', () => renderMediaGrid('owned'));
             document.getElementById('ownedSortDropdown').addEventListener('change', () => renderMediaGrid('owned'));
             
@@ -139,21 +204,12 @@
             document.getElementById('watchedSortDropdown').addEventListener('change', () => renderMediaGrid('watched'));
         }
 
-        async function searchForUser() {
-            const username = document.getElementById('userSearchInput').value.trim();
-            if (!username) return;
-            
+        async function fetchAllUsers() {
             try {
-                const usersRef = db.collection('users');
-                const snapshot = await usersRef.where('displayName', '==', username).limit(1).get();
-                if (snapshot.empty) {
-                    alert('User not found.');
-                } else {
-                    const userId = snapshot.docs[0].id;
-                    window.location.href = `profile.html?id=${userId}`;
-                }
+                const usersSnapshot = await db.collection('users').get();
+                allUsersCache = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             } catch (error) {
-                console.error("Error searching for user:", error);
+                console.error("Error fetching all users:", error);
             }
         }
 

@@ -491,29 +491,147 @@ h2, h3 {
 @media (min-width: 769px) { .nav-links { display: flex !important; } }
 
 /* === ADD-MOVIE.HTML & SHARED FORM STYLES === */
-
-/* --- Modal Enhancements --- */
-.modal-close-btn {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: #e10086;
-    border: none;
-    border-radius: 50%;
-    color: #DEF0F7;
-    cursor: pointer;
-    width: 32px;
-    height: 32px;
+.barcode-loading-container {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+    background: #2D194D;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.barcode-loading-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeleton-text-line {
+    height: 16px;
+    background: linear-gradient(90deg, #2D194D 25%, #24143E 50%, #2D194D 75%);
+    background-size: 200px 100%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+    border-radius: 4px;
+}
+
+.skeleton-text-line.short {
+    width: 60%;
+}
+
+.barcode-loading-message {
+    font-size: 0.9em;
+    color: #90dcff;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Form field skeleton loading state */
+input.skeleton-loading,
+textarea.skeleton-loading,
+select.skeleton-loading {
+    background: linear-gradient(90deg, #2D194D 25%, #24143E 50%, #2D194D 75%);
+    background-size: 200px 100%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+    border-color: rgba(222, 240, 247, 0.1);
+    pointer-events: none;
+}
+
+/* Ensure skeleton shimmer animation exists */
+@keyframes skeleton-shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+}
+
+/* Success/Error status messages (keep these simple) */
+.status-message {
+    padding: 12px 16px;
+    margin: 10px 0;
+    border-radius: 6px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.status-success { 
+    background-color: rgba(0, 219, 150, 0.2);
+    color: #00db96;
+    border: 1px solid rgba(0, 219, 150, 0.3);
+}
+
+.status-error { 
+    background-color: rgba(225, 0, 134, 0.2);
+    color: #e10086;
+    border: 1px solid rgba(225, 0, 134, 0.3);
+}
+
+.status-info { 
+    background-color: rgba(144, 220, 255, 0.2);
+    color: #90dcff;
+    border: 1px solid rgba(144, 220, 255, 0.3);
 }
 .modal-close-btn:hover { background-color: #fdfb76; color: #24143E; transform: scale(1.1); }
 .modal-close-btn::before {
     content: ''; display: inline-block; width: 1em; height: 1em; background-color: currentColor;
     -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     -webkit-mask-position: center; mask-position: center; -webkit-mask-image: url(icons/close.svg); mask-image: url(icons/close.svg);
+}
+
+/* === SEARCH RESULT SELECTION FEEDBACK === */
+/* Add this to your style.css in the ADD-MOVIE.HTML section */
+/* Consistent with skeleton loading UI colors and animations */
+
+.search-result {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.3s ease;
+    border: 2px solid transparent;
+    position: relative; /* For overlay effects */
+}
+
+.search-result:hover {
+    background-color: #3a2a5c;
+    transform: translateY(-1px);
+}
+
+.search-result.selected {
+    background-color: #2D194D;
+    border-color: #90dcff;
+    transform: scale(1.02);
+}
+
+.search-result.selected::after {
+    content: '✓';
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #90dcff;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Smooth transitions for when results are being disabled */
+.search-result {
+    transition: opacity 0.3s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+/* Loading state for individual search results - matches skeleton UI */
+.search-result.loading {
+    pointer-events: none;
+    opacity: 0.8;
+    background: linear-gradient(90deg, #2D194D 25%, #24143E 50%, #2D194D 75%);
+    background-size: 200px 100%;
+    animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+/* Ensure we use the same skeleton shimmer animation */
+@keyframes skeleton-shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
 }
 
 /* --- Form & Control Elements --- */
@@ -1350,6 +1468,15 @@ textarea { resize: vertical; }
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+.loading-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #90dcff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
 
 /* === CREATE LIST PAGE STYLES === */

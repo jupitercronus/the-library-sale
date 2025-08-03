@@ -18,6 +18,19 @@
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
+    <!-- FIX: Added specific styles to position the search results container -->
+    <style>
+        .edit-list-search {
+            position: relative; /* Establishes a positioning context for child elements */
+        }
+        #searchResultsContainer {
+            position: absolute; /* Positions the container relative to .edit-list-search */
+            top: 100%; /* Places it directly below the parent container */
+            left: 0;
+            right: 0;
+            z-index: 100; /* Ensures it appears above other content */
+        }
+    </style>
 </head>
 <body>
     <header id="navbar-placeholder"></header>
@@ -25,7 +38,6 @@
     <div class="main-container view-list-container">
         <div id="list-content">
             <form id="editListForm">
-                <!-- FIX: Title field now shares space with creator name -->
                 <div class="list-header">
                     <input type="text" id="listName" class="list-name-input" placeholder="List Name" required>
                     <p id="creatorName"></p>
@@ -33,11 +45,9 @@
                 <textarea id="listDescription" class="list-description-textarea" placeholder="Add a description..."></textarea>
             </form>
 
-            <!-- FIX: Simplified search bar structure -->
             <div class="edit-list-search">
                 <input type="text" id="mediaSearchInput" placeholder="Search media to add to list..." autocomplete="off">
                 <button id="mediaSearchBtn" class="btn-icon" title="Search"></button>
-                <!-- Search results will be positioned absolutely relative to this container -->
                 <div id="searchResultsContainer"></div>
             </div>
 
@@ -70,6 +80,8 @@
         let listData = null;
         let sortable = null;
         let currentUser = null;
+        let debouncedSearch = null;
+        let allMoviesCache = []; // Cache for movies to avoid re-fetching
 
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -83,35 +95,37 @@
             auth.onAuthStateChanged(user => {
                 currentUser = user;
                 loadListData(listId);
+                fetchAllMovies(); // Pre-fetch all movies for searching
             });
 
             document.getElementById('editListForm').addEventListener('submit', saveListChanges);
             
-            // FIX: Correctly implemented search logic
             const searchInput = document.getElementById('mediaSearchInput');
             const searchButton = document.getElementById('mediaSearchBtn');
             const resultsContainer = document.getElementById('searchResultsContainer');
 
-            const performSearch = async (query) => {
-                if (!query || query.length < 2) {
-                    resultsContainer.innerHTML = '';
-                    resultsContainer.style.display = 'none';
-                    return;
-                }
-                
-                const moviesRef = db.collection('movies');
-                const snapshot = await moviesRef.where('title_lowercase', '>=', query.toLowerCase()).where('title_lowercase', '<=', query.toLowerCase() + '\\uf8ff').limit(5).get();
-                
+            // This function now handles both filtering and showing initial results
+            const performSearch = (query) => {
+                const lowerCaseQuery = query.toLowerCase();
                 resultsContainer.style.display = 'block';
-                if (snapshot.empty) {
+
+                let filteredMovies;
+                // If there's a query, filter the cache. Otherwise, show the first 10 from the cache.
+                if (lowerCaseQuery) {
+                    filteredMovies = allMoviesCache.filter(movie =>
+                        movie.title && movie.title.toLowerCase().includes(lowerCaseQuery)
+                    ).slice(0, 10);
+                } else {
+                    filteredMovies = allMoviesCache.slice(0, 10);
+                }
+
+                if (filteredMovies.length === 0) {
                     resultsContainer.innerHTML = '<div class="search-result-item-add">No results found.</div>';
                     return;
                 }
 
-                resultsContainer.innerHTML = snapshot.docs.map(doc => {
-                    const media = { id: doc.id, ...doc.data() };
+                resultsContainer.innerHTML = filteredMovies.map(media => {
                     const isAlreadyInList = listData.mediaIds.includes(media.id);
-                    // Disable clicks on items already in the list
                     const clickAction = isAlreadyInList ? '' : `onclick="addMediaItem('${media.id}')"`;
                     return `
                         <div class="search-result-item-add ${isAlreadyInList ? 'disabled' : ''}" ${clickAction}>
@@ -122,23 +136,39 @@
                 }).join('');
             };
 
-            const debouncer = LibraryUtils.search.createDebouncedSearch(performSearch, 300);
+            debouncedSearch = LibraryUtils.ui.debounce(performSearch, 200);
 
-            searchInput.addEventListener('input', () => debouncer.run(searchInput.value.trim()));
-            searchInput.addEventListener('focus', () => performSearch(searchInput.value.trim()));
-
-            searchButton.addEventListener('click', () => {
-                debouncer.cancel();
+            // Live search as the user types
+            searchInput.addEventListener('input', () => {
+                debouncedSearch(searchInput.value.trim());
+            });
+            
+            // Show initial list of results on focus
+            searchInput.addEventListener('focus', () => {
                 performSearch(searchInput.value.trim());
             });
 
-            // Hide results when clicking away
+            // The search button can now simply act as a way to focus the input
+            searchButton.addEventListener('click', () => {
+                searchInput.focus();
+            });
+
             document.addEventListener('click', (e) => {
                 if (!document.querySelector('.edit-list-search').contains(e.target)) {
                     resultsContainer.style.display = 'none';
                 }
             });
         });
+
+        // Function to fetch all movies once and cache them
+        async function fetchAllMovies() {
+            try {
+                const moviesSnapshot = await db.collection('movies').get();
+                allMoviesCache = moviesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch (error) {
+                console.error("Error fetching all movies for search:", error);
+            }
+        }
 
         async function loadListData(listId) {
             try {
@@ -175,7 +205,6 @@
             const mediaDataMap = new Map();
             if (mediaIds.length > 0) {
                 const moviePromises = [];
-                // Firestore 'in' queries are limited to 10 items per query
                 for (let i = 0; i < mediaIds.length; i += 10) {
                     const chunk = mediaIds.slice(i, i + 10);
                     moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
@@ -217,7 +246,6 @@
                     const items = container.querySelectorAll('.list-media-item');
                     const newMediaIds = Array.from(items).map(item => item.dataset.id);
                     listData.mediaIds = newMediaIds;
-                    // Re-render to update numbers and maintain consistency
                     renderMediaItems(listData.mediaIds); 
                 }
             });
@@ -256,7 +284,6 @@
             listData.mediaIds.push(mediaId);
             await renderMediaItems(listData.mediaIds);
             
-            // Clear search and hide results
             document.getElementById('mediaSearchInput').value = '';
             document.getElementById('searchResultsContainer').style.display = 'none';
         }
