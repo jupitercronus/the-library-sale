@@ -63,16 +63,28 @@
         let currentUser = null;
         let isPublic = true;
 
+
+        // Add skeleton utilities
+        const SkeletonUI = {
+            showCreateListSkeleton: () => {
+                document.getElementById('listName').placeholder = 'Loading...';
+                document.getElementById('creatorName').innerHTML = '<div class="skeleton skeleton-text" style="width: 120px; height: 16px;"></div>';
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             auth.onAuthStateChanged(user => {
                 if (user) {
                     currentUser = user;
-                    document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${currentUser.uid}">${currentUser.displayName || 'Anonymous'}</a>`;
+                    // Small delay to show skeleton briefly
+                    setTimeout(() => {
+                        document.getElementById('listName').placeholder = 'My Awesome List';
+                        document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${currentUser.uid}">${currentUser.displayName || 'Anonymous'}</a>`;
+                    }, 300);
                 } else {
-                    window.location.href = 'auth.html'; // Redirect if not logged in
+                    window.location.href = 'auth.html';
                 }
             });
-
             document.getElementById('createListForm').addEventListener('submit', handleCreateList);
             
             // Privacy toggle logic

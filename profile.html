@@ -277,8 +277,7 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Show skeleton immediately
-            ProfileSkeletonUI.showFullPageSkeleton();
+
 
             const urlParams = new URLSearchParams(window.location.search);
             viewedUserId = urlParams.get('id');
@@ -364,12 +363,23 @@
         }
 
         async function loadProfileData(userId) {
+            // Show skeleton immediately for the sections that will load data
+            ProfileSkeletonUI.showSidebarSkeleton();
+            ProfileSkeletonUI.showSectionSkeleton('owned-section');
+            ProfileSkeletonUI.showSectionSkeleton('watched-section');
+            
             try {
-                const userDoc = await db.collection('users').doc(userId).get();
+                // Add minimum loading time for smooth UX
+                const [userDoc] = await Promise.all([
+                    db.collection('users').doc(userId).get(),
+                    new Promise(resolve => setTimeout(resolve, 600))
+                ]);
+                
                 if (!userDoc.exists) {
                     document.querySelector('.profile-main-content').innerHTML = '<h2>User not found</h2>';
                     return;
                 }
+                
                 const profileData = userDoc.data();
                 populateSidebar(profileData);
 
@@ -401,17 +411,21 @@
                     
                     calculateAndDisplayStats(fullMediaDetails);
                 } else {
-                     calculateAndDisplayStats([]);
+                    calculateAndDisplayStats([]);
                 }
                 
-                // Add delay for smooth transition from skeleton
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Add small delay for smooth transition from skeleton
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 renderMediaGrid('owned');
                 renderMediaGrid('watched');
 
             } catch (error) {
                 console.error("Error loading profile data:", error);
+                // Show error state
+                document.getElementById('sidebarUserInfo').innerHTML = '<p>Error loading profile</p>';
+                document.getElementById('ownedMediaGrid').innerHTML = '<p>Error loading media</p>';
+                document.getElementById('watchedMediaGrid').innerHTML = '<p>Error loading media</p>';
             }
         }
 
@@ -569,7 +583,7 @@
                     : `<span class="badge badge-movie" title="Movie"></span>`;
                 
                 return `
-                <div class="profile-media-item">
+                <div class="profile-media-item fade-in">
                     ${badgeHTML}
                     <a href="library.html?id=${item.id}">
                         <img src="${item.posterUrl || 'https://placehold.co/300x300/2D194D/DEF0F7?text=No+Poster'}" alt="${item.title || 'Untitled'}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x300/2D194D/DEF0F7?text=Error';">
@@ -577,6 +591,15 @@
                     </a>
                 </div>
             `}).join('');
+
+            // Add fade-in animation
+            setTimeout(() => {
+                gridContainer.querySelectorAll('.profile-media-item').forEach((item, index) => {
+                    setTimeout(() => {
+                        item.classList.add('visible');
+                    }, index * 20);
+                });
+            }, 50);
         }
     </script>
 </body>

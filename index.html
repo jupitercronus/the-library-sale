@@ -20,7 +20,7 @@
     <div>
         <header id="navbar-placeholder"></header>
     </div>
-
+<main>
     <div class="main-container">
         <div class="hero-section">
             <h2 class="hero-title">welcome to your swamp</h2>
@@ -239,38 +239,42 @@
                 let actionsHTML = '';
 
                 if (currentUser && interaction) {
+                    // Build actions array conditionally
+                    let actionButtons = [];
+                    
+                    // Only show owned icon if user owns it
+                    if (interaction.owned) {
+                        actionButtons.push(`<div class="btn-small owned-status owned" title="Owned"></div>`);
+                    }
+                    
+                    // Only show watched icon if user has watched it
+                    if (interaction.watched) {
+                        actionButtons.push(`<div class="btn-small media-status watched" title="Watched"></div>`);
+                    }
+                    
+                    // Always show details and edit buttons
+                    actionButtons.push(`<a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>`);
+                    actionButtons.push(`<button class="btn-small btn-edit" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit"></button>`);
+                    
                     actionsHTML = `
                         <div class="media-actions">
-                            <button 
-                                class="btn-small owned-status ${interaction.owned ? 'owned' : 'not-owned'}" 
-                                title="${interaction.owned ? 'Mark as Not Owned' : 'Mark as Owned'}"
-                                onclick="event.stopPropagation(); toggleOwnedStatus('${media.id}', ${interaction.owned || false})">
-                            </button>
-                            <button 
-                                class="btn-small media-status ${interaction.watched ? 'watched' : 'unwatched'}" 
-                                title="${interaction.watched ? 'Mark as Unwatched' : 'Mark as Watched'}"
-                                onclick="event.stopPropagation(); toggleWatchedStatus('${media.id}', ${interaction.watched || false})">
-                            </button>
-                            <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
-                            <button class="btn-small btn-edit" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit"></button>
-                            <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteMovie('${media.id}')" title="Remove"></button>
+                            ${actionButtons.join('')}
                         </div>
                     `;
                 } else if (currentUser) {
-                     actionsHTML = `
+                    actionsHTML = `
                         <div class="media-actions">
-                             <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
-                             <button class="btn-small btn-add" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"></button>
+                            <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
+                            <button class="btn-small btn-add" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"></button>
                         </div>
                     `;
                 } else {
-                     actionsHTML = `
+                    actionsHTML = `
                         <div class="media-actions">
                             <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
                         </div>
                     `;
                 }
-
                 return `
                     <div class="media-card fade-in">
                         <div class="media-top-section">
@@ -317,85 +321,17 @@
             return `<div class="media-rating">${starsHTML}</div>`;
         }
 
-        async function toggleOwnedStatus(mediaId, currentStatus) {
-            if (!currentUser) return;
-            try {
-                const interactionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId);
-                await interactionRef.update({ owned: !currentStatus });
-                if(myInteractions[mediaId]) {
-                    myInteractions[mediaId].owned = !currentStatus;
-                }
-                renderMedia();
-            } catch (error) {
-                console.error("Error updating owned status:", error);
-            }
-        }
-
-        async function toggleWatchedStatus(mediaId, currentStatus) {
-            if (!currentUser) return;
-            try {
-                const interactionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId);
-                await interactionRef.update({ watched: !currentStatus });
-                if(myInteractions[mediaId]) {
-                    myInteractions[mediaId].watched = !currentStatus;
-                }
-                renderMedia();
-            } catch (error) {
-                console.error("Error updating watched status:", error);
-            }
-        }
-
         function viewMediaDetails(mediaId) { 
             window.location.href = `library.html?id=${mediaId}`; 
         }
         
+        // Replace this function in your index.html
         function editMovie(mediaId) { 
-            window.location.href = `add-movie.html?edit=${mediaId}`; 
+            window.location.href = `edit-movie.html?id=${mediaId}`; 
         }
         
         function addExistingMovieToMyCollection(mediaId) { 
             window.location.href = `add-movie.html?edit=${mediaId}`; 
-        }
-        
-        function showConfirmationModal(title, message, onConfirm) {
-            const modal = document.getElementById('confirmationModal');
-            document.getElementById('confirmationModalTitle').textContent = title;
-            document.getElementById('confirmationModalMessage').textContent = message;
-            modal.style.display = 'flex'; 
-
-            const yesBtn = document.getElementById('confirmModalYes');
-            const noBtn = document.getElementById('confirmModalNo');
-
-            const confirmHandler = () => {
-                modal.style.display = 'none';
-                yesBtn.removeEventListener('click', confirmHandler);
-                noBtn.removeEventListener('click', cancelHandler);
-                onConfirm(true);
-            };
-
-            const cancelHandler = () => {
-                modal.style.display = 'none';
-                yesBtn.removeEventListener('click', confirmHandler);
-                noBtn.removeEventListener('click', cancelHandler);
-                onConfirm(false);
-            };
-
-            yesBtn.addEventListener('click', confirmHandler);
-            noBtn.addEventListener('click', cancelHandler);
-        }
-
-        async function deleteMovie(mediaId) { 
-            showConfirmationModal('Remove From Collection', 'Are you sure you want to remove this from your personal collection? This will delete your rating and review.', async (confirmed) => { 
-                if (confirmed && currentUser) {
-                    try {
-                        await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(mediaId).delete();
-                        delete myInteractions[mediaId];
-                        renderMedia();
-                    } catch (error) {
-                        console.error("Error removing item:", error);
-                    }
-                }
-            });
         }
 
         async function handleAuthButtonClick() {

@@ -83,6 +83,30 @@
         let debouncedSearch = null;
         let allMoviesCache = []; // Cache for movies to avoid re-fetching
 
+        // Add skeleton utilities
+        const SkeletonUI = {
+            showEditListSkeleton: () => {
+                document.getElementById('listName').value = 'Loading...';
+                document.getElementById('creatorName').innerHTML = '<div class="skeleton skeleton-text" style="width: 120px; height: 16px;"></div>';
+                document.getElementById('listDescription').value = 'Loading description...';
+                
+                const container = document.getElementById('media-list-container');
+                const skeletonHTML = Array(6).fill(0).map((_, index) => `
+                    <div class="skeleton-list-item draggable">
+                        <span class="skeleton skeleton-drag-handle"></span>
+                        <span class="skeleton skeleton-number">${index + 1}.</span>
+                        <div class="skeleton skeleton-poster"></div>
+                        <div class="skeleton-item-info">
+                            <div class="skeleton skeleton-title"></div>
+                            <div class="skeleton skeleton-year"></div>
+                        </div>
+                        <div class="skeleton skeleton-remove-btn"></div>
+                    </div>
+                `).join('');
+                container.innerHTML = skeletonHTML;
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             listId = urlParams.get('id');
@@ -171,8 +195,15 @@
         }
 
         async function loadListData(listId) {
+            // Show skeleton immediately
+            SkeletonUI.showEditListSkeleton();
+
             try {
-                const listDoc = await db.collection('lists').doc(listId).get();
+                const [listDoc] = await Promise.all([
+                db.collection('lists').doc(listId).get(),
+                new Promise(resolve => setTimeout(resolve, 600))
+            ])
+            
                 if (!listDoc.exists) throw new Error("List not found.");
                 
                 listData = listDoc.data();

@@ -18,7 +18,9 @@
     <script src="utils.js" defer></script>
     <script src="main.js" defer></script>
 <body>
-    <header id="navbar-placeholder"></header>
+    <div>    
+        <header id="navbar-placeholder"></header>
+    </div>
 
     <div id="detailsContainer" class="details-page-container" style="display: none;">
         
@@ -86,15 +88,6 @@
                 </div>
             </div>
             
-            <!-- Comment Edit Form (hidden by default) -->
-            <div id="commentEditForm" class="comment-edit-form">
-                <textarea id="commentEditTextarea" class="comment-edit-textarea" placeholder="Share your thoughts about this movie..."></textarea>
-                <div class="comment-edit-actions">
-                    <button id="saveCommentBtn" class="btn-comment-save" title="Save Comment"></button>
-                    <button id="cancelCommentBtn" class="btn-comment-cancel" title="Cancel"></button>
-                </div>
-            </div>
-            
             <div id="commentsContainer" class="comments-list">
                 <!-- Comments will be injected by JS -->
             </div>
@@ -117,15 +110,62 @@
         </footer>
     </div>
 
-    <!-- Loading and Error States -->
-    <div id="loadingState" class="main-container" style="text-align: center; padding: 50px;">
-        <h2>Loading...</h2>
+    <!-- Replace the existing loadingState div with this -->
+    <div id="loadingState" class="library-loading-skeleton">
+        <!-- Ticket skeleton -->
+        <div class="skeleton-details-ticket">
+            <div class="skeleton" style="width: 300px; height: 32px; margin: 0 auto 8px;"></div>
+            <div class="skeleton" style="width: 100px; height: 20px; margin: 0 auto 15px;"></div>
+            <div style="display: flex; justify-content: center; gap: 30px;">
+                <div style="min-width: 120px;">
+                    <div class="skeleton" style="width: 100px; height: 12px; margin: 0 auto 10px;"></div>
+                    <div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div>
+                </div>
+                <div style="min-width: 120px;">
+                    <div class="skeleton" style="width: 60px; height: 12px; margin: 0 auto 10px;"></div>
+                    <div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main content skeleton -->
+        <div class="skeleton-details-main">
+            <div class="skeleton skeleton-details-poster"></div>
+            <div class="skeleton-details-info">
+                <div class="skeleton-info-group">
+                    <div class="skeleton skeleton-info-title"></div>
+                    <div class="skeleton skeleton-info-text"></div>
+                </div>
+                <div class="skeleton-info-group">
+                    <div class="skeleton skeleton-info-title"></div>
+                    <div class="skeleton skeleton-info-text"></div>
+                </div>
+                <div class="skeleton-info-group">
+                    <div class="skeleton skeleton-info-title"></div>
+                    <div class="skeleton skeleton-info-text"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary skeleton -->
+        <div class="skeleton skeleton-section">
+            <div class="skeleton skeleton-section-header"></div>
+            <div class="skeleton-section-content">
+                <div class="skeleton skeleton-text-line long"></div>
+                <div class="skeleton skeleton-text-line medium"></div>
+                <div class="skeleton skeleton-text-line short"></div>
+            </div>
+        </div>
+        
+        <!-- Comments skeleton -->
+        <div class="skeleton skeleton-section">
+            <div class="skeleton skeleton-section-header"></div>
+            <div class="skeleton-section-content">
+                <div class="skeleton skeleton-text-line long"></div>
+                <div class="skeleton skeleton-text-line medium"></div>
+            </div>
+        </div>
     </div>
-    <div id="errorState" class="main-container" style="display: none; text-align: center; padding: 50px;">
-        <h2 id="errorMessage"></h2>
-        <a href="index.html" class="btn-back" style="margin-top: 20px;"></a>
-    </div>
-
 <script>
     // --- FIREBASE INITIALIZATION ---
     const firebaseConfig = {
@@ -141,6 +181,10 @@
     const auth = firebase.auth();
 
     async function loadMoviePage(user, movieId) {
+        // Show skeleton loading
+        document.getElementById('loadingState').style.display = 'block';
+        document.getElementById('detailsContainer').style.display = 'none';
+
         try {
             console.log('=== DEBUG: Loading movie page ===');
             console.log('User:', user?.uid);
@@ -437,127 +481,36 @@
         });
     });
 
-    // Comment form functionality
-    function setupCommentForm(user, movieId, myInteraction) {
-        const addCommentBtn = document.getElementById('addCommentBtn');
-        const commentEditForm = document.getElementById('commentEditForm');
-        const commentTextarea = document.getElementById('commentEditTextarea');
-        const saveCommentBtn = document.getElementById('saveCommentBtn');
-        const cancelCommentBtn = document.getElementById('cancelCommentBtn');
+// Comment form functionality - simplified to redirect to edit page
+function setupCommentForm(user, movieId, myInteraction) {
+    const addCommentBtn = document.getElementById('addCommentBtn');
+    const editCommentBtn = document.getElementById('editCommentBtn');
 
-        // Check if user already has a comment
-        const existingReview = myInteraction?.review || '';
-        const isEditing = existingReview.trim() !== '';
+    // Check if user already has a comment
+    const existingReview = myInteraction?.review || '';
+    const hasComment = existingReview.trim() !== '';
 
-        // Update button text based on whether user has existing comment
-        if (isEditing) {
+    if (hasComment) {
+        // Show edit button, hide add button
         editCommentBtn.style.display = 'inline-flex';
+        editCommentBtn.textContent = 'Edit';
         addCommentBtn.style.display = 'none';
-        } else {
-            addCommentBtn.style.display = 'inline-flex';
-            editCommentBtn.style.display = 'none';
-        }
-
-        // Show/hide comment form
+        
+        // Edit button redirects to edit-movie.html
+        editCommentBtn.addEventListener('click', () => {
+            window.location.href = `edit-movie.html?id=${movieId}`;
+        });
+    } else {
+        // Show add button, hide edit button
+        addCommentBtn.style.display = 'inline-flex';
+        editCommentBtn.style.display = 'none';
+        
+        // Add comment button redirects to edit-movie.html
         addCommentBtn.addEventListener('click', () => {
-            commentEditForm.style.display = 'block';
-            addCommentBtn.style.display = 'none';
-            commentTextarea.value = existingReview;
-            commentTextarea.focus();
-        });
-
-        // Cancel comment editing
-        cancelCommentBtn.addEventListener('click', () => {
-            commentEditForm.style.display = 'none';
-            addCommentBtn.style.display = 'inline-flex';
-            commentTextarea.value = '';
-        });
-
-        // Save comment
-        saveCommentBtn.addEventListener('click', async () => {
-            const newReview = commentTextarea.value.trim();
-            
-            if (newReview === '') {
-                alert('Please enter a comment before saving.');
-                return;
-            }
-
-            try {
-                // Disable save button to prevent double-clicking
-                saveCommentBtn.disabled = true;
-                saveCommentBtn.style.opacity = '0.5';
-
-                // Update or create user interaction with the new review
-                const interactionData = {
-                    movieId: movieId,
-                    review: newReview,
-                    interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                    // Preserve existing data if user already has an interaction
-                    ...(myInteraction && {
-                        rating: myInteraction.rating || 0,
-                        watched: myInteraction.watched || false,
-                        watchedDate: myInteraction.watchedDate || null,
-                        owned: myInteraction.owned || false,
-                        editionDetails: myInteraction.editionDetails || null,
-                        format: myInteraction.format || null,
-                        condition: myInteraction.condition || null,
-                        region: myInteraction.region || null,
-                        specialFeatures: myInteraction.specialFeatures || []
-                    })
-                };
-
-                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(interactionData, { merge: true });
-
-                // Hide form and show success
-                commentEditForm.style.display = 'none';
-                addCommentBtn.style.display = 'inline-flex';
-                addCommentBtn.textContent = 'Edit Comment';
-                commentTextarea.value = '';
-
-                // Reload comments to show the update
-                const interactionsSnapshot = await db.collectionGroup('movieInteractions')
-                    .where('movieId', '==', movieId)
-                    .get();
-                
-                const allInteractions = interactionsSnapshot.docs.map(doc => {
-                    const pathParts = doc.ref.path.split('/');
-                    const userId = pathParts[1]; 
-                    const data = doc.data();
-                    return { userId: userId, ...data };
-                });
-
-                await loadCommentsWithUserData(allInteractions);
-                
-                // Show success message briefly
-                const successMsg = document.createElement('div');
-                successMsg.className = 'status-message status-success';
-                successMsg.textContent = 'Comment saved successfully!';
-                successMsg.style.marginBottom = '15px';
-                document.querySelector('.comments-list').insertBefore(successMsg, document.querySelector('.comments-list').firstChild);
-                
-                setTimeout(() => {
-                    if (successMsg.parentNode) {
-                        successMsg.parentNode.removeChild(successMsg);
-                    }
-                }, 3000);
-
-            } catch (error) {
-                console.error('Error saving comment:', error);
-                alert('Failed to save comment. Please try again.');
-            } finally {
-                // Re-enable save button
-                saveCommentBtn.disabled = false;
-                saveCommentBtn.style.opacity = '';
-            }
-        });
-
-        // Allow saving with Ctrl+Enter
-        commentTextarea.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                saveCommentBtn.click();
-            }
+            window.location.href = `edit-movie.html?id=${movieId}`;
         });
     }
+}
 </script>
 </body>
 </html>

@@ -89,6 +89,29 @@
         let allLists = [];
         let currentView = 'all'; 
 
+        // Add skeleton utilities
+        const SkeletonUI = {
+            showListGridSkeleton: (count = 9) => {
+                const grid = document.getElementById('listGrid');
+                const skeletonHTML = Array(count).fill(0).map(() => `
+                    <div class="skeleton-list-card">
+                        <div class="skeleton-list-poster">
+                            <div class="skeleton skeleton-poster-collage"></div>
+                        </div>
+                        <div class="skeleton-list-info">
+                            <div class="skeleton skeleton-list-title"></div>
+                            <div class="skeleton skeleton-list-creator"></div>
+                            <div class="skeleton-list-actions">
+                                <div class="skeleton skeleton-action-btn"></div>
+                                <div class="skeleton skeleton-action-btn"></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                grid.innerHTML = skeletonHTML;
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             auth.onAuthStateChanged(user => {
                 currentUser = user;
@@ -124,71 +147,78 @@
         }
 
         async function loadLists() {
-            const grid = document.getElementById('listGrid');
-            grid.innerHTML = '<p>Loading lists...</p>';
-            try {
-                // Step 1: Fetch the lists themselves
-                const listsRef = db.collection('lists');
-                let query = listsRef.where('isPublic', '==', true);
+                // Show skeleton immediately
+                SkeletonUI.showListGridSkeleton(9);
                 
-                // If showing "My Lists", we adjust the query
-                if (currentView === 'my' && currentUser) {
-                    query = listsRef.where('creatorId', '==', currentUser.uid);
-                }
-                
-                const listSnapshots = await query.get();
-                const listDocs = listSnapshots.docs;
-
-                // Step 2: Gather all unique movie IDs from the lists
-                const allMovieIds = new Set();
-                listDocs.forEach(doc => {
-                    const mediaIds = doc.data().mediaIds;
-                    if (mediaIds && mediaIds.length > 0) {
-                        mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
+                try {
+                    // Step 1: Build the query first
+                    const listsRef = db.collection('lists');
+                    let query = listsRef.where('isPublic', '==', true);
+                    
+                    // If showing "My Lists", we adjust the query
+                    if (currentView === 'my' && currentUser) {
+                        query = listsRef.where('creatorId', '==', currentUser.uid);
                     }
-                });
+                    
+                    // Step 2: Execute query with minimum loading time
+                    const [listSnapshots] = await Promise.all([
+                        query.get(),
+                        new Promise(resolve => setTimeout(resolve, 800))
+                    ]);
+                    
+                    const listDocs = listSnapshots.docs;
 
-                // Step 3: Fetch all required movie documents in batches
-                const movieDataMap = new Map();
-                if (allMovieIds.size > 0) {
-                    const movieIdsArray = Array.from(allMovieIds);
-                    const moviePromises = [];
-                    // Use chunks of 10 for 'in' query to be safe
-                    for (let i = 0; i < movieIdsArray.length; i += 10) {
-                        const chunk = movieIdsArray.slice(i, i + 10);
-                        moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
-                    }
-                    const movieSnapshots = await Promise.all(moviePromises);
-                    movieSnapshots.forEach(snapshot => {
-                        snapshot.forEach(doc => {
-                            movieDataMap.set(doc.id, doc.data());
-                        });
+                    // Step 3: Gather all unique movie IDs from the lists
+                    const allMovieIds = new Set();
+                    listDocs.forEach(doc => {
+                        const mediaIds = doc.data().mediaIds;
+                        if (mediaIds && mediaIds.length > 0) {
+                            mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
+                        }
                     });
-                }
 
-                // Step 4: Combine list data with poster data
-                const combinedLists = {};
-                listDocs.forEach(doc => {
-                    const list = { id: doc.id, ...doc.data() };
-                    list.posterUrls = [];
-                    if (list.mediaIds && list.mediaIds.length > 0) {
-                        list.posterUrls = list.mediaIds
-                            .slice(0, 3)
-                            .map(id => movieDataMap.get(id)?.posterUrl)
-                            .filter(Boolean); // Filter out any undefined URLs
+                    // Step 4: Fetch all required movie documents in batches
+                    const movieDataMap = new Map();
+                    if (allMovieIds.size > 0) {
+                        const movieIdsArray = Array.from(allMovieIds);
+                        const moviePromises = [];
+                        // Use chunks of 10 for 'in' query to be safe
+                        for (let i = 0; i < movieIdsArray.length; i += 10) {
+                            const chunk = movieIdsArray.slice(i, i + 10);
+                            moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
+                        }
+                        const movieSnapshots = await Promise.all(moviePromises);
+                        movieSnapshots.forEach(snapshot => {
+                            snapshot.forEach(doc => {
+                                movieDataMap.set(doc.id, doc.data());
+                            });
+                        });
                     }
-                    combinedLists[doc.id] = list;
-                });
 
-                allLists = Object.values(combinedLists);
-                renderLists();
+                    // Step 5: Combine list data with poster data
+                    const combinedLists = {};
+                    listDocs.forEach(doc => {
+                        const list = { id: doc.id, ...doc.data() };
+                        list.posterUrls = [];
+                        if (list.mediaIds && list.mediaIds.length > 0) {
+                            list.posterUrls = list.mediaIds
+                                .slice(0, 3)
+                                .map(id => movieDataMap.get(id)?.posterUrl)
+                                .filter(Boolean); // Filter out any undefined URLs
+                        }
+                        combinedLists[doc.id] = list;
+                    });
 
-            } catch (error) {
-                console.error("Error loading lists:", error);
-                grid.innerHTML = '<p>Error loading lists. Please check your Firestore security rules and indexes.</p>';
+                    allLists = Object.values(combinedLists);
+                    renderLists();
+
+                } catch (error) {
+                    console.error("Error loading lists:", error);
+                    const grid = document.getElementById('listGrid');
+                    grid.innerHTML = '<p>Error loading lists. Please check your Firestore security rules and indexes.</p>';
+                }
             }
-        }
-        
+
         function generatePosterCollageHTML(urls) {
             if (!urls || urls.length === 0) {
                 return '<div class="no-poster-text">No Posters</div>';
@@ -323,6 +353,8 @@
                 alert('There was an error deleting the list.');
             }
         }
+
+    
     </script>
 </body>
 </html>

@@ -54,6 +54,28 @@
         const auth = firebase.auth();
         let currentUser = null;
 
+        // Add skeleton utilities
+        const SkeletonUI = {
+            showListSkeleton: () => {
+                document.getElementById('listName').textContent = 'Loading...';
+                document.getElementById('creatorName').innerHTML = '<div class="skeleton skeleton-text" style="width: 120px; height: 16px;"></div>';
+                document.getElementById('listDescription').innerHTML = '<div class="skeleton skeleton-text" style="width: 80%; height: 20px; margin: 10px 0;"></div>';
+                
+                const container = document.getElementById('media-list-container');
+                const skeletonHTML = Array(8).fill(0).map((_, index) => `
+                    <div class="skeleton-list-item">
+                        <span class="skeleton skeleton-number">${index + 1}.</span>
+                        <div class="skeleton skeleton-poster"></div>
+                        <div class="skeleton-item-info">
+                            <div class="skeleton skeleton-title"></div>
+                            <div class="skeleton skeleton-year"></div>
+                        </div>
+                    </div>
+         `).join('');
+        container.innerHTML = skeletonHTML;
+    }
+};
+
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const listId = urlParams.get('id');
@@ -71,9 +93,15 @@
         });
 
         async function loadListData(listId) {
+            // Show skeleton immediately
+            SkeletonUI.showListSkeleton();
+
             try {
-                // 1. Fetch the list document
-                const listDoc = await db.collection('lists').doc(listId).get();
+                // Add a minimum loading time for smooth UX
+                const [listDoc] = await Promise.all([
+                    db.collection('lists').doc(listId).get(),
+                    new Promise(resolve => setTimeout(resolve, 600))
+                ]);
                 if (!listDoc.exists) {
                     throw new Error("List not found.");
                 }
