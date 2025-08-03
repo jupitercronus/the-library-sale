@@ -169,7 +169,6 @@
             </div>
         </div>
     </div>
-
     <script>
         let currentRating = 0;
         let editingMovieId = null; 
@@ -267,7 +266,7 @@
             });
         }
         
-         // FIXED addMedia() function - add this to your add-movie.html
+    // FIXED addMedia() function - add this to your add-movie.html
         async function addMedia() {
             const submitBtn = document.getElementById('submitBtn');
             LibraryUtils.ui.setButtonLoading(submitBtn);
@@ -292,7 +291,7 @@
                 mainMediaData = existingQuery.docs[0].data();
                 }
             }
-        
+    
             if (!movieDocRef) {
                 mainMediaData = {
                     title: titleValue, 
@@ -313,9 +312,9 @@
                 movieDocRef = await db.collection('movies').add(mainMediaData);
             }
 
-        // ✅ FIXED: Added movieId field to the interaction data
+        // Build the user interaction data with edition details
             const userInteractionData = {
-                movieId: movieDocRef.id,  // ← ADD THIS LINE
+                movieId: movieDocRef.id,
                 rating: rating, 
                 review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
                 watched: document.getElementById('watchedToggle').dataset.watched === 'true',
@@ -323,45 +322,126 @@
                 owned: document.getElementById('ownedToggle').dataset.owned === 'true',
                 interactionDate: firebase.firestore.FieldValue.serverTimestamp()
             };
-            await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
-        
-            showTimedRedirectModal('Success!', 'Media added to your library.', 'index.html', 3, movieDocRef.id);
 
-        } catch (error) {
-            LibraryUtils.errors.handleError(error, 'Adding Media');
-        } finally {
-            LibraryUtils.ui.resetButton(submitBtn);
-        }
-    }
-        async function updateMedia() {
-            const submitBtn = document.getElementById('submitBtn');
-            LibraryUtils.ui.setButtonLoading(submitBtn);
+            // Add edition details if owned
+            if (userInteractionData.owned) {
+                const editionDetails = document.getElementById('editionDetails').value;
+                if (editionDetails) {
+                    userInteractionData.editionDetails = LibraryUtils.validation.sanitizeInput(editionDetails);
+                    
+                    // Parse edition details for structured data
+                    const parsedEdition = parseEditionDetails(editionDetails);
+                    userInteractionData.format = parsedEdition.format;
+                    userInteractionData.condition = parsedEdition.condition;
+                    userInteractionData.region = parsedEdition.region;
+                    userInteractionData.specialFeatures = parsedEdition.specialFeatures;
+                }
+            }
 
-            try {
-                const rating = starRatingController ? starRatingController.getRating() : currentRating;
-                if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value.');
-                
-                // ✅ FIXED: Added movieId field to the interaction data
-                const userInteractionData = {
-                    movieId: editingMovieId,  // ← ADD THIS LINE
-                    rating: rating, 
-                    review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
-                    watched: document.getElementById('watchedToggle').dataset.watched === 'true',
-                    watchedDate: document.getElementById('watchedDate').value || null,
-                    owned: document.getElementById('ownedToggle').dataset.owned === 'true',
-                    interactionDate: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(editingMovieId).set(userInteractionData, { merge: true });
-
-                showTimedRedirectModal('Success!', 'Your details have been updated.', 'index.html', 3, editingMovieId);
+                await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
+            
+                showTimedRedirectModal('Success!', 'Media added to your library.', 'index.html', 3, movieDocRef.id);
 
             } catch (error) {
-                LibraryUtils.errors.handleError(error, 'Updating Media');
+                LibraryUtils.errors.handleError(error, 'Adding Media');
             } finally {
                 LibraryUtils.ui.resetButton(submitBtn);
             }
         }
-        // Replace your lookupMovieByBarcode function with this version that uses skeleton loading
+            async function updateMedia() {
+                const submitBtn = document.getElementById('submitBtn');
+                LibraryUtils.ui.setButtonLoading(submitBtn);
+
+                try {
+                    const rating = starRatingController ? starRatingController.getRating() : currentRating;
+                    if (!LibraryUtils.validation.isValidRating(rating)) throw new Error('Invalid rating value.');
+                    
+                    // Build the user interaction data with edition details
+                    const userInteractionData = {
+                        movieId: editingMovieId,
+                        rating: rating, 
+                        review: LibraryUtils.validation.sanitizeInput(document.getElementById('review').value, 1000),
+                        watched: document.getElementById('watchedToggle').dataset.watched === 'true',
+                        watchedDate: document.getElementById('watchedDate').value || null,
+                        owned: document.getElementById('ownedToggle').dataset.owned === 'true',
+                        interactionDate: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    // Add edition details if owned
+                    if (userInteractionData.owned) {
+                        const editionDetails = document.getElementById('editionDetails').value;
+                        if (editionDetails) {
+                            userInteractionData.editionDetails = LibraryUtils.validation.sanitizeInput(editionDetails);
+                            
+                            // Parse edition details for structured data
+                            const parsedEdition = parseEditionDetails(editionDetails);
+                            userInteractionData.format = parsedEdition.format;
+                            userInteractionData.condition = parsedEdition.condition;
+                            userInteractionData.region = parsedEdition.region;
+                            userInteractionData.specialFeatures = parsedEdition.specialFeatures;
+                        }
+                    }
+
+                    await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(editingMovieId).set(userInteractionData, { merge: true });
+
+                    showTimedRedirectModal('Success!', 'Your details have been updated.', 'index.html', 3, editingMovieId);
+
+                } catch (error) {
+                    LibraryUtils.errors.handleError(error, 'Updating Media');
+                } finally {
+                    LibraryUtils.ui.resetButton(submitBtn);
+                }
+            }
+    // Function to parse edition details into structured data
+        function parseEditionDetails(editionDetails) {
+                if (!editionDetails) return { format: null, condition: null, region: null, specialFeatures: [] };
+                
+                const details = editionDetails.toLowerCase();
+                
+                // Detect format
+                let format = null;
+                if (details.includes('4k') || details.includes('ultra hd') || details.includes('uhd')) {
+                    format = '4K UHD';
+                } else if (details.includes('blu-ray') || details.includes('bluray')) {
+                    format = 'Blu-ray';
+                } else if (details.includes('dvd')) {
+                    format = 'DVD';
+                } else if (details.includes('digital')) {
+                    format = 'Digital';
+                }
+                
+                // Detect condition
+                let condition = null;
+                if (details.includes('new') || details.includes('sealed')) {
+                    condition = 'New/Sealed';
+                } else if (details.includes('excellent') || details.includes('mint')) {
+                    condition = 'Excellent';
+                } else if (details.includes('good')) {
+                    condition = 'Good';
+                } else if (details.includes('fair') || details.includes('used')) {
+                    condition = 'Fair';
+                }
+                
+                // Detect region
+                let region = null;
+                const regionMatch = details.match(/region\s*([abc123])/i);
+                if (regionMatch) {
+                    region = `Region ${regionMatch[1].toUpperCase()}`;
+                }
+                
+                // Detect special features
+                const specialFeatures = [];
+                if (details.includes('commentary')) specialFeatures.push('Commentary');
+                if (details.includes('behind the scenes') || details.includes('making of')) specialFeatures.push('Behind the Scenes');
+                if (details.includes('deleted scenes')) specialFeatures.push('Deleted Scenes');
+                if (details.includes('director\'s cut') || details.includes('directors cut')) specialFeatures.push('Director\'s Cut');
+                if (details.includes('extended') || details.includes('uncut')) specialFeatures.push('Extended Edition');
+                if (details.includes('steelbook')) specialFeatures.push('Steelbook');
+                if (details.includes('collector') || details.includes('special edition')) specialFeatures.push('Special Edition');
+                
+                return { format, condition, region, specialFeatures };
+            }
+    // Replace your lookupMovieByBarcode function with this version that uses skeleton loading
         async function lookupMovieByBarcode(barcode) {
             if (!LibraryUtils.validation.isValidBarcode(barcode)) {
                 showStatusMessage('Invalid barcode format.', 'error');
@@ -436,8 +516,8 @@
                 showStatusMessage(error.message || 'Barcode lookup failed.', 'error');
             }
         }
-            // New functions to handle skeleton loading UI
-            function showBarcodeLoadingSkeleton() {
+    // New functions to handle skeleton loading UI
+        function showBarcodeLoadingSkeleton() {
                 // Clear any existing status messages
                 document.getElementById('statusMessage').innerHTML = '';
                 
@@ -464,13 +544,13 @@
                     </div>
                 `;
             }
-            function updateBarcodeLoadingSkeleton(message) {
+        function updateBarcodeLoadingSkeleton(message) {
                     const messageEl = document.querySelector('.barcode-loading-message');
                     if (messageEl) {
                         messageEl.textContent = message;
                     }
             }
-            function hideBarcodeLoadingSkeleton() {
+        function hideBarcodeLoadingSkeleton() {
                 // Remove skeleton loading from form fields
                 const formFields = ['title', 'year', 'director', 'genre', 'summary', 'cast'];
                 
@@ -487,7 +567,6 @@
                     loadingContainer.remove();
                 }
         }
-
         async function checkEditMode() {
             const urlParams = new URLSearchParams(window.location.search);
             editingMovieId = urlParams.get('edit');
@@ -535,8 +614,7 @@
             } catch (error) {
                 LibraryUtils.errors.handleError(error, 'Loading edit data');
             }
-        }
-        
+        }       
         function populateFormWithData(data) {
             document.getElementById('title').value = data.title || data.name;
             document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);
@@ -554,7 +632,6 @@
             togglePublicFieldsReadonly(true); isPublicFieldsEditable = false;
             showStatusMessage('Media details loaded successfully!', 'success');
         }
-
         function showTimedRedirectModal(title, message, redirectUrl, duration = 5, newlyAddedMovieId = null) {
             const modal = document.getElementById('alertModal');
             if (!modal) {
@@ -621,8 +698,6 @@
             
             newCloseBtn.addEventListener('click', closeAction, { once: true });
         }
-
-
         function showAlertModal(title, message, onOk = () => {}) { 
             const modal = document.getElementById('alertModal');
             if (!modal) { alert(`${title}: ${message}`); onOk(); return; }
@@ -648,41 +723,75 @@
         function togglePublicFieldsReadonly(isReadonly) { const fields = ['title', 'year', 'director', 'genre', 'summary', 'cast', 'contentType']; fields.forEach(id => { const el = document.getElementById(id); if (el.tagName === 'SELECT') el.disabled = isReadonly; else el.readOnly = isReadonly; }); }
         function showStatusMessage(message, type) { const statusDiv = document.getElementById('statusMessage'); statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`; }
         // Replace your existing extractMovieTitle function with this improved version
+        
+// Updated function to extract movie title while preserving edition details
         function extractMovieTitle(productName) {
-            if (!productName) return '';
-            
-            let title = productName;
-            
-            // Remove common DVD/Blu-ray related terms (case insensitive)
-            const termsToRemove = [
-                /\b(DVD|Blu-ray|4K|UHD|Ultra HD|Digital|Copy|Widescreen|Full Screen|Fullscreen)\b/gi,
-                /\b(Special Edition|Collector's Edition|Director's Cut|Extended Edition|Anniversary Edition)\b/gi,
-                /\b(Movie|Film|Cinema|Video)\b/gi,
-                /\b(New|Used|Sealed|Region \d+)\b/gi
-            ];
-            
-            termsToRemove.forEach(regex => {
-                title = title.replace(regex, ' ');
-            });
-            
-            // Remove content in parentheses and brackets
-            title = title.replace(/\s*\([^)]*\)\s*/g, ' ');
-            title = title.replace(/\s*\[[^\]]*\]\s*/g, ' ');
-            
-            // Remove year patterns like "2019" or "'19" 
-            title = title.replace(/\b(19|20)\d{2}\b/g, '');
-            title = title.replace(/'\d{2}\b/g, '');
-            
-            // Clean up extra whitespace
-            title = title.replace(/\s+/g, ' ').trim();
-            
-            // If title is too short or empty, return original
-            if (title.length < 2) {
-                return productName;
-            }
-            
-            return title;
-        }
+    if (!productName) return '';
+    
+    let title = productName;
+    
+    // Remove common terms that don't help with movie identification
+    // BUT keep format-specific terms that are useful for edition details
+    const termsToRemove = [
+        /\b(Copy|Widescreen|Full Screen|Fullscreen)\b/gi,
+        /\b(Movie|Film|Cinema|Video)\b/gi,
+        /\b(New|Used|Sealed)\b/gi  // Removed "Region \d+" to preserve region info
+    ];
+    
+    // More selective removal - preserve edition information
+    const selectiveTermsToRemove = [
+        // Only remove these if they appear at the end or are clearly not part of the title
+        /\b(DVD|Blu-ray|4K|UHD|Ultra HD|Digital)\s*$/gi,  // Only at end of string
+        /\s+(Special Edition|Collector's Edition|Director's Cut|Extended Edition|Anniversary Edition)\s*$/gi  // Only at end
+    ];
+    
+    // Apply basic term removal
+    termsToRemove.forEach(regex => {
+        title = title.replace(regex, ' ');
+    });
+    
+    // Apply selective term removal (only at end of string)
+    selectiveTermsToRemove.forEach(regex => {
+        title = title.replace(regex, '');
+    });
+    
+    // Remove content in parentheses and brackets that typically contain format info
+    // BUT preserve if it might be part of the movie title (like sequels)
+    title = title.replace(/\s*\([^)]*(?:DVD|Blu-ray|4K|UHD|Digital|Region|Edition)[^)]*\)\s*/gi, ' ');
+    title = title.replace(/\s*\[[^\]]*(?:DVD|Blu-ray|4K|UHD|Digital|Region|Edition)[^\]]*\]\s*/gi, ' ');
+    
+    // Remove year patterns, but be more careful
+    // Only remove if not part of movie title (e.g., "2012" the movie should be preserved)
+    title = title.replace(/\s+\b(19|20)\d{2}\s*$/g, '');  // Only remove years at the end
+    title = title.replace(/'\d{2}\b/g, '');
+    
+    // Clean up extra whitespace
+    title = title.replace(/\s+/g, ' ').trim();
+    
+    // If title is too short or empty, try a more conservative approach
+    if (title.length < 2) {
+        // Fallback: just remove obvious format indicators but keep everything else
+        title = productName.replace(/\b(DVD|Blu-ray|4K UHD|Ultra HD)\b/gi, '').trim();
+    }
+    
+    // If still too short, return original
+    if (title.length < 2) {
+        return productName;
+    }
+    
+    return title;
+}
+
+// Helper function to get both clean title and preserve original for edition details
+        function processBarcodeLookup(productTitle) {
+    const cleanTitle = extractMovieTitle(productTitle);
+    const editionDetails = productTitle; // Preserve original for edition details
+    
+    return {
+        searchTitle: cleanTitle,
+        editionDetails: editionDetails
+    };
+}
         function setupSearch() { const searchInput = document.getElementById('movieSearch'); const searchSpinner = document.getElementById('searchSpinner'); const searchResultsContainer = document.getElementById('searchResults'); const loadMoreBtn = document.getElementById('loadMoreBtn'); const debouncedSearch = LibraryUtils.search.createDebouncedSearch((query) => { const sanitizedQuery = LibraryUtils.validation.sanitizeInput(query); if (sanitizedQuery.length > 2) { performSearch(sanitizedQuery, 1); } else { document.getElementById('searchResults').innerHTML = ''; document.getElementById('searchFooter').style.display = 'none'; } }); searchInput.addEventListener('input', (e) => { debouncedSearch(e.target.value, searchSpinner); }); document.getElementById('searchBtn').addEventListener('click', () => { const sanitizedQuery = LibraryUtils.validation.sanitizeInput(searchInput.value); performSearch(sanitizedQuery, 1); }); searchResultsContainer.addEventListener('scroll', () => { if (isLoadingMore || currentPage >= totalPages) return; const { scrollTop, scrollHeight, clientHeight } = searchResultsContainer; if (scrollHeight - scrollTop <= clientHeight + 100) { loadNextPage(); } }); loadMoreBtn.addEventListener('click', loadNextPage); }
         function loadNextPage() { if (isLoadingMore || currentPage >= totalPages) return; performSearch(currentSearchQuery, currentPage + 1); }
         async function performSearch(query, page = 1) { if (!query || isLoadingMore) return; const isNewSearch = page === 1; if (isNewSearch) { currentSearchQuery = query; currentPage = 1; } isLoadingMore = true; const cacheKey = `search_${query.toLowerCase().replace(/\s+/g, '_')}_p${page}`; const cachedData = apiCache.get('multi-search', cacheKey); if (cachedData) { processAndDisplayResults(cachedData, query, isNewSearch); isLoadingMore = false; return; } if (isNewSearch) { LibraryUtils.skeleton.showSkeleton('searchResults', 'search-results', 5); } else { document.getElementById('loadMoreBtn').textContent = 'Loading...'; document.getElementById('loadMoreBtn').disabled = true; } try { const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}&page=${page}`; const response = await fetch(searchUrl); const data = await response.json(); apiCache.set('multi-search', cacheKey, data); processAndDisplayResults(data, query, isNewSearch); } catch (error) { LibraryUtils.errors.handleError(error, 'Search'); showStatusMessage('Search failed.', 'error'); } finally { isLoadingMore = false; const loadMoreBtn = document.getElementById('loadMoreBtn'); loadMoreBtn.textContent = 'Load More'; loadMoreBtn.disabled = currentPage >= totalPages; } }
@@ -691,7 +800,6 @@
         function displayResults(results, isNewSearch) { const resultsDiv = document.getElementById('searchResults'); if (isNewSearch) { resultsDiv.innerHTML = ''; } if (results.length === 0 && isNewSearch) { resultsDiv.innerHTML = '<p style="text-align: center; padding: 20px;">No results found.</p>'; return; } const resultsHTML = results.map((item) => { const title = item.title || item.name; const year = (item.release_date || item.first_air_date || '').substring(0, 4); const overview = LibraryUtils.ui.truncateText(item.overview, 100); const badgeHTML = item.media_type === 'tv' ? `<span class="badge badge-tv" title="TV Show"></span>` : `<span class="badge badge-movie" title="Movie"></span>`; return ` <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')"> <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : ''}" class="search-result-poster" onerror="this.style.display='none'"> <div class="search-result-info"> <h4>${title} (${year}) ${badgeHTML}</h4> <p>${overview}</p> </div> </div> `; }).join(''); resultsDiv.insertAdjacentHTML('beforeend', resultsHTML); }
         function updateSearchFooter() { const footer = document.getElementById('searchFooter'); const countSpan = document.getElementById('resultCount'); const loadMoreBtn = document.getElementById('loadMoreBtn'); if (totalResults > 0) { footer.style.display = 'flex'; const itemsShown = document.getElementById('searchResults').children.length; countSpan.textContent = `Showing ${itemsShown} of ${totalResults} results`; if (currentPage < totalPages) { loadMoreBtn.style.display = 'block'; loadMoreBtn.disabled = false; } else { loadMoreBtn.style.display = 'none'; } } else { footer.style.display = 'none'; } }
         function updateUrl(query, page) { const url = new URL(window.location); url.searchParams.set('query', query); url.searchParams.set('page', page); window.history.pushState({ path: url.href }, '', url.href); }
-       
         // Replace your selectMedia function with this improved version
         async function selectMedia(id, type) {
             // Immediate visual feedback - highlight the selected item

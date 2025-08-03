@@ -92,10 +92,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                if (!currentUser) {
-                    document.getElementById('myListsBtn').style.display = 'none';
+                // FIX: Redirect to auth page if not logged in
+                if (!user) {
+                    window.location.href = 'auth.html';
+                } else {
+                    document.getElementById('myListsBtn').style.display = 'inline-block';
+                    loadLists();
                 }
-                loadLists();
             });
 
             setupEventListeners();
@@ -109,6 +112,11 @@
         }
 
         function setView(view) {
+            // FIX: If user clicks "My Lists" but is not logged in, redirect them.
+            if (view === 'my' && !currentUser) {
+                window.location.href = 'auth.html';
+                return;
+            }
             currentView = view;
             document.getElementById('myListsBtn').classList.toggle('active', view === 'my');
             document.getElementById('allListsBtn').classList.toggle('active', view === 'all');
@@ -121,16 +129,15 @@
             try {
                 // Step 1: Fetch the lists themselves
                 const listsRef = db.collection('lists');
-                const publicListsQuery = listsRef.where('isPublic', '==', true);
-                const queryPromises = [publicListsQuery.get()];
-
-                if (currentUser) {
-                    const myListsQuery = listsRef.where('creatorId', '==', currentUser.uid).where('isPublic', '==', false);
-                    queryPromises.push(myListsQuery.get());
+                let query = listsRef.where('isPublic', '==', true);
+                
+                // If showing "My Lists", we adjust the query
+                if (currentView === 'my' && currentUser) {
+                    query = listsRef.where('creatorId', '==', currentUser.uid);
                 }
-
-                const listSnapshots = await Promise.all(queryPromises);
-                const listDocs = listSnapshots.flatMap(snap => snap.docs);
+                
+                const listSnapshots = await query.get();
+                const listDocs = listSnapshots.docs;
 
                 // Step 2: Gather all unique movie IDs from the lists
                 const allMovieIds = new Set();
@@ -226,6 +233,9 @@
                 } else {
                     listsToDisplay = [];
                 }
+            } else {
+                // For "All Lists", filter only for public lists
+                listsToDisplay = listsToDisplay.filter(list => list.isPublic);
             }
             
             if (searchTerm) {
@@ -263,7 +273,6 @@
                 
                 const posterHTML = generatePosterCollageHTML(list.posterUrls);
 
-                // FIX: Wrapped poster and title in <a> tags linking to the view page
                 return `
                     <div class="list-card">
                         <a href="view-list.html?id=${list.id}" class="list-card-link" title="View ${list.listName}">

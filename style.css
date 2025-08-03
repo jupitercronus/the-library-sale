@@ -1835,13 +1835,16 @@ input.error {
 #authMessage.error { color: #e10086; }
 #authMessage.success { color: #00db96; }
 
-
 /* =================================
-   UPDATED STYLES FOR LIBRARY DETAILS PAGE
+   IMPROVED LIBRARY DETAILS PAGE STYLES
+   Add this to the end of your style.css file
    ================================= */
-   .details-page-container {
-    max-width: 800px; /* Changed from 900px to 800px */
-    margin: 30px auto;
+
+/* Updated Mobile-First Responsive Design for Details Page */
+.details-page-container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 0 15px;
     display: flex;
     flex-direction: column;
     gap: 40px;
@@ -1849,7 +1852,7 @@ input.error {
 
 .details-ticket {
     background-color: #2D194D;
-    padding: 2rem 3rem;
+    padding: 1.5rem;
     text-align: center;
     position: relative;
     border-radius: 8px;
@@ -1862,7 +1865,7 @@ input.error {
     top: 50%;
     width: 20px;
     height: 20px;
-    background: #24143E; /* Match main body background */
+    background: #24143E;
     border-radius: 50%;
     transform: translateY(-50%);
 }
@@ -1872,28 +1875,33 @@ input.error {
 
 .details-title {
     font-family: 'Syne Mono', cursive;
-    font-size: 2.5em;
-    margin: 0 0 8px 0; /* Added bottom margin */
+    font-size: 1.8em;
+    margin: 0 0 8px 0;
+    line-height: 1.2;
 }
 
 .details-year {
     font-family: 'Dokdo', cursive;
-    font-size: 1.5em;
-    margin: 0 0 15px 0; /* Changed margin */
+    font-size: 1.3em;
+    margin: 0 0 15px 0;
     color: rgba(222, 240, 247, 0.7);
 }
 
-/* NEW: Star ratings section within the ticket */
+/* Updated ratings section - stars only */
 .details-ratings {
     display: flex;
     justify-content: center;
-    gap: 50px;
+    gap: 30px;
     text-align: center;
-    margin-top: 0; /* Remove top margin since it's now in the ticket */
+    flex-wrap: wrap;
+}
+
+.rating-box {
+    min-width: 120px;
 }
 
 .rating-box h3 {
-    font-size: 0.9em;
+    font-size: 0.8em;
     font-weight: normal;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -1901,15 +1909,21 @@ input.error {
     margin: 0 0 10px 0;
 }
 
+/* Mobile-responsive main content */
 .details-main-content {
     display: grid;
-    grid-template-columns: 250px 1fr;
-    gap: 30px;
-    align-items: flex-start;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.details-poster {
+    justify-self: center;
 }
 
 .details-poster img {
-    width: 100%;
+    width: 200px;
+    max-width: 100%;
     border-radius: 5px;
 }
 
@@ -1919,7 +1933,7 @@ input.error {
 
 .details-info-group h3 {
     font-family: 'Syne Mono', cursive;
-    font-size: 1.2em;
+    font-size: 1.1em;
     margin: 0 0 8px 0;
     color: #00FFFF;
 }
@@ -1930,18 +1944,287 @@ input.error {
     color: rgba(222, 240, 247, 0.9);
 }
 
-.details-comments-section {
-    border-top: 1px solid #3a2a5c;
-    padding-top: 30px;
+/* Summary Section - Now Separate */
+.details-summary-section {
+    background-color: #2D194D;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(222, 240, 247, 0.1);
+}
+
+.details-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Syne Mono', cursive;
+    font-size: 1.5em;
+    margin: 0 0 20px 0;
+}
+
+.details-summary-header .icon {
+    width: 1em;
+    height: 1em;
+    background-color: #DEF0F7;
+    -webkit-mask-image: url(icons/details.svg);
+    mask-image: url(icons/details.svg);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* Improved summary with read more functionality */
+.details-summary {
+    position: relative;
+}
+
+.details-summary.collapsed .summary-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.read-more-btn {
+    background: #00FFFF;
+    color: #24143E;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9em;
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.read-more-btn:hover {
+    background: #fdfb76;
+    color: #24143E;
+}
+
+.read-more-btn::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    -webkit-mask-image: url(icons/details.svg);
+    mask-image: url(icons/details.svg);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* Comments Section */
+.comments-section {
+    background-color: #2D194D;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(222, 240, 247, 0.1);
 }
 
 .comments-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     font-family: 'Syne Mono', cursive;
-    font-size: 1.8em;
-    margin: 0 0 25px 0;
+    font-size: 1.5em;
+    margin: 0 0 20px 0;
+}
+
+.comments-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Add Comment Button */
+.btn-add-comment {
+    background: #00db96;
+    color: #24143E;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-add-comment:hover {
+    background: #fdfb76;
+    color: #24143E;
+}
+
+.btn-add-comment::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    -webkit-mask-image: url(icons/add.svg);
+    mask-image: url(icons/add.svg);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* Edit Comment Button */
+.btn-edit-comment {
+    background: #00FFFF;
+    color: #24143E;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-edit-comment:hover {
+    background: #fdfb76;
+    color: #24143E;
+}
+
+.btn-edit-comment::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    -webkit-mask-image: url(icons/edit.svg) !important;
+    mask-image: url(icons/edit.svg) !important;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* Comment Edit Form */
+.comment-edit-form {
+    background-color: #24143E;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 3px solid #00FFFF;
+    margin-bottom: 15px;
+    display: none;
+}
+
+.comment-edit-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px solid rgba(222, 240, 247, 0.2);
+    border-radius: 5px;
+    background: #2D194D;
+    color: #DEF0F7;
+    font-family: inherit;
+    font-size: 1em;
+    line-height: 1.5;
+    resize: vertical;
+    margin-bottom: 12px;
+}
+
+.comment-edit-textarea:focus {
+    outline: none;
+    border-color: #00FFFF;
+}
+
+.comment-edit-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn-comment-save,
+.btn-comment-cancel {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-comment-save {
+    background: #00db96;
+    color: #24143E;
+}
+
+.btn-comment-save:hover {
+    background: #fdfb76;
+    transform: scale(1.1);
+}
+
+.btn-comment-cancel {
+    background: #e10086;
+    color: #DEF0F7;
+}
+
+.btn-comment-cancel:hover {
+    background: #fdfb76;
+    color: #24143E;
+    transform: scale(1.1);
+}
+
+.btn-comment-save::before {
+    content: '';
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background-color: currentColor;
+    -webkit-mask-image: url(icons/confirm.svg);
+    mask-image: url(icons/confirm.svg);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.btn-comment-cancel::before {
+    content: '';
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background-color: currentColor;
+    -webkit-mask-image: url(icons/close.svg);
+    mask-image: url(icons/close.svg);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
 }
 
 .comments-header .icon {
@@ -1961,24 +2244,39 @@ input.error {
 .comments-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
 }
 
 .comment-item {
-    background-color: #2D194D;
-    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px 15px;
+    background-color: #24143E;
     border-radius: 5px;
     border-left: 3px solid #00FFFF;
+    gap: 15px;
 }
 
-.comment-text {
-    font-style: italic;
-    margin: 0 0 10px 0;
+.review-text {
+    font-style: normal;
+    margin: 0;
+    line-height: 1.5;
+    flex: 1;
+}
+
+.review-text-empty {
+    color: rgba(222, 240, 247, 0.5);
+    font-style: normal;
+    text-align: center;
+    padding: 20px;
 }
 
 .comment-author {
-    text-align: right;
     font-size: 0.9em;
+    color: rgba(222, 240, 247, 0.7);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .comment-author a {
@@ -1991,9 +2289,87 @@ input.error {
     color: #fdfb76;
 }
 
-.no-comments {
+/* Physical Copies Section */
+.physical-copies-section {
+    background-color: #2D194D;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(222, 240, 247, 0.1);
+}
+
+.physical-copies-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Syne Mono', cursive;
+    font-size: 1.5em;
+    margin: 0 0 20px 0;
+}
+
+.physical-copies-header .icon {
+    width: 1em;
+    height: 1em;
+    background-color: #DEF0F7;
+    -webkit-mask-image: url(icons/dvds.svg);
+    mask-image: url(icons/dvds.svg);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.physical-copies-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.physical-copy-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px 15px;
+    background-color: #24143E;
+    border-radius: 5px;
+    border-left: 3px solid #00FFFF;
+    gap: 15px;
+}
+
+.copy-edition-details {
+    font-weight: normal;
+    margin: 0;
+    line-height: 1.5;
+    flex: 1;
+}
+
+.copy-owner {
+    font-size: 0.9em;
+    color: rgba(222, 240, 247, 0.7);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.copy-owner a {
+    color: #00FFFF;
+    text-decoration: none;
+}
+
+.copy-owner a:hover {
+    color: #fdfb76;
+}
+
+.copy-format {
+    font-size: 0.9em;
+    color: rgba(222, 240, 247, 0.7);
+}
+
+.no-physical-copies {
     color: rgba(222, 240, 247, 0.5);
     font-style: italic;
+    text-align: center;
+    padding: 20px;
 }
 
 .details-footer {
@@ -2001,6 +2377,79 @@ input.error {
     margin-top: 20px;
 }
 
+/* Updated star ratings - remove rating text, keep only stars */
+.details-ratings .media-rating {
+    display: flex;
+    gap: 2px;
+    height: 1em;
+    justify-content: center;
+}
+
+.details-ratings .star {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+}
+
+.details-ratings .not-rated {
+    color: rgba(222, 240, 247, 0.5);
+    font-size: 0.9em;
+}
+
+/* Tablet styles */
+@media (min-width: 768px) {
+    .details-page-container {
+        margin: 30px auto;
+        padding: 0 20px;
+        gap: 50px;
+    }
+
+    .details-ticket {
+        padding: 2rem 3rem;
+    }
+
+    .details-title {
+        font-size: 2.2em;
+    }
+
+    .details-year {
+        font-size: 1.4em;
+    }
+
+    .details-main-content {
+        grid-template-columns: 250px 1fr;
+        gap: 30px;
+        margin-bottom: 40px;
+    }
+
+    .details-poster {
+        justify-self: start;
+    }
+
+    .details-poster img {
+        width: 100%;
+    }
+
+    .details-ratings {
+        gap: 50px;
+    }
+
+    .comments-header,
+    .physical-copies-header {
+        font-size: 1.6em;
+    }
+}
+
+/* Desktop styles */
+@media (min-width: 1024px) {
+    .details-title {
+        font-size: 2.5em;
+    }
+
+    .details-year {
+        font-size: 1.5em;
+    }
+}
 /* === INDEX.HTML SPECIFIC - 1:1 SQUARE GRID LAYOUT === */
 /* Add this to your style.css - this overrides the default media card styles for index.html only */
 

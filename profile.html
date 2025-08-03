@@ -16,7 +16,6 @@
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="style.css">
     <script src="main.js" defer></script>
-    <!-- FIX: Added styles for user search results dropdown -->
     <style>
         .sidebar-search {
             position: relative;
@@ -43,6 +42,106 @@
         .user-search-result:hover {
             background-color: #3a2a5c;
         }
+        
+        /* Profile-specific skeleton styles */
+        .skeleton-sidebar-block {
+            background: #2D194D;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .skeleton-username {
+            height: 28px;
+            width: 80%;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+        
+        .skeleton-email {
+            height: 16px;
+            width: 60%;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .skeleton-stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #3a2a5c;
+        }
+        
+        .skeleton-stat-label {
+            height: 16px;
+            width: 50%;
+            border-radius: 4px;
+        }
+        
+        .skeleton-stat-value {
+            height: 16px;
+            width: 30%;
+            border-radius: 4px;
+        }
+        
+        .skeleton-media-section {
+            margin-bottom: 40px;
+        }
+        
+        .skeleton-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #90dcff;
+            padding-bottom: 10px;
+        }
+        
+        .skeleton-section-title {
+            height: 32px;
+            width: 120px;
+            border-radius: 6px;
+        }
+        
+        .skeleton-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .skeleton-search-input {
+            height: 36px;
+            width: 200px;
+            border-radius: 5px;
+        }
+        
+        .skeleton-dropdown {
+            height: 36px;
+            width: 150px;
+            border-radius: 5px;
+        }
+        
+        .skeleton-profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+        }
+        
+        .skeleton-profile-item {
+            aspect-ratio: 1 / 1;
+            border-radius: 5px;
+            position: relative;
+        }
+        
+        .skeleton-profile-title {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            border-radius: 0 0 5px 5px;
+        }
     </style>
 </head>
 <body>
@@ -52,7 +151,6 @@
         <!-- Left Sidebar -->
         <aside class="profile-sidebar">
             <div class="sidebar-block">
-                <!-- FIX: User search container -->
                 <div class="sidebar-search">
                     <input type="text" id="userSearchInput" placeholder="Find user..." autocomplete="off">
                     <button id="userSearchBtn" class="btn-icon" title="Search Users"></button>
@@ -135,9 +233,53 @@
         let viewedUserId = null;
         let allOwnedMedia = [];
         let allWatchedMedia = [];
-        let allUsersCache = []; // Cache for user search
+        let allUsersCache = [];
+
+        // === SKELETON UI UTILITIES ===
+        const ProfileSkeletonUI = {
+            showSidebarSkeleton() {
+                document.getElementById('sidebarUserInfo').innerHTML = `
+                    <div class="skeleton skeleton-username"></div>
+                    <div class="skeleton skeleton-email"></div>
+                `;
+                
+                document.getElementById('statsList').innerHTML = Array(9).fill(0).map(() => `
+                    <li class="skeleton-stat-item">
+                        <div class="skeleton skeleton-stat-label"></div>
+                        <div class="skeleton skeleton-stat-value"></div>
+                    </li>
+                `).join('');
+            },
+
+            showMediaGridSkeleton(containerId, count = 12) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = Array(count).fill(0).map(() => `
+                    <div class="skeleton-profile-item">
+                        <div class="skeleton" style="width: 100%; height: 100%;"></div>
+                        <div class="skeleton skeleton-profile-title"></div>
+                    </div>
+                `).join('');
+            },
+
+            showSectionSkeleton(sectionId) {
+                const section = document.getElementById(sectionId);
+                const gridId = sectionId === 'owned-section' ? 'ownedMediaGrid' : 'watchedMediaGrid';
+                
+                // Header is already rendered, just show skeleton grid
+                this.showMediaGridSkeleton(gridId, 8);
+            },
+
+            showFullPageSkeleton() {
+                this.showSidebarSkeleton();
+                this.showSectionSkeleton('owned-section');
+                this.showSectionSkeleton('watched-section');
+            }
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Show skeleton immediately
+            ProfileSkeletonUI.showFullPageSkeleton();
+
             const urlParams = new URLSearchParams(window.location.search);
             viewedUserId = urlParams.get('id');
 
@@ -159,7 +301,6 @@
         });
 
         function setupEventListeners() {
-            // FIX: Updated user search event listeners
             const userSearchInput = document.getElementById('userSearchInput');
             const userSearchBtn = document.getElementById('userSearchBtn');
             const userResultsContainer = document.getElementById('userSearchResultsContainer');
@@ -184,7 +325,7 @@
                 `).join('');
             };
             
-            const debouncedUserSearch = LibraryUtils.ui.debounce(performUserSearch, 300);
+            const debouncedUserSearch = debounce(performUserSearch, 300);
 
             userSearchInput.addEventListener('input', () => debouncedUserSearch(userSearchInput.value.trim()));
             userSearchInput.addEventListener('focus', () => performUserSearch(userSearchInput.value.trim()));
@@ -202,6 +343,15 @@
             
             document.getElementById('watchedSearchInput').addEventListener('input', () => renderMediaGrid('watched'));
             document.getElementById('watchedSortDropdown').addEventListener('change', () => renderMediaGrid('watched'));
+        }
+
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), delay);
+            };
         }
 
         async function fetchAllUsers() {
@@ -254,6 +404,9 @@
                      calculateAndDisplayStats([]);
                 }
                 
+                // Add delay for smooth transition from skeleton
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
                 renderMediaGrid('owned');
                 renderMediaGrid('watched');
 
@@ -288,6 +441,31 @@
             if (filteredItems.length === 0) return 'N/A';
 
             return filteredItems
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(entry => entry[0])
+                .join(', ');
+        }
+
+        // Updated favorite decade function with proper logic
+        function getFavoriteDecades(watchedItems) {
+            if (!watchedItems || watchedItems.length === 0) return 'N/A';
+            
+            const decadeCounts = watchedItems
+                .filter(item => item.year)
+                .reduce((acc, item) => {
+                    const decade = `${Math.floor(item.year / 10) * 10}s`;
+                    acc[decade] = (acc[decade] || 0) + 1;
+                    return acc;
+                }, {});
+
+            // Filter decades with more than 25 items
+            const filteredDecades = Object.entries(decadeCounts)
+                .filter(([decade, count]) => count > 25);
+
+            if (filteredDecades.length === 0) return 'N/A';
+
+            return filteredDecades
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 3)
                 .map(entry => entry[0])
@@ -333,11 +511,9 @@
             );
 
             const reviewsWritten = mediaItems.filter(item => item.review && item.review.trim() !== '').length;
-            const movieCount = watchedItems.filter(item => item.contentType === 'movie').length;
-            const tvCount = watchedItems.filter(item => item.contentType === 'tv').length;
             
             const topGenre = getTopItems(watchedItems.flatMap(item => (item.genre || '').split(',').map(g => g.trim()).filter(Boolean)), 0);
-            const favoriteDecade = getTopItems(watchedItems.filter(item => item.year).map(item => `${Math.floor(item.year / 10) * 10}s`), 0);
+            const favoriteDecade = getFavoriteDecades(watchedItems); // Updated function call
             const topDirectors = getTopItems(watchedItems.flatMap(item => (item.director || '').split(',').map(d => d.trim()).filter(Boolean)));
             const topCast = getTopItems(watchedItems.flatMap(item => Array.isArray(item.cast) ? item.cast.map(c => c.trim()).filter(Boolean) : []));
 
@@ -351,7 +527,6 @@
                 <li><strong>Favorite Decade:</strong> <span>${favoriteDecade}</span></li>
                 <li><strong>Top Directors:</strong> <span>${topDirectors}</span></li>
                 <li><strong>Top Cast:</strong> <span>${topCast}</span></li>
-                <li><strong>Movies / TV:</strong> <span>${movieCount} / ${tvCount}</span></li>
             `;
         }
         
