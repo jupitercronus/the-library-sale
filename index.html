@@ -9,23 +9,25 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
     
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    
+    <!-- App Scripts & Styles -->
     <script src="utils.js" defer></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
 </head>
-<body>
+<body class="index-page">
     <div>
         <header id="navbar-placeholder"></header>
     </div>
 <main>
     <div class="main-container">
-        <div class="hero-section">
-            <h2 class="hero-title">welcome to your swamp</h2>
-        </div>
-
         <div class="controls-section">
             <div class="search-bar">
                 <input type="text" id="searchInput" placeholder="Search by title, director, cast, genre...">
@@ -46,6 +48,7 @@
         </div>
 
         <div id="mediaContainer" class="media-grid">
+            <!-- Media cards will be injected here by JavaScript -->
         </div>
     </div>
     
@@ -54,8 +57,8 @@
             <h3 id="confirmationModalTitle">Confirm Action</h3>
             <p id="confirmationModalMessage">Are you sure?</p>
             <div class="modal-buttons">
-                <button class="modal-btn confirm" id="confirmModalYes" title="Yes"></button>
-                <button class="modal-btn cancel" id="confirmModalNo" title="No"></button>
+                <button class="btn btn-lg btn-success" id="confirmModalYes" title="Yes"><i class="icon icon-confirm"></i></button>
+                <button class="btn btn-lg btn-danger" id="confirmModalNo" title="No"><i class="icon icon-close"></i></button>
             </div>
         </div>
     </div>
@@ -77,68 +80,71 @@
         let allMedia = [];
         let myInteractions = {};
         let debouncedRender = null;
+        
+        function setupAuthButton() {
+            const authBtn = document.getElementById('authBtn');
+            if (!authBtn) return; // Exit if the button isn't loaded yet
+
+            if (currentUser) {
+                authBtn.textContent = 'Logout';
+                authBtn.title = 'Logout';
+                authBtn.onclick = () => {
+                    auth.signOut().then(() => {
+                        window.location.reload(); // Reload the page to clear user data
+                    });
+                };
+            } else {
+                authBtn.textContent = 'Login';
+                authBtn.title = 'Login';
+                authBtn.onclick = () => {
+                    window.location.href = 'auth.html';
+                };
+            }
+        }
+        
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+        loadAllMedia();
+            setupAuthButton();
+            });
+        document.addEventListener('navbarLoaded', () => {
+            setupAuthButton();
+        });
 
         // === SKELETON UI UTILITIES ===
         const SkeletonUI = {
             showMediaGridSkeleton: (containerId, count = 12) => {
                 const container = document.getElementById(containerId);
+                if (!container) return;
                 const skeletonHTML = Array(count).fill(0).map(() => `
                     <div class="skeleton-media-card">
-                        <div class="media-top-section">
-                            <div class="skeleton media-poster"></div>
-                            <div class="media-actions">
-                                <div class="skeleton skeleton-action-btn"></div>
-                                <div class="skeleton skeleton-action-btn"></div>
-                                <div class="skeleton skeleton-action-btn"></div>
-                                <div class="skeleton skeleton-action-btn"></div>
-                                <div class="skeleton skeleton-action-btn"></div>
-                            </div>
-                        </div>
-                        <div class="media-card-content">
-                            <div class="skeleton skeleton-title"></div>
-                            <div class="skeleton skeleton-year"></div>
-                            <div class="skeleton-rating">
-                                <div class="skeleton skeleton-star"></div>
-                                <div class="skeleton skeleton-star"></div>
-                                <div class="skeleton skeleton-star"></div>
-                                <div class="skeleton skeleton-star"></div>
-                                <div class="skeleton skeleton-star"></div>
-                            </div>
+                        <div class="skeleton media-poster"></div>
+                        <div class="skeleton skeleton-title"></div>
+                        <div class="skeleton skeleton-year"></div>
+                        <div class="skeleton-rating">
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
                         </div>
                     </div>
                 `).join('');
                 container.innerHTML = skeletonHTML;
             },
 
-            showLoadingSpinner: (containerId, message = 'Loading your media collection...') => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = `
-                    <div class="loading-container">
-                        <div class="loading-content">
-                            <div class="loading-skeleton-hero">
-                                <div class="skeleton skeleton-hero-title"></div>
-                                <div class="skeleton skeleton-hero-subtitle"></div>
-                            </div>
-                            <div class="loading-text">${message}</div>
-                        </div>
-                    </div>
-                `;
-            },
-
             showEmptyState: (containerId, searchTerm = '') => {
                 const container = document.getElementById(containerId);
+                if (!container) return;
                 const message = searchTerm 
                     ? 'No media found. Try adjusting your search terms.'
                     : 'Your collection is empty. Add some media to get started!';
                 const actionButton = !searchTerm 
-                    ? '<a href="add-movie.html" class="add-media-btn" title="Add Your First Movie"></a>' 
+                    ? '<a href="add-movie.html" class="btn btn-lg btn-primary" title="Add Your First Movie"><i class="icon icon-add"></i></a>' 
                     : '';
                 
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">
-                            <div class="skeleton skeleton-empty-icon"></div>
-                        </div>
                         <h3>No media found</h3>
                         <p>${message}</p>
                         ${actionButton}
@@ -147,10 +153,8 @@
             }
         };
 
-        // Enhanced loadAllMedia function with better skeleton timing
         async function loadAllMedia() {
             try {
-                // Show skeleton immediately
                 SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
 
                 const mediaSnapshot = await db.collection('movies').get();
@@ -162,25 +166,28 @@
                     interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
                 }
                 
-                // Minimum loading time for smooth UX (prevents flash)
-                await new Promise(resolve => setTimeout(resolve, 800));
+                await new Promise(resolve => setTimeout(resolve, 500));
                 
                 renderMedia();
             } catch (error) {
                 console.error("Error loading media:", error);
-                document.getElementById('mediaContainer').innerHTML = `
-                    <div class="error-state">
-                        <h3>Oops! Something went wrong</h3>
-                        <p>Unable to load your media collection. Please try again.</p>
-                        <button class="btn" onclick="loadAllMedia()" style="margin-top: 15px;">Try Again</button>
-                    </div>
-                `;
+                const container = document.getElementById('mediaContainer');
+                if(container) {
+                    container.innerHTML = `
+                        <div class="error-state">
+                            <h3>Oops! Something went wrong</h3>
+                            <p>Unable to load your media collection. Please try again.</p>
+                            <button class="btn btn-rectangular btn-primary" onclick="loadAllMedia()">Try Again</button>
+                        </div>
+                    `;
+                }
             }
         }
 
-        // Enhanced renderMedia function with empty state handling
         function renderMedia() {
             const container = document.getElementById('mediaContainer');
+            if(!container) return;
+
             const view = document.getElementById('viewDropdown').value;
             const sort = document.getElementById('sortDropdown').value;
             const searchTerm = (document.getElementById('searchInput').value || '').trim();
@@ -220,94 +227,81 @@
                 }
             });
 
-            // Use skeleton empty state instead of basic HTML
             if (mediaToDisplay.length === 0) {
                 SkeletonUI.showEmptyState('mediaContainer', searchTerm);
                 return;
             }
 
-            // Render the actual media cards with smooth transition
             container.innerHTML = mediaToDisplay.map(media => {
                 const title = media.title || 'Untitled';
                 const interaction = myInteractions[media.id];
                 
-                // Enhanced poster handling for square format
                 const posterImg = media.posterUrl 
                     ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
                     : '<div class="no-poster">No Poster</div>';
                 
                 let actionsHTML = '';
-
-                if (currentUser && interaction) {
-                    // Build actions array conditionally
+                if (currentUser) {
+                    let statusBadges = [];
                     let actionButtons = [];
                     
-                    // Only show owned icon if user owns it
-                    if (interaction.owned) {
-                        actionButtons.push(`<div class="btn-small owned-status owned" title="Owned"></div>`);
+                    if (interaction) {
+                        // User has this media, show statuses and actions
+                        if (interaction.watched) {
+                            statusBadges.push(`<div class="status-badge-positive" title="Watched"><i class="icon icon-watched"></i></div>`);
+                        } else {
+                            statusBadges.push(`<div class="status-badge-negative" title="Not Watched"><i class="icon icon-unwatched"></i></div>`);
+                        }
+
+                        if (interaction.owned) {
+                            statusBadges.push(`<div class="status-badge-positive" title="Owned"><i class="icon icon-dvds"></i></div>`);
+                        } else {
+                            statusBadges.push(`<div class="status-badge-negative" title="Not Owned"><i class="icon icon-dvds"></i></div>`);
+                        }
+                        
+                        // Buttons for users who have the media
+                        actionButtons.push(`<a href="library.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details"><i class="icon icon-details"></i></a>`);
+                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit"><i class="icon icon-edit"></i></button>`);
+                    
+                    } else {
+                        // User does not have this media, show add button
+                        actionButtons.push(`<a href="library.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details"><i class="icon icon-details"></i></a>`);
+                        actionButtons.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"><i class="icon icon-add"></i></button>`);
                     }
                     
-                    // Only show watched icon if user has watched it
-                    if (interaction.watched) {
-                        actionButtons.push(`<div class="btn-small media-status watched" title="Watched"></div>`);
-                    }
-                    
-                    // Always show details and edit buttons
-                    actionButtons.push(`<a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>`);
-                    actionButtons.push(`<button class="btn-small btn-edit" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit"></button>`);
-                    
-                    actionsHTML = `
-                        <div class="media-actions">
-                            ${actionButtons.join('')}
-                        </div>
-                    `;
-                } else if (currentUser) {
-                    actionsHTML = `
-                        <div class="media-actions">
-                            <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
-                            <button class="btn-small btn-add" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"></button>
-                        </div>
-                    `;
+                    actionsHTML = `<div class="media-actions">${statusBadges.join('')}${actionButtons.join('')}</div>`;
+
                 } else {
-                    actionsHTML = `
-                        <div class="media-actions">
-                            <a href="library.html?id=${media.id}" class="btn-small btn-details" title="View Details" onclick="event.stopPropagation();"></a>
-                        </div>
-                    `;
+                    // Logged out user just sees details
+                    actionsHTML = `<div class="media-actions"><a href="library.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details"><i class="icon icon-details"></i></a></div>`;
                 }
+
                 return `
                     <div class="media-card fade-in">
-                        <div class="media-top-section">
-                            <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
-                                ${posterImg}
-                            </div>
+                        <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
+                            ${posterImg}
                             ${actionsHTML}
                         </div>
-                        <div class="media-card-content">
-                            <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
-                            <p class="media-year">${media.year || ''}</p>
-                            ${generateStarDisplay(interaction ? interaction.rating : 0)}
-                        </div>
+                        <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
+                        <p class="media-year">${media.year || ''}</p>
+                        ${generateStarDisplay(interaction ? interaction.rating : 0)}
                     </div>
                 `;
             }).join('');
 
-            // Add fade-in animation to new cards
             setTimeout(() => {
                 container.querySelectorAll('.media-card').forEach((card, index) => {
                     setTimeout(() => {
                         card.classList.add('visible');
-                    }, index * 30); // Faster stagger for more items
+                    }, index * 30);
                 });
             }, 50);
         }
         
         function generateStarDisplay(rating) {
-            if (!rating || rating <= 0) return '<div class="media-rating"></div>'; 
-
+            if (!rating || rating <= 0) return '<div class="star-rating"></div>'; 
             const totalStars = 5;
             let starsHTML = '';
-            
             for (let i = 1; i <= totalStars; i++) {
                 if (i <= rating) {
                     starsHTML += `<span class="star star-full"></span>`;
@@ -317,30 +311,19 @@
                     starsHTML += `<span class="star star-empty"></span>`;
                 }
             }
-            
-            return `<div class="media-rating">${starsHTML}</div>`;
+            return `<div class="star-rating">${starsHTML}</div>`;
         }
 
         function viewMediaDetails(mediaId) { 
             window.location.href = `library.html?id=${mediaId}`; 
         }
         
-        // Replace this function in your index.html
         function editMovie(mediaId) { 
             window.location.href = `edit-movie.html?id=${mediaId}`; 
         }
         
         function addExistingMovieToMyCollection(mediaId) { 
             window.location.href = `add-movie.html?edit=${mediaId}`; 
-        }
-
-        async function handleAuthButtonClick() {
-            if (currentUser) {
-                await auth.signOut();
-                window.location.reload();
-            } else {
-                window.location.href = 'auth.html';
-            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -362,11 +345,11 @@
             
             debouncedRender = debounce(() => renderMedia(), 300);
 
-            // Event listeners
-            document.getElementById('searchInput').addEventListener('input', debouncedRender);
-            document.getElementById('viewDropdown').addEventListener('change', renderMedia);
-            document.getElementById('sortDropdown').addEventListener('change', renderMedia);
+            document.getElementById('searchInput')?.addEventListener('input', debouncedRender);
+            document.getElementById('viewDropdown')?.addEventListener('change', renderMedia);
+            document.getElementById('sortDropdown')?.addEventListener('change', renderMedia);
         });
     </script>
+    <div id="footer-placeholder"></div>
 </body>
 </html>

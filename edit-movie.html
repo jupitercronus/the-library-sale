@@ -17,163 +17,185 @@
     <!-- App Utilities -->
     <script src="utils.js"></script>
     <script src="cache.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
 </head>
 <body>
-    <div>
-        <header id="navbar-placeholder"></header>
-    </div>
+    <header id="navbar-placeholder"></header>
 
     <main class="edit-movie-container">
-        <!-- Centered Title, Year (Ticket Style) -->
-        <div class="details-ticket">
-            <h1 id="movie-title" class="details-title"></h1>
-            <p id="movie-year" class="details-year"></p>
+        <!-- Loading Skeleton (initially visible) -->
+        <div id="editLoadingState">
+            <section class="details-ticket skeleton">
+                <div class="skeleton" style="height: 36px; width: 60%; margin: 0 auto 8px;"></div>
+                <div class="skeleton" style="height: 24px; width: 20%; margin: 0 auto;"></div>
+            </section>
+            <section class="details-main-content">
+                <div class="details-poster skeleton"></div>
+                <div class="details-info">
+                    <div class="skeleton" style="height: 20px; width: 80px; margin-bottom: 8px;"></div>
+                    <div class="skeleton" style="height: 16px; width: 90%;"></div>
+                    <div class="skeleton" style="height: 20px; width: 80px; margin-top: 16px; margin-bottom: 8px;"></div>
+                    <div class="skeleton" style="height: 16px; width: 70%;"></div>
+                </div>
+            </section>
+            <section class="details-section skeleton" style="margin-top: 40px;">
+                <div class="skeleton" style="height: 28px; width: 150px; margin-bottom: 16px;"></div>
+                <div class="skeleton" style="height: 16px; width: 100%; margin-bottom: 8px;"></div>
+                <div class="skeleton" style="height: 16px; width: 100%; margin-bottom: 8px;"></div>
+                <div class="skeleton" style="height: 16px; width: 40%;"></div>
+            </section>
         </div>
 
-        <!-- Main Content Grid (Poster + Info) -->
-        <div class="details-main-content">
-            <div class="details-poster">
-                <img id="movie-poster-img" src="" alt="Movie Poster">
-            </div>
-            <div class="details-info">
-                <div class="details-info-group">
-                    <h3>Director</h3>
-                    <p id="movie-director"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Top Cast</h3>
-                    <p id="movie-cast"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Genre</h3>
-                    <p id="movie-genre"></p>
-                </div>
-            </div>
-        </div>
+        <!-- Main Content and Form (initially hidden) -->
+        <div id="mainContent" style="display: none;">
+            <!-- Ticket-style header -->
+            <section class="details-ticket">
+                <h1 id="movie-title" class="details-title">Loading...</h1>
+                <p id="movie-year" class="details-year">----</p>
+            </section>
 
-        <!-- Summary Section -->
-        <div class="details-summary-section">
-            <h2 class="details-summary-header">
-                <span class="icon"></span>
-                Summary
-            </h2>
-            <div class="details-summary" id="summaryGroup">
-                <p id="movieOverview" class="summary-text"></p>
-                <button id="readMoreBtn" class="read-more-btn" style="display: none;">Read more</button>
-            </div>
-        </div>
-
-        <!-- Section for editable user data -->
-        <form id="edit-movie-form">
-            
-            <!-- Rating and Status Toggles in one row -->
-            <div class="rating-and-status-container">
-                <div class="form-group">
-                    <label>Your Rating</label>
-                    <div id="star-rating" class="star-rating">
-                        <span class="star" data-value="1"></span>
-                        <span class="star" data-value="2"></span>
-                        <span class="star" data-value="3"></span>
-                        <span class="star" data-value="4"></span>
-                        <span class="star" data-value="5"></span>
+            <!-- Main Content Grid (Poster + Info) -->
+            <section class="details-main-content">
+                <div class="details-poster">
+                    <img id="movie-poster-img" src="" alt="Movie Poster" loading="lazy">
+                </div>
+                <div class="details-info">
+                    <div class="details-info-group">
+                        <h3>Director</h3>
+                        <p id="movie-director">Loading...</p>
+                    </div>
+                    <div class="details-info-group">
+                        <h3>Top Cast</h3>
+                        <p id="movie-cast">Loading...</p>
+                    </div>
+                    <div class="details-info-group">
+                        <h3>Genre</h3>
+                        <p id="movie-genre">Loading...</p>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <div class="toggle-group">
-                        <button type="button" id="watched-toggle" class="toggle-btn watched-toggle" data-watched="false" title="Toggle Watched Status"></button>
-                        <button type="button" id="owned-toggle" class="toggle-btn owned-toggle" data-owned="false" title="Toggle Owned Status"></button>
-                    </div>
-                </div>
-            </div>
+            </section>
 
-            <div class="form-group">
-                <label for="comments">
-                    <span class="icon icon-comment"></span>
-                    Comments
-                </label>
-                <textarea id="comments" name="comments" rows="4" placeholder="Your notes, thoughts, or review..."></textarea>
-            </div>
-            
-            <!-- Physical Edition Details (conditionally visible) -->
-            <div id="physical-edition-details" class="hidden">
-                <div class="form-group">
-                    <label>Physical Copy Details</label>
-                    <button type="button" id="scan-barcode-btn" class="btn-scan-barcode">
-                        <span class="scan-icon"></span>
-                        Scan Barcode
+            <!-- Summary Section -->
+            <section class="details-section">
+                <h2 class="details-section-header">
+                    <i class="icon icon-details"></i>
+                    <span>Summary</span>
+                </h2>
+                <div class="details-summary" id="summaryGroup">
+                    <p id="movieOverview" class="summary-text">Loading summary...</p>
+                    <button id="readMoreBtn" class="read-more-btn" style="display: none;">
+                        Read more
                     </button>
                 </div>
-                <div class="form-row">
+            </section>
+
+            <!-- User Data Form -->
+            <form id="edit-movie-form" class="details-section">
+                <h2 class="heading-with-icon">
+                    <i class="icon icon-comment"></i>
+                    <span>Comments</span>
+                </h2>
+                
+                <!-- Rating and Status Toggles -->
+                <div class="rating-and-status-container">
                     <div class="form-group">
-                        <label for="edition-title">Edition Title</label>
-                        <input type="text" id="edition-title" name="edition-title">
+                        <label>Your Rating</label>
+                        <div id="star-rating" class="star-rating-interactive star-rating-xlg">
+                            <span class="star star-empty" data-value="1"></span>
+                            <span class="star star-empty" data-value="2"></span>
+                            <span class="star star-empty" data-value="3"></span>
+                            <span class="star star-empty" data-value="4"></span>
+                            <span class="star star-empty" data-value="5"></span>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="edition-format">Format</label>
-                        <input type="text" id="edition-format" name="edition-format" placeholder="e.g., 4K, Blu-ray, DVD">
+                        <label>Status</label>
+                        <div class="toggle-group gap-md">
+                            <button type="button" id="watched-toggle" class="toggle-btn" data-active="false" title="Toggle Watched Status">
+                                <i class="icon icon-watched"></i>
+                            </button>
+                            <button type="button" id="owned-toggle" class="toggle-btn" data-active="false" title="Toggle Owned Status">
+                                <i class="icon icon-dvds"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                 <div class="form-group">
-                    <label for="upc-code">UPC</label>
-                    <input type="text" id="upc-code" name="upc-code" readonly>
+                <div class="form-group" id="watched-date-group" style="display: none;">
+                    <label for="watched-date">Watched Date</label>
+                    <input type="date" id="watched-date">
                 </div>
-            </div>
+                    <br>
+                <div class="form-group">
+                <textarea id="comments" name="comments" rows="4" placeholder="Your notes, thoughts, or review..."></textarea>
+                </div>
+                
+                <!-- Physical Edition Details (conditionally visible) -->
+                <div id="physical-edition-details" class="form-group" style="display: none;">
+                    <label>Physical Copy Details</label>
+                    <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary btn-right-align">
+                        <i class="icon icon-search"></i>
+                        <span>Scan Barcode</span>
+                    </button>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edition-title">Edition Title</label>
+                            <input type="text" id="edition-title" name="edition-title">
+                        </div>
+                        <div class="form-group">
+                            <label for="edition-format">Format</label>
+                            <input type="text" id="edition-format" name="edition-format" placeholder="e.g., 4K, Blu-ray, DVD">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="upc-code">UPC</label>
+                        <input type="text" id="upc-code" name="upc-code" readonly>
+                    </div>
+                </div>
 
-            <!-- Action Buttons -->
-            <div class="form-actions">
-                <div class="form-actions-left">
-                    <button type="submit" id="save-btn" class="btn-confirm" title="Save Changes"></button>
-                    <a id="cancel-btn" class="btn-back" title="Go Back"></a>
+                <!-- Action Buttons -->
+                <div class="form-actions">
+                    <div class="form-actions-left">
+                        <button type="submit" id="save-btn" class="btn btn-xl btn-success" title="Save Changes">
+                            <i class="icon icon-confirm"></i>
+                        </button>
+                        <a id="cancel-btn" class="btn btn-xl btn-danger" title="Go Back">
+                            <i class="icon icon-back"></i>
+                        </a>
+                    </div>
+                    <div class="form-actions-right">
+                        <button type="button" id="delete-btn" class="btn btn-xl btn-danger" title="Delete from Collection">
+                            <i class="icon icon-delete"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="form-actions-right">
-                    <button type="button" id="delete-btn" class="btn-delete" title="Delete from Collection"></button>
-                </div>
-            </div>
-        </form>
-
-        <!-- Barcode Scanner Modal -->
-        <div id="scanner-container" style="display: none;">
-            <div id="interactive" class="viewport"></div>
-            <button type="button" id="stop-scanner-btn">Stop Scanner</button>
+            </form>
         </div>
+
+        <!-- In-Page Barcode Scanner Section (initially hidden) -->
+        <section id="scanner-section" class="details-section" style="display: none;">
+            <h2 class="heading-with-icon">
+                <i class="icon icon-search"></i>
+                <span>Scan Barcode</span>
+            </h2>
+            <div class="scanner-viewport">
+                <video id="scanner-video" autoplay muted playsinline></video>
+                <div class="scanner-guideline"></div>
+            </div>
+            <p class="text-center">Position barcode within the frame</p>
+            <div class="flex-center">
+                <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-secondary">
+                    <i class="icon icon-close"></i>
+                    <span>Stop Scanner</span>
+                </button>
+            </div>
+        </section>
     </main>
-    <!-- Loading skeleton for edit movie page -->
-    <div id="editLoadingState" class="edit-movie-container" style="display: block;">
-        <!-- Same skeleton structure as library but in edit-movie-container -->
-        <div class="skeleton-details-ticket">
-            <div class="skeleton" style="width: 250px; height: 28px; margin: 0 auto 8px;"></div>
-            <div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div>
-        </div>
-        
-        <div class="skeleton-details-main">
-            <div class="skeleton skeleton-details-poster"></div>
-            <div class="skeleton-details-info">
-                <div class="skeleton-info-group">
-                    <div class="skeleton skeleton-info-title"></div>
-                    <div class="skeleton skeleton-info-text"></div>
-                </div>
-                <div class="skeleton-info-group">
-                    <div class="skeleton skeleton-info-title"></div>
-                    <div class="skeleton skeleton-info-text"></div>
-                </div>
-                <div class="skeleton-info-group">
-                    <div class="skeleton skeleton-info-title"></div>
-                    <div class="skeleton skeleton-info-text"></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="skeleton skeleton-section">
-            <div class="skeleton skeleton-section-header"></div>
-            <div class="skeleton-section-content">
-                <div class="skeleton skeleton-text-line long"></div>
-                <div class="skeleton skeleton-text-line medium"></div>
-            </div>
-        </div>
-    </div>
+
     <script>
         // Firebase configuration
         const firebaseConfig = {
@@ -192,59 +214,9 @@
         let currentRating = 0;
         let starRatingController = null;
         let codeReader = null;
-
-        // Load navbar function (copied from main.js)
-        function loadNavbar() {
-            const navbarContainer = document.getElementById('navbar-placeholder');
-            if (navbarContainer) {
-                fetch('navbar.html')
-                    .then(response => response.text())
-                    .then(data => {
-                        navbarContainer.innerHTML = data;
-                        setupNavbar();
-                    })
-                    .catch(error => {
-                        console.error("Error loading navbar:", error);
-                    });
-            }
-        }
-
-        function setupNavbar() {
-            const hamburgerBtn = document.querySelector('.hamburger-btn');
-            const navLinks = document.querySelector('.nav-links');
-
-            if (hamburgerBtn) {
-                hamburgerBtn.addEventListener('click', () => {
-                    navLinks.classList.toggle('active');
-                });
-            }
-
-            auth.onAuthStateChanged(user => {
-                const authBtnContainer = document.getElementById('auth-btn-container');
-                if (!authBtnContainer) return;
-
-                if (user) {
-                    authBtnContainer.innerHTML = `
-                        <a href="profile.html?uid=${user.uid}" class="nav-link profile-link">Profile</a>
-                        <button id="logout-btn" class="auth-btn">Logout</button>
-                    `;
-                    const logoutBtn = document.getElementById('logout-btn');
-                    if (logoutBtn) {
-                        logoutBtn.addEventListener('click', () => {
-                            auth.signOut().then(() => {
-                                window.location.href = 'auth.html';
-                            });
-                        });
-                    }
-                } else {
-                    authBtnContainer.innerHTML = `<a href="auth.html" class="auth-btn">Login / Sign Up</a>`;
-                }
-            });
-        }
+        let isScanning = false;
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadNavbar();
-            
             const params = new URLSearchParams(window.location.search);
             const movieId = params.get('id');
 
@@ -253,52 +225,67 @@
                 return;
             }
 
+            const mainContent = document.getElementById('mainContent');
+            const scannerSection = document.getElementById('scanner-section');
             const editMovieForm = document.getElementById('edit-movie-form');
             const watchedToggle = document.getElementById('watched-toggle');
             const ownedToggle = document.getElementById('owned-toggle');
             const physicalDetailsSection = document.getElementById('physical-edition-details');
             const cancelBtn = document.getElementById('cancel-btn');
 
-            // --- Setup Star Rating using LibraryUtils ---
+            // Setup Star Rating using LibraryUtils
+            const LibraryUtils = {
+                stars: StarUtils,
+                dates: DateUtils,
+                errors: ErrorUtils,
+                validation: ValidationUtils,
+                ui: UIUtils,  // This should already include showStatusMessage now
+                skeleton: SkeletonUtils,
+                search: SearchUtils
+            };
             const setupStars = (initialRating) => {
                 currentRating = initialRating;
-                if (LibraryUtils && LibraryUtils.stars) {
-                    starRatingController = LibraryUtils.stars.setupInteractiveStarRating('star-rating', (rating) => {
+                if (window.LibraryUtils && window.LibraryUtils.stars) {
+                    starRatingController = window.LibraryUtils.stars.setupInteractiveStarRating('star-rating', (rating) => {
                         currentRating = rating;
                     }, currentRating);
                 } else {
-                    console.error('LibraryUtils not available');
+                    console.error('LibraryUtils or LibraryUtils.stars not available. Check that utils.js is loaded correctly.');
                 }
             };
 
-            // --- Toggle Button Logic (Fixed to match add-movie.html) ---
+            // Toggle Button Logic
             watchedToggle.addEventListener('click', () => {
-                const isWatched = watchedToggle.dataset.watched === 'true';
-                watchedToggle.dataset.watched = !isWatched ? 'true' : 'false';
-                console.log('Watched toggle clicked, new state:', watchedToggle.dataset.watched);
+                const isWatched = watchedToggle.dataset.active === 'true';
+                const newWatchedState = !isWatched;
+                watchedToggle.dataset.active = newWatchedState ? 'true' : 'false';
+                
+                // Show/hide the watched date field
+                const watchedDateGroup = document.getElementById('watched-date-group');
+                watchedDateGroup.style.display = newWatchedState ? 'block' : 'none';
+                
+                // Clear the date if unwatched
+                if (!newWatchedState) {
+                    document.getElementById('watched-date').value = '';
+                }
             });
 
             ownedToggle.addEventListener('click', () => {
-                const isOwned = ownedToggle.dataset.owned === 'true';
-                ownedToggle.dataset.owned = !isOwned ? 'true' : 'false';
+                const isOwned = ownedToggle.dataset.active === 'true';
+                const newOwnedState = !isOwned;
+                ownedToggle.dataset.active = newOwnedState ? 'true' : 'false';
                 
-                // Show/hide physical details section based on owned status
-                if (!isOwned) {
-                    physicalDetailsSection.classList.remove('hidden');
-                } else {
-                    physicalDetailsSection.classList.add('hidden');
-                    // Reset fields when setting to not owned
+                physicalDetailsSection.style.display = newOwnedState ? 'block' : 'none';
+                if (!newOwnedState) {
                     document.getElementById('edition-title').value = '';
                     document.getElementById('edition-format').value = '';
                     document.getElementById('upc-code').value = '';
                 }
-                console.log('Owned toggle clicked, new state:', ownedToggle.dataset.owned);
             });
 
-            // --- Cancel Button Logic ---
+            // Cancel Button Logic
             cancelBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                // Go back to the previous page if possible, otherwise go to index
                 if (document.referrer && !document.referrer.includes('edit-movie.html')) {
                     window.history.back();
                 } else {
@@ -306,121 +293,83 @@
                 }
             });
 
-            // --- Data Loading and Form Population (copied from library.html) ---
+            // Data Loading and Form Population
             const populateForm = (userData) => {
-                console.log('Populating form with user data:', userData);
-                
                 setupStars(userData.rating || 0);
 
-                watchedToggle.dataset.watched = userData.watched === true ? 'true' : 'false';
-                ownedToggle.dataset.owned = userData.owned === true ? 'true' : 'false';
+                watchedToggle.dataset.active = userData.watched === true ? 'true' : 'false';
+                if (userData.watched === true) {
+                    document.getElementById('watched-date-group').style.display = 'block'; 
+                    document.getElementById('watched-date').value = userData.watchedDate || '';
+                } else {
+                    document.getElementById('watched-date-group').style.display = 'none';
+                }
+
+                ownedToggle.dataset.active = userData.owned === true ? 'true' : 'false';
 
                 if (userData.owned === true) {
-                    physicalDetailsSection.classList.remove('hidden');
+                    physicalDetailsSection.style.display = 'block';
                     document.getElementById('edition-title').value = userData.editionTitle || userData.editionDetails || '';
                     document.getElementById('edition-format').value = userData.editionFormat || userData.format || '';
                     document.getElementById('upc-code').value = userData.upc || '';
                 } else {
-                    physicalDetailsSection.classList.add('hidden');
+                    physicalDetailsSection.style.display = 'none';
                 }
 
                 document.getElementById('comments').value = userData.review || '';
             };
             
-            // --- Load Movie Data Function (improved from library.html) ---
+            // Load Movie Data Function
             const loadMovieData = async (userId) => {
-                    // Show skeleton loading
-                    document.getElementById('editLoadingState').style.display = 'block';
-
-                    // Hide main content initially
-                    document.querySelector('.details-ticket').style.display = 'none';
-                    document.querySelector('.details-main-content').style.display = 'none';
-                    document.querySelector('.details-summary-section').style.display = 'none';
-                    document.querySelector('#edit-movie-form').style.display = 'none';
                 try {
-                    console.log('Loading movie data for:', movieId, 'user:', userId);
-                    
-                    // Get movie details from main movies collection
-                    const movieDocRef = db.collection('movies').doc(movieId);
-                    const movieDoc = await movieDocRef.get();
+                    const [movieDoc] = await Promise.all([
+                        db.collection('movies').doc(movieId).get(),
+                        new Promise(resolve => setTimeout(resolve, 800)) // Smooth UX
+                    ]);
 
-                    if (!movieDoc.exists) {
-                        throw new Error('Movie not found in main collection');
-                    }
+                    if (!movieDoc.exists) throw new Error('Movie not found');
 
                     const movieData = movieDoc.data();
-                    console.log('Movie data loaded:', movieData);
                     
-                    // Populate movie details (non-editable) - updated to match library.html structure
-                    document.getElementById('movie-poster-img').src = movieData.posterUrl || 'https://placehold.co/300x450/1a1a1a/4a4a4a?text=No+Poster';
+                    document.getElementById('movie-poster-img').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
                     document.getElementById('movie-title').textContent = movieData.title || 'Unknown Title';
                     document.getElementById('movie-year').textContent = movieData.year || 'N/A';
                     document.getElementById('movie-director').textContent = movieData.director || 'N/A';
                     document.getElementById('movie-cast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : (movieData.cast || 'N/A');
                     document.getElementById('movie-genre').textContent = movieData.genre || 'N/A';
 
-                    // Handle summary with read more functionality (copied from library.html)
                     const overviewElement = document.getElementById('movieOverview');
                     const readMoreBtn = document.getElementById('readMoreBtn');
-                    const summaryGroup = document.getElementById('summaryGroup');
                     const overview = movieData.overview || 'No description available.';
-                    
                     overviewElement.textContent = overview;
                     
-                    // Check if text is longer than 3 lines (approximate)
                     if (overview.length > 200) {
-                        summaryGroup.classList.add('collapsed');
-                        readMoreBtn.style.display = 'block';
-                        readMoreBtn.textContent = 'Read more';
-                        
+                        readMoreBtn.style.display = 'inline-flex';
                         readMoreBtn.onclick = function() {
-                            if (summaryGroup.classList.contains('collapsed')) {
-                                summaryGroup.classList.remove('collapsed');
-                                readMoreBtn.textContent = 'Read less';
-                            } else {
-                                summaryGroup.classList.add('collapsed');
-                                readMoreBtn.textContent = 'Read more';
-                            }
+                            overviewElement.classList.toggle('collapsed');
+                            this.textContent = overviewElement.classList.contains('collapsed') ? 'Read more' : 'Read less';
                         };
                     }
 
-                    // Get user interaction data
-                    const interactionDocRef = db.collection('users').doc(userId).collection('movieInteractions').doc(movieId);
-                    const interactionDoc = await interactionDocRef.get();
+                    const interactionDoc = await db.collection('users').doc(userId).collection('movieInteractions').doc(movieId).get();
 
-                    console.log('User interaction exists:', interactionDoc.exists);
-                    
                     if (interactionDoc.exists) {
-                        const interactionData = interactionDoc.data();
-                        console.log('Interaction data:', interactionData);
-                        populateForm(interactionData);
+                        populateForm(interactionDoc.data());
                     } else {
-                        console.log('No interaction data found, initializing empty form');
-                        setupStars(0); // Initialize with 0 stars if no data
+                        setupStars(0);
                     }
-                    // Hide skeleton and show content (MOVE INSIDE TRY BLOCK)
+                    
                     document.getElementById('editLoadingState').style.display = 'none';
-                    document.querySelector('.details-ticket').style.display = 'block';
-                    document.querySelector('.details-main-content').style.display = 'flex';
-                    document.querySelector('.details-summary-section').style.display = 'block';
-                    document.querySelector('#edit-movie-form').style.display = 'block';
+                    mainContent.style.display = 'block';
                     
-                } 
-                    
-                catch (error) {
+                } catch (error) {
                     console.error("Error loading movie data:", error);
-                    if (LibraryUtils && LibraryUtils.errors) {
-                        LibraryUtils.errors.handleError(error, 'Loading movie data');
-                    } else {
-                        alert('Error loading movie data: ' + error.message);
-                    }
-                    // Hide skeleton on error too
-                    document.getElementById('editLoadingState').style.display = 'none';
+                    document.getElementById('editLoadingState').innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p><a href="index.html" class="btn btn-primary">Back</a></div>`;
                 }
             };
 
-            // --- Authentication Check ---
-            firebase.auth().onAuthStateChanged(user => {
+            // Authentication Check
+            auth.onAuthStateChanged(user => {
                 if (user) {
                     loadMovieData(user.uid);
                 } else {
@@ -428,180 +377,131 @@
                 }
             });
 
-            // --- Form Submission ---
+            // Form Submission
             editMovieForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const user = firebase.auth().currentUser;
+                const user = auth.currentUser;
                 if (!user) return;
 
                 const saveBtn = document.getElementById('save-btn');
-                
-                // Set loading state
-                if (LibraryUtils && LibraryUtils.ui) {
-                    LibraryUtils.ui.setButtonLoading(saveBtn);
-                } else {
-                    saveBtn.disabled = true;
-                }
+                saveBtn.classList.add('saving');
 
+                const watchedDateElement = document.getElementById('watched-date');
+                const watchedDateValue = watchedDateElement ? watchedDateElement.value || null : null;
                 const updatedData = {
                     movieId: movieId,
                     rating: currentRating,
-                    watched: watchedToggle.dataset.watched === 'true',
-                    owned: ownedToggle.dataset.owned === 'true',
+                    watched: watchedToggle.dataset.active === 'true',
+                    owned: ownedToggle.dataset.active === 'true',
                     review: document.getElementById('comments').value.trim(),
-                    interactionDate: firebase.firestore.FieldValue.serverTimestamp()
-                };
+                    interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    watchedDate: watchedDateValue            
+                    };
 
-                // Add physical copy details if owned
                 if (updatedData.owned) {
                     updatedData.editionTitle = document.getElementById('edition-title').value.trim();
                     updatedData.editionFormat = document.getElementById('edition-format').value.trim();
                     updatedData.upc = document.getElementById('upc-code').value.trim();
-                    
-                    // Store the combined edition details for legacy compatibility
-                    const editionParts = [
-                        updatedData.editionTitle,
-                        updatedData.editionFormat
-                    ].filter(part => part && part.trim()).join(' - ');
-                    
-                    if (editionParts) {
-                        updatedData.editionDetails = editionParts;
-                    }
                 }
-
-                console.log('Saving data:', updatedData);
 
                 try {
                     await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(updatedData, { merge: true });
-                    
-                    console.log('Data saved successfully');
-                    
-                    // Redirect to library.html with movie id after saving
-                    window.location.href = `library.html?id=${movieId}`;
+                    LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');
+                    setTimeout(() => window.location.href = `library.html?id=${movieId}`, 1500);
                 } catch (error) {
                     console.error("Error updating movie:", error);
-                    if (LibraryUtils && LibraryUtils.errors) {
-                        LibraryUtils.errors.handleError(error, 'Updating movie');
-                    } else {
-                        alert('Error updating movie: ' + error.message);
-                    }
+                    LibraryUtils.ui.showStatusMessage('Error saving changes.', 'error');
                 } finally {
-                    // Reset button state
-                    if (LibraryUtils && LibraryUtils.ui) {
-                        LibraryUtils.ui.resetButton(saveBtn);
-                    } else {
-                        saveBtn.disabled = false;
-                    }
+                    saveBtn.classList.remove('saving');
                 }
             });
             
-            // --- Barcode Scanner Logic ---
+            // Barcode Scanner Logic
             const scanBtn = document.getElementById('scan-barcode-btn');
             const stopBtn = document.getElementById('stop-scanner-btn');
-            const scannerContainer = document.getElementById('scanner-container');
+            const video = document.getElementById('scanner-video');
 
-            // Initialize barcode scanner if ZXing is available
-            if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
+            const initializeScanner = async () => {
+                if (codeReader) return true;
+                if (typeof ZXing === 'undefined') {
+                    LibraryUtils.ui.showStatusMessage('Scanner library not loaded.', 'error');
+                    return false;
+                }
                 codeReader = new ZXing.BrowserMultiFormatReader();
-            }
+                return true;
+            };
 
-            if (scanBtn) {
-                scanBtn.addEventListener('click', async () => {
-                    if (!codeReader) {
-                        alert('Barcode scanner not available');
-                        return;
-                    }
+            const startScanning = async () => {
+                if (isScanning || !await initializeScanner()) return;
 
-                    try {
-                        scannerContainer.style.display = 'flex';
-                        
-                        const videoInputDevices = await codeReader.listVideoInputDevices();
-                        if (videoInputDevices.length === 0) {
-                            throw new Error('No camera devices found');
+                mainContent.style.display = 'none';
+                scannerSection.style.display = 'block';
+
+                try {
+                    isScanning = true;
+                    const videoInputDevices = await codeReader.listVideoInputDevices();
+                    if (videoInputDevices.length === 0) throw new Error('No camera found');
+
+                    codeReader.decodeFromVideoDevice(videoInputDevices[0].deviceId, video, (result, error) => {
+                        if (result) {
+                            stopScanning();
+                            document.getElementById('upc-code').value = result.text;
+                            ownedToggle.dataset.active = 'true';
+                            physicalDetailsSection.style.display = 'block';
+                            LibraryUtils.ui.showStatusMessage(`Barcode scanned: ${result.text}`, 'success');
                         }
+                        if (error && !(error instanceof ZXing.NotFoundException)) {
+                            console.error('Scanner error:', error);
+                            LibraryUtils.ui.showStatusMessage('Error during scanning.', 'error');
+                            stopScanning();
+                        }
+                    });
+                } catch (error) {
+                    console.error('Failed to start scanner:', error);
+                    LibraryUtils.ui.showStatusMessage(`Failed to start camera: ${error.message}`, 'error');
+                    stopScanning();
+                }
+            };
 
-                        await codeReader.decodeFromVideoDevice(
-                            videoInputDevices[0].deviceId, 
-                            'interactive', 
-                            (result, err) => {
-                                if (result) {
-                                    const upc = result.text;
-                                    codeReader.reset();
-                                    scannerContainer.style.display = 'none';
-                                    
-                                    // Set UPC and auto-set as owned
-                                    document.getElementById('upc-code').value = upc;
-                                    ownedToggle.dataset.owned = 'true';
-                                    physicalDetailsSection.classList.remove('hidden');
-                                    
-                                    console.log('Barcode scanned:', upc);
-                                }
-                            }
-                        );
-                    } catch (error) {
-                        console.error('Scanner error:', error);
-                        scannerContainer.style.display = 'none';
-                        alert('Failed to start camera scanner: ' + error.message);
-                    }
-                });
-            }
+            const stopScanning = () => {
+                if (!isScanning) return;
+                isScanning = false;
+                if (codeReader) codeReader.reset();
+                scannerSection.style.display = 'none';
+                mainContent.style.display = 'block';
+            };
 
-            if (stopBtn) {
-                stopBtn.addEventListener('click', () => {
-                    if (codeReader) {
-                        codeReader.reset();
-                    }
-                    scannerContainer.style.display = 'none';
-                });
-            }
+            scanBtn.addEventListener('click', startScanning);
+            stopBtn.addEventListener('click', stopScanning);
 
-            // --- Delete Button Logic ---
+            // Delete Button Logic
             const deleteBtn = document.getElementById('delete-btn');
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', async () => {
-                    const confirmed = confirm('Are you sure you want to delete this movie from your collection?');
-                    if (!confirmed) return;
+            deleteBtn.addEventListener('click', async () => {
+                if (!confirm('Are you sure you want to delete this movie from your collection? This cannot be undone.')) return;
 
-                    try {
-                        // Set loading state
-                        deleteBtn.disabled = true;
-                        deleteBtn.style.opacity = '0.5';
+                const user = auth.currentUser;
+                if (!user) return;
 
-                        const user = firebase.auth().currentUser;
-                        if (!user) return;
-
-                        // Delete user's interaction with this movie
-                        await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).delete();
-                        console.log('User interaction deleted');
-
-                        // Check if any other users have this movie
-                        const allInteractionsSnapshot = await db.collectionGroup('movieInteractions')
-                            .where('movieId', '==', movieId)
-                            .limit(1)
-                            .get();
-
-                        // If no other users have this movie, delete it from the main collection
-                        if (allInteractionsSnapshot.empty) {
-                            await db.collection('movies').doc(movieId).delete();
-                            console.log('Movie deleted from main collection (no other users)');
-                        } else {
-                            console.log('Movie kept in main collection (other users have it)');
-                        }
-
-                        // Redirect to index after deletion
-                        window.location.href = 'index.html';
-
-                    } catch (error) {
-                        console.error('Error deleting movie:', error);
-                        alert('Failed to delete movie: ' + error.message);
-                        
-                        // Reset button state
-                        deleteBtn.disabled = false;
-                        deleteBtn.style.opacity = '';
+                deleteBtn.classList.add('loading');
+                try {
+                    await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).delete();
+                    
+                    const otherInteractions = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).limit(1).get();
+                    if (otherInteractions.empty) {
+                        await db.collection('movies').doc(movieId).delete();
                     }
-                });
-            }
+
+                    LibraryUtils.ui.showStatusMessage('Movie deleted from your collection.', 'success');
+                    setTimeout(() => window.location.href = 'index.html', 1500);
+                } catch (error) {
+                    console.error('Error deleting movie:', error);
+                    LibraryUtils.ui.showStatusMessage('Failed to delete movie.', 'error');
+                } finally {
+                    deleteBtn.classList.remove('loading');
+                }
+            });
         });
     </script>
+    <footer id="footer-placeholder"></footer>
 </body>
 </html>

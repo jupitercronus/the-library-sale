@@ -1,0 +1,232 @@
+/* ===================================
+   CSS CUSTOM PROPERTIES (VARIABLES)
+   Your "Colors & Sizes" LEGO box! 🎨
+   =================================== */
+
+:root {
+  /* ===== COLOR PALETTE ===== */
+  /* Primary Colors */
+  --color-primary-bg: #24143E;           /* Main dark purple background */
+  --color-secondary-bg: #2D194D;         /* Lighter purple for cards/sections */
+  --color-tertiary-bg: #1a0f2e;          /* Darkest purple for footer */
+  --color-accent-bg: #3a2a5c;            /* Hover/interactive backgrounds */
+  
+  /* Text Colors */
+  --color-text-primary: #DEF0F7;         /* Main white-ish text */
+  --color-text-secondary: #aaa;          /* Dimmed text */
+  --color-text-muted: rgba(222, 240, 247, 0.7);  /* More dimmed */
+  --color-text-very-muted: rgba(222, 240, 247, 0.5); /* Very dimmed */
+  
+  /* Brand Colors */
+  --color-brand-cyan: #00FFFF;           /* Bright cyan for buttons */
+  --color-brand-yellow: #fdfb76;         /* Yellow for hovers */
+  --color-brand-green: #00db96;          /* Green for success/owned */
+  --color-brand-pink: #e10086;           /* Pink for delete/danger */
+  --color-brand-blue: #90dcff;           /* Light blue for accents */
+  
+  /* Status Colors */
+  --color-success: #00db96;
+  --color-success-bg: rgba(0, 219, 150, 0.2);
+  --color-success-border: rgba(0, 219, 150, 0.3);
+  
+  --color-error: #e10086;
+  --color-error-bg: rgba(225, 0, 134, 0.2);
+  --color-error-border: rgba(225, 0, 134, 0.3);
+  
+  --color-info: #00FFFF;
+  --color-info-bg: rgba(144, 220, 255, 0.2);
+  --color-info-border: rgba(144, 220, 255, 0.3);
+  
+  /* Border Colors */
+  --color-border-light: rgba(222, 240, 247, 0.1);
+  --color-border-medium: rgba(222, 240, 247, 0.2);
+  --color-border-dark: #3a2a5c;
+  --color-border-dashed: rgba(222, 240, 247, 0.3);
+  
+  /* ===== TYPOGRAPHY ===== */
+  /* Font Families */
+  --font-family-primary: 'M PLUS 2', sans-serif;        /* Main body text */
+  --font-family-heading: 'Syne Mono', cursive;          /* Headings */
+  --font-family-brand: 'Kirang Haerang', cursive;       /* Logo/nav */
+  --font-family-mono: 'B612 Mono', monospace;           /* Code/forms */
+  --font-family-accent: 'Dokdo', cursive;               /* Years/special */
+  
+  /* Font Sizes */
+  --font-size-xs: 0.8em;
+  --font-size-sm: 0.9em;
+  --font-size-base: 1em;
+  --font-size-lg: 1.1em;
+  --font-size-xl: 1.2em;
+  --font-size-2xl: 1.3em;
+  --font-size-3xl: 1.5em;
+  --font-size-4xl: 1.8em;
+  --font-size-5xl: 2.2em;
+  --font-size-6xl: 2.5em;
+  
+  /* Line Heights */
+  --line-height-tight: 1.0;
+  --line-height-normal: 1.2;
+  --line-height-relaxed: 1.5;
+  --line-height-loose: 1.6;
+  
+  /* ===== SPACING SCALE ===== */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 15px;
+  --space-xl: 20px;
+  --space-2xl: 25px;
+  --space-3xl: 30px;
+  --space-4xl: 40px;
+  --space-5xl: 50px;
+  --space-6xl: 60px;
+  
+  /* ===== SIZING ===== */
+  /* Button Sizes */
+  --btn-size-sm: 32px;
+  --btn-size-md: 40px;
+  --btn-size-lg: 50px;
+  --btn-size-xl: 60px;
+  --btn-size-2xl: 70px;
+  
+  /* Icon Sizes */
+  --icon-size-xs: 12px;
+  --icon-size-sm: 14px;
+  --icon-size-md: 16px;
+  --icon-size-lg: 20px;
+  --icon-size-xl: 24px;
+  --icon-size-2xl: 32px;
+  --icon-size-3xl: 40px;
+  
+  /* Star Sizes */
+  --star-size-sm: 20px;
+  --star-size-md: 36px;
+  --star-size-lg: 48px;
+  --star-size-xl: 56px;  /* For interactive ratings */
+  
+  /* Container Widths */
+  --container-width-sm: 500px;
+  --container-width-md: 800px;
+  --container-width-lg: 1200px;
+  --container-width-page: 90%;
+  
+  /* Grid Gaps */
+  --grid-gap-sm: 10px;
+  --grid-gap-md: 15px;
+  --grid-gap-lg: 20px;
+  --grid-gap-xl: 25px;
+  
+  /* ===== BORDER RADIUS ===== */
+  --radius-none: 0;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+  --radius-full: 50%;
+  
+  /* ===== SHADOWS ===== */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+  --shadow-overlay: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 10px #ff0000;  /* For scanner guideline */
+  
+  /* ===== TRANSITIONS ===== */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.4s ease;
+  
+  /* Common Transition Properties */
+  --transition-colors: color 0.3s ease, background-color 0.3s ease;
+  --transition-transform: transform 0.2s ease;
+  --transition-all: all 0.3s ease;
+  --transition-opacity: opacity 0.3s ease;
+  
+  /* ===== Z-INDEX SCALE ===== */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 500;
+  --z-modal: 1000;
+  --z-scanner: 2000;
+  
+  /* ===== BREAKPOINTS ===== */
+  /* Note: These are for reference, use in @media queries */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1200px;
+  
+  /* ===== LAYOUT DIMENSIONS ===== */
+  /* Navbar */
+  --navbar-height: 80px;  /* Approximate */
+  
+  /* Sidebar */
+  --sidebar-width: 280px;
+  
+  /* Media Cards */
+  --media-card-min-width: 120px;
+  --media-card-min-width-lg: 200px;
+  --media-poster-aspect: 1 / 1;  /* Square aspect ratio */
+  
+  /* Profile Media */
+  --profile-media-min-width: 80px;
+  --profile-media-min-width-md: 100px;
+  --profile-media-min-width-lg: 120px;
+  
+  /* Details Page */
+  --details-poster-width: 250px;
+  --details-poster-max-width: 300px;
+  
+  /* ===== ANIMATION DURATIONS ===== */
+  --animation-skeleton: 1.5s;
+  --animation-spin: 1s;
+  --animation-fade: 0.4s;
+  
+  /* ===== OVERLAYS & BACKGROUNDS ===== */
+  --overlay-dark: rgba(0, 0, 0, 0.6);
+  --overlay-darker: rgba(0, 0, 0, 0.8);
+  
+  /* Skeleton Loading Colors */
+  --skeleton-base: #2a1a4a;
+  --skeleton-highlight: #3d2a5c;
+  --skeleton-border: #2a1a4a;
+  --skeleton-card-bg: #1a0f2e;
+}
+
+/* ===== MEDIA QUERY HELPERS ===== */
+/* These are reference comments for consistent breakpoint usage */
+
+/*
+Mobile First Approach:
+- Base styles: Mobile (default)
+- @media (min-width: 480px) { ... }   // Small tablets
+- @media (min-width: 768px) { ... }   // Tablets  
+- @media (min-width: 1024px) { ... }  // Desktop
+- @media (min-width: 1200px) { ... }  // Large desktop
+*/
+
+/* ===== ICON PATHS ===== */
+/* Centralized icon references for easy updates */
+
+:root {
+  --icon-hamburger: url(../icons/hamburger.svg);
+  --icon-add: url(../icons/add.svg);
+  --icon-edit: url(../icons/edit.svg);
+  --icon-delete: url(../icons/trash.svg);
+  --icon-confirm: url(../icons/confirm.svg);
+  --icon-close: url(../icons/close.svg);
+  --icon-back: url(../icons/back.svg);
+  --icon-search: url(../icons/search.svg);
+  --icon-details: url(../icons/details.svg);
+  --icon-comment: url(../icons/comment.svg);
+  --icon-watched: url(../icons/watched.svg);
+  --icon-unwatched: url(../icons/unwatched.svg);
+  --icon-dvds: url(../icons/dvds.svg);
+  --icon-movie: url(../icons/movie.svg);
+  --icon-tv: url(../icons/tv.svg);
+  --icon-list: url(../icons/list.svg);
+  --icon-star-full: url(../icons/star-full.svg);
+  --icon-star-half: url(../icons/star-half.svg);
+  --icon-star-empty: url(../icons/star-empty.svg);  
+}

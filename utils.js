@@ -50,18 +50,18 @@ const StarUtils = {
 
         const updateStars = (ratingToDisplay) => {
             stars.forEach((star, index) => {
-                star.classList.remove('full', 'half');
+                star.classList.remove('star-full', 'star-half');
                 if (ratingToDisplay > index + 0.5) {
-                    star.classList.add('full');
+                    star.classList.add('star-full');
                 } else if (ratingToDisplay > index) {
-                    star.classList.add('half');
+                    star.classList.add('star-half');
                 }
             });
         };
 
         const clearHoverStates = () => {
             stars.forEach(star => {
-                star.classList.remove('hover-full', 'hover-half');
+                star.classList.remove('hover-star-full', 'hover-star-half');
             });
         };
 
@@ -97,9 +97,9 @@ const StarUtils = {
             clearHoverStates();
             stars.forEach((star, index) => {
                 if (ratingValue > index + 0.5) {
-                    star.classList.add('hover-full');
+                    star.classList.add('hover-star-full');
                 } else if (ratingValue > index) {
-                    star.classList.add('hover-half');
+                    star.classList.add('hover-star-half');
                 }
             });
         };
@@ -194,6 +194,7 @@ const StarUtils = {
         };
     }
 };
+
 
 /**
  * DATE FORMATTING UTILITIES
@@ -526,7 +527,34 @@ const UIUtils = {
     truncateText: (text, limit = 100, suffix = '...') => {
         if (!text || text.length <= limit) return text || '';
         return text.substring(0, limit).trim() + suffix;
-    }
+    },
+    /**
+     * Show status message to user
+     * @param {string} message - Message to display
+     * @param {string} type - Type: 'success', 'error', 'info'
+     * @param {number} duration - Duration in milliseconds (default 3000)
+     */
+    showStatusMessage: (message, type = 'info', duration = 3000) => {
+        const existingMessages = document.querySelectorAll('.toast-message');
+        existingMessages.forEach(msg => msg.remove());
+        const statusMessage = document.createElement('div');
+        statusMessage.className = `toast-message status-message status-${type}`;
+        const iconClass = type === 'success' ? 'icon-confirm' :
+            type === 'error' ? 'icon-close' : 'icon-details';
+        statusMessage.innerHTML = `<span class="icon ${iconClass} icon-md"></span>${message}`;
+        // Position it as a toast
+        statusMessage.style.position = 'fixed';
+        statusMessage.style.top = 'var(--space-xl)';
+        statusMessage.style.right = 'var(--space-xl)';
+        statusMessage.style.zIndex = 'var(--z-modal)';
+        statusMessage.style.minWidth = '300px';
+        statusMessage.style.maxWidth = '500px';
+        document.body.appendChild(statusMessage);
+        // Auto-remove after duration
+        setTimeout(() => {
+            statusMessage.remove();
+        }, duration);
+    } 
 };
 
 /**

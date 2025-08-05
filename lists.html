@@ -14,35 +14,28 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <!-- App Scripts -->
     <script src="utils.js" defer></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
-    <!-- Custom styles for clickable list items -->
-    <style>
-        .list-card-link {
-            text-decoration: none;
-            color: inherit;
-            display: block; /* Ensures the poster link behaves like a block */
-        }
-        .list-card-link .list-poster {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .list-card-link:hover .list-poster {
-            transform: scale(1.03);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-        .list-info h3 .list-card-link:hover {
-            color: #fdfb76;
-        }
-    </style>
 </head>
 <body>
     <header id="navbar-placeholder"></header>
 
-    <div class="main-container">
-        <div class="controls-section">
+    <main class="main-container">
+        <section class="hero-section">
+            <h1 class="hero-title">Lists</h1>
+        </section>
+
+        <section class="controls-section">
             <div class="search-bar">
                 <input type="text" id="listSearchInput" placeholder="Search for a list...">
+                <button class="btn btn-md btn-primary" id="searchBtn" title="Search">
+                    <span class="icon icon-search icon-md"></span>
+                </button>
             </div>
+            
             <div class="list-controls">
                 <select id="sortDropdown" class="filter-dropdown">
                     <option value="createdAtDesc">Recently Created</option>
@@ -52,22 +45,35 @@
                 </select>
                 <button id="myListsBtn" class="list-toggle-btn">My Lists</button>
                 <button id="allListsBtn" class="list-toggle-btn active">All Lists</button>
-                <a href="create-list.html" class="btn-create-list" title="Create New List"></a>
+                <a href="create-list.html" class="btn btn-lg btn-primary" title="Create New List">
+                    <span class="icon icon-add icon-lg"></span>
+                </a>
             </div>
-        </div>
+        </section>
 
         <div id="listGrid" class="list-grid">
-            <!-- Lists will be loaded here by JavaScript -->
+            <!-- Loading skeleton will be shown initially -->
+            <div class="loading-container">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <p class="loading-text">Loading lists...</p>
+                </div>
+            </div>
         </div>
-    </div>
+    </main>
     
+    <!-- Confirmation Modal using proper component structure -->
     <div id="confirmationModal" class="modal">
         <div class="modal-content">
-            <h3 id="confirmationModalTitle">Confirm Action</h3>
-            <p id="confirmationModalMessage">Are you sure?</p>
+            <h3 id="confirmationModalTitle">Confirm Deletion</h3>
+            <p id="confirmationModalMessage">Are you sure you want to permanently delete this list? This action cannot be undone.</p>
             <div class="modal-buttons">
-                <button class="modal-btn confirm" id="confirmModalYes" title="Yes"></button>
-                <button class="modal-btn cancel" id="confirmModalNo" title="No"></button>
+                <button class="btn btn-lg btn-danger" id="confirmModalYes" title="Delete List">
+                    <span class="icon icon-delete icon-lg"></span>
+                </button>
+                <button class="btn btn-lg btn-secondary" id="confirmModalNo" title="Cancel">
+                    <span class="icon icon-close icon-lg"></span>
+                </button>
             </div>
         </div>
     </div>
@@ -89,21 +95,21 @@
         let allLists = [];
         let currentView = 'all'; 
 
-        // Add skeleton utilities
+        // Enhanced skeleton utilities using CSS component classes
         const SkeletonUI = {
             showListGridSkeleton: (count = 9) => {
                 const grid = document.getElementById('listGrid');
                 const skeletonHTML = Array(count).fill(0).map(() => `
-                    <div class="skeleton-list-card">
-                        <div class="skeleton-list-poster">
-                            <div class="skeleton skeleton-poster-collage"></div>
+                    <div class="list-card">
+                        <div class="list-poster skeleton">
+                            <!-- Skeleton poster area -->
                         </div>
-                        <div class="skeleton-list-info">
-                            <div class="skeleton skeleton-list-title"></div>
-                            <div class="skeleton skeleton-list-creator"></div>
-                            <div class="skeleton-list-actions">
-                                <div class="skeleton skeleton-action-btn"></div>
-                                <div class="skeleton skeleton-action-btn"></div>
+                        <div class="list-info">
+                            <div class="skeleton" style="height: 1.5em; width: 80%; margin-bottom: var(--space-sm);"></div>
+                            <div class="skeleton" style="height: 1em; width: 60%; margin-bottom: var(--space-md);"></div>
+                            <div class="list-actions gap-sm">
+                                <div class="skeleton btn btn-sm"></div>
+                                <div class="skeleton btn btn-sm"></div>
                             </div>
                         </div>
                     </div>
@@ -115,7 +121,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                // FIX: Redirect to auth page if not logged in
                 if (!user) {
                     window.location.href = 'auth.html';
                 } else {
@@ -135,7 +140,6 @@
         }
 
         function setView(view) {
-            // FIX: If user clicks "My Lists" but is not logged in, redirect them.
             if (view === 'my' && !currentUser) {
                 window.location.href = 'auth.html';
                 return;
@@ -147,92 +151,85 @@
         }
 
         async function loadLists() {
-                // Show skeleton immediately
-                SkeletonUI.showListGridSkeleton(9);
+            SkeletonUI.showListGridSkeleton(9);
+            
+            try {
+                const listsRef = db.collection('lists');
+                let query = listsRef.where('isPublic', '==', true);
                 
-                try {
-                    // Step 1: Build the query first
-                    const listsRef = db.collection('lists');
-                    let query = listsRef.where('isPublic', '==', true);
-                    
-                    // If showing "My Lists", we adjust the query
-                    if (currentView === 'my' && currentUser) {
-                        query = listsRef.where('creatorId', '==', currentUser.uid);
-                    }
-                    
-                    // Step 2: Execute query with minimum loading time
-                    const [listSnapshots] = await Promise.all([
-                        query.get(),
-                        new Promise(resolve => setTimeout(resolve, 800))
-                    ]);
-                    
-                    const listDocs = listSnapshots.docs;
-
-                    // Step 3: Gather all unique movie IDs from the lists
-                    const allMovieIds = new Set();
-                    listDocs.forEach(doc => {
-                        const mediaIds = doc.data().mediaIds;
-                        if (mediaIds && mediaIds.length > 0) {
-                            mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
-                        }
-                    });
-
-                    // Step 4: Fetch all required movie documents in batches
-                    const movieDataMap = new Map();
-                    if (allMovieIds.size > 0) {
-                        const movieIdsArray = Array.from(allMovieIds);
-                        const moviePromises = [];
-                        // Use chunks of 10 for 'in' query to be safe
-                        for (let i = 0; i < movieIdsArray.length; i += 10) {
-                            const chunk = movieIdsArray.slice(i, i + 10);
-                            moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
-                        }
-                        const movieSnapshots = await Promise.all(moviePromises);
-                        movieSnapshots.forEach(snapshot => {
-                            snapshot.forEach(doc => {
-                                movieDataMap.set(doc.id, doc.data());
-                            });
-                        });
-                    }
-
-                    // Step 5: Combine list data with poster data
-                    const combinedLists = {};
-                    listDocs.forEach(doc => {
-                        const list = { id: doc.id, ...doc.data() };
-                        list.posterUrls = [];
-                        if (list.mediaIds && list.mediaIds.length > 0) {
-                            list.posterUrls = list.mediaIds
-                                .slice(0, 3)
-                                .map(id => movieDataMap.get(id)?.posterUrl)
-                                .filter(Boolean); // Filter out any undefined URLs
-                        }
-                        combinedLists[doc.id] = list;
-                    });
-
-                    allLists = Object.values(combinedLists);
-                    renderLists();
-
-                } catch (error) {
-                    console.error("Error loading lists:", error);
-                    const grid = document.getElementById('listGrid');
-                    grid.innerHTML = '<p>Error loading lists. Please check your Firestore security rules and indexes.</p>';
+                if (currentView === 'my' && currentUser) {
+                    query = listsRef.where('creatorId', '==', currentUser.uid);
                 }
+                
+                const [listSnapshots] = await Promise.all([
+                    query.get(),
+                    new Promise(resolve => setTimeout(resolve, 800))
+                ]);
+                
+                const listDocs = listSnapshots.docs;
+
+                // Gather all unique movie IDs from the lists
+                const allMovieIds = new Set();
+                listDocs.forEach(doc => {
+                    const mediaIds = doc.data().mediaIds;
+                    if (mediaIds && mediaIds.length > 0) {
+                        mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
+                    }
+                });
+
+                // Fetch all required movie documents in batches
+                const movieDataMap = new Map();
+                if (allMovieIds.size > 0) {
+                    const movieIdsArray = Array.from(allMovieIds);
+                    const moviePromises = [];
+                    for (let i = 0; i < movieIdsArray.length; i += 10) {
+                        const chunk = movieIdsArray.slice(i, i + 10);
+                        moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
+                    }
+                    const movieSnapshots = await Promise.all(moviePromises);
+                    movieSnapshots.forEach(snapshot => {
+                        snapshot.forEach(doc => {
+                            movieDataMap.set(doc.id, doc.data());
+                        });
+                    });
+                }
+
+                // Combine list data with poster data
+                const combinedLists = {};
+                listDocs.forEach(doc => {
+                    const list = { id: doc.id, ...doc.data() };
+                    list.posterUrls = [];
+                    if (list.mediaIds && list.mediaIds.length > 0) {
+                        list.posterUrls = list.mediaIds
+                            .slice(0, 3)
+                            .map(id => movieDataMap.get(id)?.posterUrl)
+                            .filter(Boolean);
+                    }
+                    combinedLists[doc.id] = list;
+                });
+
+                allLists = Object.values(combinedLists);
+                renderLists();
+
+            } catch (error) {
+                console.error("Error loading lists:", error);
+                const grid = document.getElementById('listGrid');
+                grid.innerHTML = '<div class="error-state"><h3>Error Loading Lists</h3><p>Please check your connection and try again.</p></div>';
             }
+        }
 
         function generatePosterCollageHTML(urls) {
             if (!urls || urls.length === 0) {
                 return '<div class="no-poster-text">No Posters</div>';
             }
 
-            // Fallback: Single poster
             if (urls.length < 2) {
                 return `<img src="${urls[0]}" alt="List poster" class="single-poster-img" onerror="this.style.display='none'; this.parentElement.innerHTML = '<div class=\\'no-poster-text\\'>No Poster</div>';">`;
             }
 
-            // Layout B: One large, two (or one) small
             const mainImage = urls[0];
             const sideImage1 = urls[1];
-            const sideImage2 = urls[2]; // This might be undefined
+            const sideImage2 = urls[2];
 
             let sideImagesHTML = `<img src="${sideImage1}" alt="List poster collage" onerror="this.style.display='none';">`;
             if (sideImage2) {
@@ -249,7 +246,6 @@
             `;
         }
 
-
         function renderLists() {
             const grid = document.getElementById('listGrid');
             const searchTerm = document.getElementById('listSearchInput').value.toLowerCase();
@@ -264,7 +260,6 @@
                     listsToDisplay = [];
                 }
             } else {
-                // For "All Lists", filter only for public lists
                 listsToDisplay = listsToDisplay.filter(list => list.isPublic);
             }
             
@@ -285,19 +280,37 @@
             });
 
             if (listsToDisplay.length === 0) {
-                grid.innerHTML = `<div class="empty-state" style="text-align:center; color: #aaa; padding: 40px; grid-column: 1 / -1;"><h3>No lists found.</h3><p>Try adjusting your search or create a new list!</p></div>`;
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <span class="icon icon-list icon-3xl"></span>
+                        <h3>No lists found</h3>
+                        <p>Try adjusting your search or create a new list!</p>
+                        <a href="create-list.html" class="btn btn-lg btn-primary">
+                            <span class="icon icon-add icon-lg"></span>
+                            Create New List
+                        </a>
+                    </div>
+                `;
                 return;
             }
 
             grid.innerHTML = listsToDisplay.map(list => {
                 const isOwner = currentUser && currentUser.uid === list.creatorId;
                 
-                let actionsHTML = `<a href="view-list.html?id=${list.id}" class="btn-small btn-details" title="View Details"></a>`;
+                let actionsHTML = `
+                    <a href="view-list.html?id=${list.id}" class="btn btn-sm btn-primary" title="View Details">
+                        <span class="icon icon-details icon-sm"></span>
+                    </a>
+                `;
 
                 if (isOwner) {
                     actionsHTML += `
-                        <a href="edit-list.html?id=${list.id}" class="btn-small btn-edit" title="Edit List"></a>
-                        <button class="btn-small btn-delete" onclick="confirmDeleteList('${list.id}')" title="Delete List"></button>
+                        <a href="edit-list.html?id=${list.id}" class="btn btn-sm btn-secondary" title="Edit List">
+                            <span class="icon icon-edit icon-sm"></span>
+                        </a>
+                        <button class="btn btn-sm btn-danger" onclick="confirmDeleteList('${list.id}')" title="Delete List">
+                            <span class="icon icon-delete icon-sm"></span>
+                        </button>
                     `;
                 }
                 
@@ -313,7 +326,7 @@
                         <div class="list-info">
                             <h3><a href="view-list.html?id=${list.id}" class="list-card-link" title="View ${list.listName}">${list.listName}</a></h3>
                             <p>by <a href="profile.html?id=${list.creatorId}" title="View ${list.creatorDisplayName || 'Anonymous'}'s Profile">${list.creatorDisplayName || 'Anonymous'}</a></p>
-                            <div class="list-actions">
+                            <div class="list-actions flex gap-sm">
                                 ${actionsHTML}
                             </div>
                         </div>
@@ -324,19 +337,17 @@
         
         function confirmDeleteList(listId) {
             const modal = document.getElementById('confirmationModal');
-            document.getElementById('confirmationModalTitle').textContent = 'Delete List';
-            document.getElementById('confirmationModalMessage').textContent = 'Are you sure you want to permanently delete this list? This action cannot be undone.';
-            modal.style.display = 'flex';
+            modal.classList.add('active');
 
             const yesBtn = document.getElementById('confirmModalYes');
             const noBtn = document.getElementById('confirmModalNo');
 
             const yesHandler = () => {
-                modal.style.display = 'none';
+                modal.classList.remove('active');
                 deleteList(listId);
             };
             const noHandler = () => {
-                modal.style.display = 'none';
+                modal.classList.remove('active');
             };
 
             yesBtn.addEventListener('click', yesHandler, { once: true });
@@ -353,8 +364,7 @@
                 alert('There was an error deleting the list.');
             }
         }
-
-    
     </script>
+    <footer id="footer-placeholder"></footer>
 </body>
 </html>

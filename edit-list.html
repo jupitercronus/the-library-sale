@@ -16,52 +16,64 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <!-- App Scripts -->
     <script src="utils.js" defer></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
-    <!-- FIX: Added specific styles to position the search results container -->
-    <style>
-        .edit-list-search {
-            position: relative; /* Establishes a positioning context for child elements */
-        }
-        #searchResultsContainer {
-            position: absolute; /* Positions the container relative to .edit-list-search */
-            top: 100%; /* Places it directly below the parent container */
-            left: 0;
-            right: 0;
-            z-index: 100; /* Ensures it appears above other content */
-        }
-    </style>
 </head>
 <body>
     <header id="navbar-placeholder"></header>
 
-    <div class="main-container view-list-container">
+    <main class="main-container view-list-container">
         <div id="list-content">
             <form id="editListForm">
                 <div class="list-header">
                     <input type="text" id="listName" class="list-name-input" placeholder="List Name" required>
                     <p id="creatorName"></p>
                 </div>
-                <textarea id="listDescription" class="list-description-textarea" placeholder="Add a description..."></textarea>
+                
+                <div class="form-group">
+                    <label for="listDescription">Description</label>
+                    <textarea id="listDescription" 
+                             class="list-description-textarea" 
+                             placeholder="Add a description..."
+                             rows="3"></textarea>
+                </div>
             </form>
 
             <div class="edit-list-search">
-                <input type="text" id="mediaSearchInput" placeholder="Search media to add to list..." autocomplete="off">
-                <button id="mediaSearchBtn" class="btn-icon" title="Search"></button>
-                <div id="searchResultsContainer"></div>
+                <div class="search-bar">
+                    <input type="text" id="mediaSearchInput" placeholder="Search media to add to list..." autocomplete="off">
+                    <button id="mediaSearchBtn" class="btn btn-md btn-primary" title="Search">
+                        <span class="icon icon-search icon-md"></span>
+                    </button>
+                </div>
+                <div id="searchResultsContainer" class="search-results-dropdown"></div>
             </div>
 
             <hr class="list-divider">
 
             <div id="media-list-container">
-                <!-- Media items will be rendered here -->
+                <!-- Initial loading state -->
+                <div class="loading-container">
+                    <div class="loading-content">
+                        <div class="loading-spinner"></div>
+                        <p class="loading-text">Loading list items...</p>
+                    </div>
+                </div>
             </div>
         </div>
+        
         <div class="edit-list-actions">
-            <button type="submit" form="editListForm" class="btn-save-list" title="Save Changes"></button>
-            <button onclick="history.back()" class="btn-back" title="Go Back"></button>
+            <button type="submit" form="editListForm" class="btn btn-xl btn-success" title="Save Changes">
+                <span class="icon icon-confirm icon-xl"></span>
+            </button>
+            <button onclick="history.back()" class="btn btn-xl btn-secondary" title="Go Back">
+                <span class="icon icon-back icon-xl"></span>
+            </button>
         </div>
-    </div>
+    </main>
 
     <script>
         const firebaseConfig = {
@@ -83,27 +95,33 @@
         let debouncedSearch = null;
         let allMoviesCache = []; // Cache for movies to avoid re-fetching
 
-        // Add skeleton utilities
+        // Enhanced skeleton utilities using CSS component classes
         const SkeletonUI = {
             showEditListSkeleton: () => {
                 document.getElementById('listName').value = 'Loading...';
-                document.getElementById('creatorName').innerHTML = '<div class="skeleton skeleton-text" style="width: 120px; height: 16px;"></div>';
+                document.getElementById('listName').disabled = true;
+                document.getElementById('creatorName').innerHTML = '<div class="skeleton" style="width: 120px; height: 1em;"></div>';
                 document.getElementById('listDescription').value = 'Loading description...';
+                document.getElementById('listDescription').disabled = true;
                 
                 const container = document.getElementById('media-list-container');
                 const skeletonHTML = Array(6).fill(0).map((_, index) => `
-                    <div class="skeleton-list-item draggable">
-                        <span class="skeleton skeleton-drag-handle"></span>
-                        <span class="skeleton skeleton-number">${index + 1}.</span>
-                        <div class="skeleton skeleton-poster"></div>
-                        <div class="skeleton-item-info">
-                            <div class="skeleton skeleton-title"></div>
-                            <div class="skeleton skeleton-year"></div>
+                    <div class="list-media-item draggable">
+                        <div class="skeleton drag-handle"></div>
+                        <span class="list-item-number">${index + 1}.</span>
+                        <div class="skeleton list-item-poster"></div>
+                        <div class="list-item-info">
+                            <div class="skeleton" style="height: 1.2em; width: 70%; margin-bottom: var(--space-xs);"></div>
+                            <div class="skeleton" style="height: 1em; width: 40%;"></div>
                         </div>
-                        <div class="skeleton skeleton-remove-btn"></div>
+                        <div class="skeleton btn-remove-item"></div>
                     </div>
                 `).join('');
                 container.innerHTML = skeletonHTML;
+            },
+            hideEditListSkeleton: () => {
+                document.getElementById('listName').disabled = false;
+                document.getElementById('listDescription').disabled = false;
             }
         };
 
@@ -112,7 +130,17 @@
             listId = urlParams.get('id');
 
             if (!listId) {
-                document.getElementById('list-content').innerHTML = '<h1>Error: No List ID provided.</h1>';
+                document.getElementById('list-content').innerHTML = `
+                    <div class="error-state">
+                        <span class="icon icon-close icon-3xl"></span>
+                        <h3>Error: No List ID provided</h3>
+                        <p>Please check the URL and try again.</p>
+                        <a href="lists.html" class="btn btn-lg btn-primary">
+                            <span class="icon icon-back icon-lg"></span>
+                            Back to Lists
+                        </a>
+                    </div>
+                `;
                 return;
             }
 
@@ -128,13 +156,12 @@
             const searchButton = document.getElementById('mediaSearchBtn');
             const resultsContainer = document.getElementById('searchResultsContainer');
 
-            // This function now handles both filtering and showing initial results
+            // Enhanced search function with better UX
             const performSearch = (query) => {
                 const lowerCaseQuery = query.toLowerCase();
-                resultsContainer.style.display = 'block';
+                resultsContainer.classList.add('active');
 
                 let filteredMovies;
-                // If there's a query, filter the cache. Otherwise, show the first 10 from the cache.
                 if (lowerCaseQuery) {
                     filteredMovies = allMoviesCache.filter(movie =>
                         movie.title && movie.title.toLowerCase().includes(lowerCaseQuery)
@@ -144,17 +171,28 @@
                 }
 
                 if (filteredMovies.length === 0) {
-                    resultsContainer.innerHTML = '<div class="search-result-item-add">No results found.</div>';
+                    resultsContainer.innerHTML = `
+                        <div class="search-result-item-add disabled">
+                            <span class="icon icon-search icon-sm"></span>
+                            No results found
+                        </div>
+                    `;
                     return;
                 }
 
                 resultsContainer.innerHTML = filteredMovies.map(media => {
-                    const isAlreadyInList = listData.mediaIds.includes(media.id);
+                    const isAlreadyInList = listData && listData.mediaIds.includes(media.id);
                     const clickAction = isAlreadyInList ? '' : `onclick="addMediaItem('${media.id}')"`;
+                    
                     return `
                         <div class="search-result-item-add ${isAlreadyInList ? 'disabled' : ''}" ${clickAction}>
-                            <span>${media.title} (${media.year || 'N/A'})</span>
-                            ${isAlreadyInList ? '<span>Added</span>' : ''}
+                            <div class="flex gap-sm">
+                                <span class="badge badge-${media.type || 'movie'}">
+                                    <span class="icon icon-${media.type || 'movie'} icon-sm"></span>
+                                </span>
+                                <span>${media.title} (${media.year || 'N/A'})</span>
+                            </div>
+                            ${isAlreadyInList ? '<span class="icon icon-confirm icon-sm"></span>' : '<span class="icon icon-add icon-sm"></span>'}
                         </div>
                     `;
                 }).join('');
@@ -162,24 +200,21 @@
 
             debouncedSearch = LibraryUtils.ui.debounce(performSearch, 200);
 
-            // Live search as the user types
             searchInput.addEventListener('input', () => {
                 debouncedSearch(searchInput.value.trim());
             });
             
-            // Show initial list of results on focus
             searchInput.addEventListener('focus', () => {
                 performSearch(searchInput.value.trim());
             });
 
-            // The search button can now simply act as a way to focus the input
             searchButton.addEventListener('click', () => {
                 searchInput.focus();
             });
 
             document.addEventListener('click', (e) => {
                 if (!document.querySelector('.edit-list-search').contains(e.target)) {
-                    resultsContainer.style.display = 'none';
+                    resultsContainer.classList.remove('active');
                 }
             });
         });
@@ -195,14 +230,13 @@
         }
 
         async function loadListData(listId) {
-            // Show skeleton immediately
             SkeletonUI.showEditListSkeleton();
 
             try {
                 const [listDoc] = await Promise.all([
-                db.collection('lists').doc(listId).get(),
-                new Promise(resolve => setTimeout(resolve, 600))
-            ])
+                    db.collection('lists').doc(listId).get(),
+                    new Promise(resolve => setTimeout(resolve, 600))
+                ]);
             
                 if (!listDoc.exists) throw new Error("List not found.");
                 
@@ -213,6 +247,8 @@
                     return;
                 }
 
+                SkeletonUI.hideEditListSkeleton();
+                
                 document.getElementById('listName').value = listData.listName;
                 document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${listData.creatorId}">${listData.creatorDisplayName || 'Anonymous'}</a>`;
                 document.getElementById('listDescription').value = listData.description || '';
@@ -222,14 +258,30 @@
 
             } catch (error) {
                 console.error("Error loading list data:", error);
-                document.getElementById('list-content').innerHTML = `<h1>Error: ${error.message}</h1>`;
+                document.getElementById('list-content').innerHTML = `
+                    <div class="error-state">
+                        <span class="icon icon-close icon-3xl"></span>
+                        <h3>Error: ${error.message}</h3>
+                        <p>Please try refreshing the page or check your connection.</p>
+                        <a href="lists.html" class="btn btn-lg btn-primary">
+                            <span class="icon icon-back icon-lg"></span>
+                            Back to Lists
+                        </a>
+                    </div>
+                `;
             }
         }
 
         async function renderMediaItems(mediaIds) {
             const container = document.getElementById('media-list-container');
             if (!mediaIds || mediaIds.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #aaa;">This list is empty. Search for media to add.</p>';
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span class="icon icon-list icon-3xl"></span>
+                        <h3>This list is empty</h3>
+                        <p>Search for media above to add items to your list.</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -253,14 +305,19 @@
                 
                 return `
                     <div class="list-media-item draggable" data-id="${id}">
-                        <span class="drag-handle"></span>
+                        <span class="drag-handle" title="Drag to reorder"></span>
                         <span class="list-item-number">${index + 1}.</span>
-                        <img src="${media.posterUrl || 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A'}" class="list-item-poster" alt="Poster for ${media.title}">
+                        <img src="${media.posterUrl || 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A'}" 
+                             class="list-item-poster" 
+                             alt="Poster for ${media.title}"
+                             loading="lazy">
                         <div class="list-item-info">
                             <span class="list-item-title">${media.title}</span>
                             <span class="list-item-year">(${media.year || 'N/A'})</span>
                         </div>
-                        <button class="btn-remove-item" onclick="removeMediaItem('${id}')" title="Remove from list"></button>
+                        <button class="btn-remove-item" onclick="removeMediaItem('${id}')" title="Remove from list">
+                            <span class="icon icon-delete"></span>
+                        </button>
                     </div>
                 `;
             }).join('');
@@ -284,11 +341,22 @@
 
         async function saveListChanges(e) {
             e.preventDefault();
-            const saveButton = document.querySelector('.btn-save-list');
+            const saveButton = document.querySelector('button[type="submit"]');
             saveButton.classList.add('saving');
 
             const newName = document.getElementById('listName').value.trim();
             const newDescription = document.getElementById('listDescription').value.trim();
+
+            if (!newName) {
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'status-message status-error';
+                errorMessage.innerHTML = '<span class="icon icon-close icon-md"></span>List name is required.';
+                document.getElementById('editListForm').after(errorMessage);
+                
+                saveButton.classList.remove('saving');
+                setTimeout(() => errorMessage.remove(), 3000);
+                return;
+            }
 
             try {
                 await db.collection('lists').doc(listId).update({
@@ -297,6 +365,12 @@
                     mediaIds: listData.mediaIds
                 });
                 
+                // Show success message
+                const successMessage = document.createElement('div');
+                successMessage.className = 'status-message status-success';
+                successMessage.innerHTML = '<span class="icon icon-confirm icon-md"></span>Changes saved successfully!';
+                document.getElementById('editListForm').after(successMessage);
+                
                 setTimeout(() => {
                     saveButton.classList.remove('saving');
                     window.location.href = `view-list.html?id=${listId}`;
@@ -304,8 +378,14 @@
 
             } catch (error) {
                 console.error("Error saving list:", error);
-                alert("Could not save changes. Please try again.");
+                
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'status-message status-error';
+                errorMessage.innerHTML = '<span class="icon icon-close icon-md"></span>Could not save changes. Please try again.';
+                document.getElementById('editListForm').after(errorMessage);
+                
                 saveButton.classList.remove('saving');
+                setTimeout(() => errorMessage.remove(), 5000);
             }
         }
         
@@ -316,14 +396,38 @@
             await renderMediaItems(listData.mediaIds);
             
             document.getElementById('mediaSearchInput').value = '';
-            document.getElementById('searchResultsContainer').style.display = 'none';
+            document.getElementById('searchResultsContainer').classList.remove('active');
+            
+            // Show brief feedback
+            const successMessage = document.createElement('div');
+            successMessage.className = 'status-message status-success';
+            successMessage.innerHTML = '<span class="icon icon-confirm icon-md"></span>Media added to list!';
+            successMessage.style.position = 'fixed';
+            successMessage.style.top = 'var(--space-xl)';
+            successMessage.style.right = 'var(--space-xl)';
+            successMessage.style.zIndex = 'var(--z-modal)';
+            document.body.appendChild(successMessage);
+            
+            setTimeout(() => successMessage.remove(), 2000);
         }
 
         function removeMediaItem(mediaId) {
             listData.mediaIds = listData.mediaIds.filter(id => id !== mediaId);
             renderMediaItems(listData.mediaIds);
+            
+            // Show brief feedback
+            const infoMessage = document.createElement('div');
+            infoMessage.className = 'status-message status-info';
+            infoMessage.innerHTML = '<span class="icon icon-delete icon-md"></span>Media removed from list';
+            infoMessage.style.position = 'fixed';
+            infoMessage.style.top = 'var(--space-xl)';
+            infoMessage.style.right = 'var(--space-xl)';
+            infoMessage.style.zIndex = 'var(--z-modal)';
+            document.body.appendChild(infoMessage);
+            
+            setTimeout(() => infoMessage.remove(), 2000);
         }
-
     </script>
+    <footer id="footer-placeholder"></footer>
 </body>
 </html>

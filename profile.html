@@ -14,135 +14,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <!-- App Scripts -->
     <script src="utils.js" defer></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
-    <style>
-        .sidebar-search {
-            position: relative;
-        }
-        #userSearchResultsContainer {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background-color: #24143E;
-            border: 1px solid #3a2a5c;
-            border-radius: 5px;
-            z-index: 100;
-            max-height: 250px;
-            overflow-y: auto;
-            display: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .user-search-result {
-            padding: 10px 15px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .user-search-result:hover {
-            background-color: #3a2a5c;
-        }
-        
-        /* Profile-specific skeleton styles */
-        .skeleton-sidebar-block {
-            background: #2D194D;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .skeleton-username {
-            height: 28px;
-            width: 80%;
-            margin-bottom: 8px;
-            border-radius: 4px;
-        }
-        
-        .skeleton-email {
-            height: 16px;
-            width: 60%;
-            margin-bottom: 15px;
-            border-radius: 4px;
-        }
-        
-        .skeleton-stat-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #3a2a5c;
-        }
-        
-        .skeleton-stat-label {
-            height: 16px;
-            width: 50%;
-            border-radius: 4px;
-        }
-        
-        .skeleton-stat-value {
-            height: 16px;
-            width: 30%;
-            border-radius: 4px;
-        }
-        
-        .skeleton-media-section {
-            margin-bottom: 40px;
-        }
-        
-        .skeleton-section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #90dcff;
-            padding-bottom: 10px;
-        }
-        
-        .skeleton-section-title {
-            height: 32px;
-            width: 120px;
-            border-radius: 6px;
-        }
-        
-        .skeleton-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .skeleton-search-input {
-            height: 36px;
-            width: 200px;
-            border-radius: 5px;
-        }
-        
-        .skeleton-dropdown {
-            height: 36px;
-            width: 150px;
-            border-radius: 5px;
-        }
-        
-        .skeleton-profile-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 15px;
-        }
-        
-        .skeleton-profile-item {
-            aspect-ratio: 1 / 1;
-            border-radius: 5px;
-            position: relative;
-        }
-        
-        .skeleton-profile-title {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 30px;
-            border-radius: 0 0 5px 5px;
-        }
-    </style>
 </head>
 <body>
     <header id="navbar-placeholder"></header>
@@ -152,23 +28,52 @@
         <aside class="profile-sidebar">
             <div class="sidebar-block">
                 <div class="sidebar-search">
-                    <input type="text" id="userSearchInput" placeholder="Find user..." autocomplete="off">
-                    <button id="userSearchBtn" class="btn-icon" title="Search Users"></button>
-                    <div id="userSearchResultsContainer"></div>
+                    <div class="search-bar">
+                        <input type="text" id="userSearchInput" placeholder="Find user..." autocomplete="off">
+                    </div>
+                    <button id="userSearchBtn" class="btn btn-rectangular btn-primary" title="Search Users">
+                        <span class="icon icon-search icon-md"></span>
+                    </button>
+                    <div id="userSearchResultsContainer" class="search-results-dropdown"></div>
                 </div>
             </div>
 
             <div class="sidebar-block">
                 <div id="sidebarUserInfo">
-                    <!-- User info will be loaded here -->
+                    <!-- Loading skeleton initially -->
+                    <div class="skeleton" style="width: 150px; height: 2em; margin-bottom: var(--space-sm);"></div>
+                    <div class="skeleton" style="width: 120px; height: 1em; margin-bottom: var(--space-lg);"></div>
                 </div>
-                 <a href="#" id="myListsLink" class="sidebar-link">My Lists</a>
+                <a href="#" id="myListsLink" class="sidebar-link">
+                    <span class="icon icon-list icon-md"></span>
+                    My Lists
+                </a>
             </div>
 
             <div class="sidebar-block">
                 <h3>Stats</h3>
                 <ul class="sidebar-stats" id="statsList">
-                    <!-- Stats will be loaded here -->
+                    <!-- Loading skeleton initially -->
+                    <li class="flex-between">
+                        <div class="skeleton" style="width: 80px; height: 1em;"></div>
+                        <div class="skeleton" style="width: 40px; height: 1em;"></div>
+                    </li>
+                    <li class="flex-between">
+                        <div class="skeleton" style="width: 90px; height: 1em;"></div>
+                        <div class="skeleton" style="width: 30px; height: 1em;"></div>
+                    </li>
+                    <li class="flex-between">
+                        <div class="skeleton" style="width: 100px; height: 1em;"></div>
+                        <div class="skeleton" style="width: 50px; height: 1em;"></div>
+                    </li>
+                    <li class="flex-between">
+                        <div class="skeleton" style="width: 70px; height: 1em;"></div>
+                        <div class="skeleton" style="width: 60px; height: 1em;"></div>
+                    </li>
+                    <li class="flex-between">
+                        <div class="skeleton" style="width: 110px; height: 1em;"></div>
+                        <div class="skeleton" style="width: 20px; height: 1em;"></div>
+                    </li>
                 </ul>
             </div>
         </aside>
@@ -178,9 +83,14 @@
             <!-- Owned Media Section -->
             <section id="owned-section">
                 <div class="media-section-header">
-                    <h2>Owned</h2>
+                    <h2>
+                        <span class="icon icon-dvds icon-xl"></span>
+                        Owned
+                    </h2>
                     <div class="media-section-controls">
-                        <input type="text" id="ownedSearchInput" class="media-search-input" placeholder="Search owned media...">
+                        <div class="search-bar">
+                            <input type="text" id="ownedSearchInput" class="media-search-input" placeholder="Search owned media...">
+                        </div>
                         <select id="ownedSortDropdown" class="filter-dropdown">
                             <option value="dateAddedDesc">Recently Added (Newest)</option>
                             <option value="dateAddedAsc">Recently Added (Oldest)</option>
@@ -190,16 +100,27 @@
                     </div>
                 </div>
                 <div id="ownedMediaGrid" class="profile-media-grid">
-                    <!-- Owned media posters will be loaded here -->
+                    <!-- Initial loading state -->
+                    <div class="loading-container">
+                        <div class="loading-content">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading owned media...</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <!-- Watched Media Section -->
             <section id="watched-section">
                 <div class="media-section-header">
-                    <h2>Watched</h2>
+                    <h2>
+                        <span class="icon icon-watched icon-xl"></span>
+                        Watched
+                    </h2>
                     <div class="media-section-controls">
-                        <input type="text" id="watchedSearchInput" class="media-search-input" placeholder="Search watched media...">
+                        <div class="search-bar">
+                            <input type="text" id="watchedSearchInput" class="media-search-input" placeholder="Search watched media...">
+                        </div>
                         <select id="watchedSortDropdown" class="filter-dropdown">
                             <option value="dateWatchedDesc">Recently Watched</option>
                             <option value="titleAsc">Title (A-Z)</option>
@@ -210,7 +131,13 @@
                     </div>
                 </div>
                 <div id="watchedMediaGrid" class="profile-media-grid">
-                    <!-- Watched media posters will be loaded here -->
+                    <!-- Initial loading state -->
+                    <div class="loading-container">
+                        <div class="loading-content">
+                            <div class="loading-spinner"></div>
+                            <p class="loading-text">Loading watched media...</p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -235,18 +162,18 @@
         let allWatchedMedia = [];
         let allUsersCache = [];
 
-        // === SKELETON UI UTILITIES ===
+        // Enhanced skeleton UI utilities using CSS component classes
         const ProfileSkeletonUI = {
             showSidebarSkeleton() {
                 document.getElementById('sidebarUserInfo').innerHTML = `
-                    <div class="skeleton skeleton-username"></div>
-                    <div class="skeleton skeleton-email"></div>
+                    <div class="skeleton" style="width: 150px; height: 2em; margin-bottom: var(--space-sm);"></div>
+                    <div class="skeleton" style="width: 120px; height: 1em; margin-bottom: var(--space-lg);"></div>
                 `;
                 
                 document.getElementById('statsList').innerHTML = Array(9).fill(0).map(() => `
-                    <li class="skeleton-stat-item">
-                        <div class="skeleton skeleton-stat-label"></div>
-                        <div class="skeleton skeleton-stat-value"></div>
+                    <li class="flex-between">
+                        <div class="skeleton" style="width: 80px; height: 1em;"></div>
+                        <div class="skeleton" style="width: 40px; height: 1em;"></div>
                     </li>
                 `).join('');
             },
@@ -254,18 +181,15 @@
             showMediaGridSkeleton(containerId, count = 12) {
                 const container = document.getElementById(containerId);
                 container.innerHTML = Array(count).fill(0).map(() => `
-                    <div class="skeleton-profile-item">
-                        <div class="skeleton" style="width: 100%; height: 100%;"></div>
-                        <div class="skeleton skeleton-profile-title"></div>
+                    <div class="profile-media-item">
+                        <div class="skeleton" style="width: 100%; aspect-ratio: var(--media-poster-aspect); border-radius: var(--radius-md);"></div>
+                        <div class="skeleton" style="width: 80%; height: 1em; margin-top: var(--space-sm); margin: 0 auto;"></div>
                     </div>
                 `).join('');
             },
 
             showSectionSkeleton(sectionId) {
-                const section = document.getElementById(sectionId);
                 const gridId = sectionId === 'owned-section' ? 'ownedMediaGrid' : 'watchedMediaGrid';
-                
-                // Header is already rendered, just show skeleton grid
                 this.showMediaGridSkeleton(gridId, 8);
             },
 
@@ -277,8 +201,6 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-
-
             const urlParams = new URLSearchParams(window.location.search);
             viewedUserId = urlParams.get('id');
 
@@ -306,19 +228,25 @@
 
             const performUserSearch = (query) => {
                 const lowerCaseQuery = query.toLowerCase();
-                userResultsContainer.style.display = 'block';
+                userResultsContainer.classList.add('active');
 
                 const filteredUsers = allUsersCache.filter(user =>
                     user.displayName && user.displayName.toLowerCase().includes(lowerCaseQuery)
                 ).slice(0, 10);
 
                 if (filteredUsers.length === 0) {
-                    userResultsContainer.innerHTML = '<div class="user-search-result">No users found.</div>';
+                    userResultsContainer.innerHTML = `
+                        <div class="user-search-result">
+                            <span class="icon icon-search icon-sm"></span>
+                            No users found
+                        </div>
+                    `;
                     return;
                 }
 
                 userResultsContainer.innerHTML = filteredUsers.map(user => `
                     <div class="user-search-result" onclick="window.location.href='profile.html?id=${user.id}'">
+                        <span class="icon icon-details icon-sm"></span>
                         ${user.displayName}
                     </div>
                 `).join('');
@@ -332,7 +260,7 @@
 
             document.addEventListener('click', (e) => {
                 if (!document.querySelector('.sidebar-search').contains(e.target)) {
-                    userResultsContainer.style.display = 'none';
+                    userResultsContainer.classList.remove('active');
                 }
             });
 
@@ -376,7 +304,17 @@
                 ]);
                 
                 if (!userDoc.exists) {
-                    document.querySelector('.profile-main-content').innerHTML = '<h2>User not found</h2>';
+                    document.querySelector('.profile-main-content').innerHTML = `
+                        <div class="error-state">
+                            <span class="icon icon-close icon-3xl"></span>
+                            <h3>User not found</h3>
+                            <p>The requested user profile could not be found.</p>
+                            <a href="index.html" class="btn btn-lg btn-primary">
+                                <span class="icon icon-back icon-lg"></span>
+                                Back to Library
+                            </a>
+                        </div>
+                    `;
                     return;
                 }
                 
@@ -422,10 +360,30 @@
 
             } catch (error) {
                 console.error("Error loading profile data:", error);
-                // Show error state
-                document.getElementById('sidebarUserInfo').innerHTML = '<p>Error loading profile</p>';
-                document.getElementById('ownedMediaGrid').innerHTML = '<p>Error loading media</p>';
-                document.getElementById('watchedMediaGrid').innerHTML = '<p>Error loading media</p>';
+                
+                // Show error states
+                document.getElementById('sidebarUserInfo').innerHTML = `
+                    <div class="error-state" style="text-align: center; padding: var(--space-lg);">
+                        <span class="icon icon-close icon-lg"></span>
+                        <p>Error loading profile</p>
+                    </div>
+                `;
+                
+                document.getElementById('ownedMediaGrid').innerHTML = `
+                    <div class="error-state">
+                        <span class="icon icon-close icon-3xl"></span>
+                        <h3>Error loading media</h3>
+                        <p>Please try refreshing the page.</p>
+                    </div>
+                `;
+                
+                document.getElementById('watchedMediaGrid').innerHTML = `
+                    <div class="error-state">
+                        <span class="icon icon-close icon-3xl"></span>
+                        <h3>Error loading media</h3>
+                        <p>Please try refreshing the page.</p>
+                    </div>
+                `;
             }
         }
 
@@ -461,7 +419,6 @@
                 .join(', ');
         }
 
-        // Updated favorite decade function with proper logic
         function getFavoriteDecades(watchedItems) {
             if (!watchedItems || watchedItems.length === 0) return 'N/A';
             
@@ -473,9 +430,8 @@
                     return acc;
                 }, {});
 
-            // Filter decades with more than 25 items
             const filteredDecades = Object.entries(decadeCounts)
-                .filter(([decade, count]) => count > 25);
+                .filter(([decade, count]) => count >= 10); // Lower threshold for decades
 
             if (filteredDecades.length === 0) return 'N/A';
 
@@ -487,7 +443,7 @@
         }
         
         function generateStarDisplay(rating) {
-            if (!rating || rating <= 0) return '<div class="media-rating"></div>'; 
+            if (!rating || rating <= 0) return '<div class="star-rating star-rating-sm"></div>'; 
 
             const totalStars = 5;
             let starsHTML = '';
@@ -502,7 +458,7 @@
                 }
             }
             
-            return `<div class="media-rating">${starsHTML}</div>`;
+            return `<div class="star-rating star-rating-sm">${starsHTML}</div>`;
         }
 
         function calculateAndDisplayStats(mediaItems) {
@@ -527,20 +483,20 @@
             const reviewsWritten = mediaItems.filter(item => item.review && item.review.trim() !== '').length;
             
             const topGenre = getTopItems(watchedItems.flatMap(item => (item.genre || '').split(',').map(g => g.trim()).filter(Boolean)), 0);
-            const favoriteDecade = getFavoriteDecades(watchedItems); // Updated function call
+            const favoriteDecade = getFavoriteDecades(watchedItems);
             const topDirectors = getTopItems(watchedItems.flatMap(item => (item.director || '').split(',').map(d => d.trim()).filter(Boolean)));
             const topCast = getTopItems(watchedItems.flatMap(item => Array.isArray(item.cast) ? item.cast.map(c => c.trim()).filter(Boolean) : []));
 
             statsList.innerHTML = `
-                <li class="stat-stars"><strong>Avg. Rating:</strong> <span>${avgRatingStars}</span></li>
-                <li><strong>Media Owned:</strong> <span>${ownedCount}</span></li>
-                <li><strong>Media Watched:</strong> <span>${watchedCount}</span></li>
-                <li><strong>Hours Watched:</strong> <span>${hoursWatched}</span></li>
-                <li><strong>Reviews Written:</strong> <span>${reviewsWritten}</span></li>
-                <li><strong>Top Genre:</strong> <span>${topGenre}</span></li>
-                <li><strong>Favorite Decade:</strong> <span>${favoriteDecade}</span></li>
-                <li><strong>Top Directors:</strong> <span>${topDirectors}</span></li>
-                <li><strong>Top Cast:</strong> <span>${topCast}</span></li>
+                <li class="flex-between"><strong>Avg. Rating:</strong> <span>${avgRatingStars}</span></li>
+                <li class="flex-between"><strong>Media Owned:</strong> <span>${ownedCount}</span></li>
+                <li class="flex-between"><strong>Media Watched:</strong> <span>${watchedCount}</span></li>
+                <li class="flex-between"><strong>Hours Watched:</strong> <span>${hoursWatched}</span></li>
+                <li class="flex-between"><strong>Reviews Written:</strong> <span>${reviewsWritten}</span></li>
+                <li class="flex-between"><strong>Top Genre:</strong> <span>${topGenre}</span></li>
+                <li class="flex-between"><strong>Favorite Decade:</strong> <span>${favoriteDecade}</span></li>
+                <li class="flex-between"><strong>Top Directors:</strong> <span>${topDirectors}</span></li>
+                <li class="flex-between"><strong>Top Cast:</strong> <span>${topCast}</span></li>
             `;
         }
         
@@ -573,24 +529,38 @@
             });
 
             if (mediaToDisplay.length === 0) {
-                gridContainer.innerHTML = `<p class="empty-grid-message">No media found.</p>`;
+                gridContainer.innerHTML = `
+                    <div class="empty-state">
+                        <span class="icon icon-${isOwned ? 'dvds' : 'watched'} icon-3xl"></span>
+                        <h3>No ${isOwned ? 'owned' : 'watched'} media found</h3>
+                        <p>${searchInput ? 'Try adjusting your search terms.' : `No ${isOwned ? 'owned' : 'watched'} media yet.`}</p>
+                        ${!searchInput ? `<a href="add-movie.html" class="btn btn-lg btn-primary">
+                            <span class="icon icon-add icon-lg"></span>
+                            Add Media
+                        </a>` : ''}
+                    </div>
+                `;
                 return;
             }
 
             gridContainer.innerHTML = mediaToDisplay.map(item => {
                 const badgeHTML = item.contentType === 'tv' 
-                    ? `<span class="badge badge-tv" title="TV Show"></span>` 
-                    : `<span class="badge badge-movie" title="Movie"></span>`;
+                    ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>` 
+                    : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
                 
                 return `
-                <div class="profile-media-item fade-in">
-                    ${badgeHTML}
-                    <a href="library.html?id=${item.id}">
-                        <img src="${item.posterUrl || 'https://placehold.co/300x300/2D194D/DEF0F7?text=No+Poster'}" alt="${item.title || 'Untitled'}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x300/2D194D/DEF0F7?text=Error';">
-                        <div class="profile-media-title">${item.title || 'Untitled'}</div>
-                    </a>
-                </div>
-            `}).join('');
+                    <div class="profile-media-item fade-in">
+                        <a href="library.html?id=${item.id}">
+                            ${badgeHTML}
+                            <img src="${item.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster'}" 
+                                 alt="${item.title || 'Untitled'}" 
+                                 loading="lazy" 
+                                 onerror="this.onerror=null;this.src='https://placehold.co/300x450/2D194D/DEF0F7?text=Error';">
+                            <div class="profile-media-title">${item.title || 'Untitled'}</div>
+                        </a>
+                    </div>
+                `;
+            }).join('');
 
             // Add fade-in animation
             setTimeout(() => {
@@ -602,5 +572,6 @@
             }, 50);
         }
     </script>
+    <footer id="footer-placeholder"></footer>
 </body>
 </html>

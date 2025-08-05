@@ -13,8 +13,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <!-- Utils -->
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">    
     <script src="utils.js"></script>
-    <link rel="stylesheet" href="style.css">
 </head>
 <body class="auth-page">
 
@@ -37,7 +40,9 @@
                 <div class="field-error" id="passwordError"></div>
             </div>
             <div class="auth-form-actions">
-                <button type="submit" id="authSubmitBtn" class="btn-confirm" title="Confirm"></button>
+                <button type="submit" id="authSubmitBtn" class="btn btn-lg btn-success" title="Confirm">
+                    <i class="icon icon-confirm"></i>
+                </button>
             </div>
         </form>
         <div id="authMessage"></div>
@@ -214,5 +219,6 @@
             }
         });
     </script>
+    <div id="footer-placeholder"></div>
 </body>
 </html>
