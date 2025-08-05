@@ -786,7 +786,404 @@
             document.getElementById('scannerContainer').classList.remove('active');
         }
 
+    // Fixed UPC lookup function for your existing UPCItemDB API
     async function lookupMovieByBarcode(barcode) {
+    console.log('Looking up barcode with UPCItemDB:', barcode);
+    
+    try {
+        showStatusMessage('Looking up barcode...', 'info');
+        
+        // Call your existing Vercel API endpoint
+        const response = await fetch(`/api/upc?upc=${encodeURIComponent(barcode)}`);
+        
+        // Check if response is ok first
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || `API returned ${response.status}: ${response.statusText}`);
+        }
+        
+        // Parse the JSON response
+        const data = await response.json();
+        console.log('UPC API Response:', data);
+        
+        // UPCItemDB API response structure:
+        // {
+        //   "code": "OK" or "FAIL",
+        //   "total": number,
+        //   "offset": number,
+        //   "items": [
+        //     {
+        //       "ean": "string",
+        //       "title": "string",
+        //       "description": "string",
+        //       "upc": "string",
+        //       "brand": "string",
+        //       "model": "string",
+        //       "color": "string",
+        //       "size": "string",
+        //       "dimension": "string",
+        //       "weight": "string",
+        //       "category": "string",
+        //       "currency": "string",
+        //       "lowest_recorded_price": number,
+        //       "highest_recorded_price": number,
+        //       "images": ["string"]
+        //     }
+        //   ]
+        // }
+        
+        // Validate the response structure
+        if (!data || data.code !== 'OK' || !data.items || data.items.length === 0) {
+            throw new Error('No product found for this barcode');
+        }
+        
+        // Get the first item from the results
+        const product = data.items[0];
+        
+        if (!product.title) {
+            throw new Error('Product found but no title available');
+        }
+        
+        // Extract potential movie/media information
+        const title = product.title;
+        const description = product.description || 'No description available';
+        const category = product.category || '';
+        const brand = product.brand || '';
+        
+        // Try to detect if this is actually a movie/media product
+        const isLikelyMedia = category.toLowerCase().includes('movie') || 
+                             category.toLowerCase().includes('dvd') || 
+                             category.toLowerCase().includes('blu') ||
+                             category.toLowerCase().includes('video') ||
+                             title.toLowerCase().includes('dvd') ||
+                             title.toLowerCase().includes('blu-ray') ||
+                             brand.toLowerCase().includes('warner') ||
+                             brand.toLowerCase().includes('disney') ||
+                             brand.toLowerCase().includes('universal');
+        
+        // Create TMDB-style data structure
+        const mockTmdbData = {
+            id: `upc_${barcode}`,
+            title: cleanMovieTitle(title), // Clean up title
+            name: cleanMovieTitle(title),
+            overview: description,
+            release_date: extractYearFromTitle(title) || '',
+            first_air_date: extractYearFromTitle(title) || '',
+            poster_path: product.images && product.images.length > 0 ? product.images[0] : null,
+            genres: category ? [{ name: category }] : [],
+            credits: {
+                cast: [],
+                crew: brand ? [{ job: 'Studio', name: brand }] : []
+            },
+            media_type: 'movie', // Default to movie
+            // Store original UPC data for reference
+            upcData: {
+                brand: brand,
+                category: category,
+                isLikelyMedia: isLikelyMedia,
+                originalTitle: title
+            }
+        };
+        
+        populateFormWithData(mockTmdbData);
+        
+        // Show appropriate success message
+        const successMessage = isLikelyMedia 
+            ? 'Barcode lookup successful! Movie/media product detected.'
+            : 'Barcode lookup successful! Note: This may not be a movie/media product.';
+        
+        showStatusMessage(successMessage, 'success');
+        
+        // Store the barcode and UPC data
+        document.getElementById('movieForm').dataset.upcCode = barcode;
+        document.getElementById('movieForm').dataset.upcBrand = brand;
+        document.getElementById('movieForm').dataset.upcCategory = category;
+        
+        // If it doesn't look like media, offer to search TMDB
+        if (!isLikelyMedia) {
+            setTimeout(() => {
+                if (confirm(`Found product: "${title}"\n\nThis doesn't appear to be a movie/media product. Would you like to search TMDB for a similar title instead?`)) {
+                    const searchTerm = cleanMovieTitle(title);
+                    document.getElementById('movieSearch').value = searchTerm;
+                    performSearch(searchTerm, 1);
+                }
+            }, 3000);
+        }
+        
+    } catch (error) {
+        console.error('UPC lookup failed:', error);
+        
+        // Show specific error message
+        let errorMessage = 'Barcode lookup failed';
+        if (error.message.includes('No product found')) {
+            errorMessage = 'No product found for this barcode. The barcode may not be in the UPC database.';
+        } else if (error.message.includes('API')) {
+            errorMessage = `UPC API error: ${error.message}`;
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showStatusMessage(errorMessage, 'error');
+        
+        // Offer manual search as fallback
+        setTimeout(() => {
+            if (confirm('Barcode lookup failed. Would you like to search for this title manually?')) {
+                document.getElementById('movieSearch').value = barcode;
+                performSearch(barcode, 1);
+            }
+        }, 2000);
+    }
+}
+
+    // Helper function to clean movie titles from UPC data
+    function cleanMovieTitle(title) {
+        if (!title) return '';
+        
+        // Remove common DVD/Blu-ray suffixes and prefixes
+        let cleaned = title
+            .replace(/\b(DVD|Blu-ray|Blu Ray|BD)\b/gi, '')
+            .replace(/\b(Widescreen|Full Screen|Director's Cut|Extended Edition)\b/gi, '')
+            .replace(/\b\d{4}\b/, '') // Remove year if present
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        
+        // Remove parenthetical information that's not useful
+        cleaned = cleaned.replace(/\([^)]*\)/g, '').trim();
+        
+        return cleaned || title; // Return original if cleaning results in empty string
+    }
+
+    // Helper function to extract year from title
+    function extractYearFromTitle(title) {
+        if (!title) return null;
+        
+        const yearMatch = title.match(/\b(19|20)\d{2}\b/);
+        if (yearMatch) {
+            const year = parseInt(yearMatch[0]);
+            // Reasonable year range for movies
+            if (year >= 1900 && year <= new Date().getFullYear() + 2) {
+                return `${year}-01-01`;
+            }
+        }
+        return null;
+    }
+
+    // Test function to debug UPC API responses
+    window.testUPCLookup = async function(testBarcode = '883929736171') {
+        console.log('🔍 Testing UPC lookup with barcode:', testBarcode);
+        
+        try {
+            const response = await fetch(`/api/upc?upc=${testBarcode}`);
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ UPC API Response:', data);
+                
+                if (data.code === 'OK' && data.items && data.items.length > 0) {
+                    console.log('📦 First item:', data.items[0]);
+                    console.log('🎬 Title:', data.items[0].title);
+                    console.log('📝 Description:', data.items[0].description);
+                    console.log('🏷️ Category:', data.items[0].category);
+                    console.log('🏢 Brand:', data.items[0].brand);
+                } else {
+                    console.log('❌ No items found or API returned error');
+                }
+            } else {
+                const errorData = await response.json();
+                console.log('❌ API Error:', errorData);
+            }
+        } catch (error) {
+            console.error('💥 Request failed:', error);
+        }
+    };
+
+// Also fix the constants in your HTML - make sure you have this:
+// const UPC_BASE_URL = '/api/upc'; // This should match your Vercel API route    console.log('Looking up barcode:', barcode);
+    
+    try {
+        showStatusMessage('Looking up barcode...', 'info');
+        
+        // Call your UPC API endpoint
+        const response = await fetch(`${UPC_BASE_URL}/lookup?upc=${encodeURIComponent(barcode)}`);
+        
+        // Check if response is ok first
+        if (!response.ok) {
+            throw new Error(`UPC API returned ${response.status}: ${response.statusText}`);
+        }
+        
+        // Check content type before parsing
+        const contentType = response.headers.get('content-type');
+        console.log('Response content type:', contentType);
+        
+        let data;
+        if (contentType && contentType.includes('application/json')) {
+            // Parse as JSON
+            data = await response.json();
+        } else {
+            // Handle non-JSON response (HTML, plain text, etc.)
+            const textResponse = await response.text();
+            console.log('Non-JSON response received:', textResponse.substring(0, 200));
+            
+            // Try to extract useful information from text response
+            // This is a fallback - you might need to adjust based on your actual API response
+            if (textResponse.includes('error') || textResponse.includes('not found')) {
+                throw new Error('No movie found for this barcode');
+            } else if (textResponse.trim() === '') {
+                throw new Error('Empty response from UPC API');
+            } else {
+                // If it's HTML, it might be an error page
+                if (textResponse.includes('<html>') || textResponse.includes('<!DOCTYPE')) {
+                    throw new Error('UPC API returned an error page. Please check your API endpoint.');
+                }
+                
+                // For plain text responses, try to parse manually
+                // You'll need to adjust this based on your API's actual format
+                throw new Error('UPC API returned unexpected format. Please check your API configuration.');
+            }
+        }
+        
+        // Validate the JSON data structure
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid data format from UPC API');
+        }
+        
+        if (!data.title && !data.name && !data.product_name) {
+            throw new Error('No movie title found for this barcode');
+        }
+        
+        // Create mock TMDB-style data from UPC response
+        // Adjust these field mappings based on your actual API response structure
+        const mockTmdbData = {
+            id: `upc_${barcode}`,
+            title: data.title || data.name || data.product_name,
+            name: data.title || data.name || data.product_name,
+            overview: data.description || data.summary || 'No description available',
+            release_date: data.year ? `${data.year}-01-01` : (data.release_date || ''),
+            first_air_date: data.year ? `${data.year}-01-01` : (data.release_date || ''),
+            poster_path: null,
+            genres: data.genre ? [{ name: data.genre }] : (data.genres || []),
+            credits: {
+                cast: data.actors ? 
+                      data.actors.split(',').slice(0, 5).map(name => ({ name: name.trim() })) : 
+                      (data.cast || []),
+                crew: data.director ? 
+                      [{ job: 'Director', name: data.director }] : 
+                      (data.crew || [])
+            },
+            media_type: data.media_type || (data.type === 'tv' ? 'tv' : 'movie')
+        };
+        
+        populateFormWithData(mockTmdbData);
+        showStatusMessage('Barcode lookup successful!', 'success');
+        
+        // Store the barcode for later use
+        document.getElementById('movieForm').dataset.upcCode = barcode;
+        
+    } catch (error) {
+        console.error('Barcode lookup failed:', error);
+        
+        // More specific error messages
+        let errorMessage = 'Barcode lookup failed';
+        if (error.message.includes('fetch')) {
+            errorMessage = 'Could not connect to UPC API. Please check your internet connection.';
+        } else if (error.message.includes('JSON')) {
+            errorMessage = 'UPC API returned invalid data format. Please check your API configuration.';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showStatusMessage(errorMessage, 'error');
+        
+        // Optionally try searching TMDB with the barcode as a query
+        setTimeout(() => {
+            if (confirm('UPC lookup failed. Would you like to search for this title manually?')) {
+                document.getElementById('movieSearch').value = barcode;
+                performSearch(barcode, 1);
+            }
+        }, 2000);
+    }
+
+    // Additional debugging function - add this to your HTML file and call this to test your API endpoint
+    // Usage: Open browser console and type: testUPCEndpoint('123456789012')
+    window.testUPCEndpoint = async function(barcode = '123456789012') {
+        console.log('Testing UPC endpoint...');
+        
+        try {
+            const response = await fetch(`${UPC_BASE_URL}/lookup?upc=${barcode}`);
+            console.log('Response status:', response.status);
+            console.log('Response headers:', [...response.headers.entries()]);
+            
+            const contentType = response.headers.get('content-type');
+            console.log('Content type:', contentType);
+            
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                console.log('JSON data:', data);
+            } else {
+                const text = await response.text();
+                console.log('Text response (first 500 chars):', text.substring(0, 500));
+            }
+        } catch (error) {
+            console.error('Test failed:', error);
+        }
+    }
+
+    // Improved error handling for the entire barcode scanning workflow
+    function handleBarcodeError(error, context = 'Barcode operation') {
+        console.error(`${context} error:`, error);
+        
+        // Hide any loading spinners
+        document.getElementById('barcodeSpinner').style.display = 'none';
+        document.getElementById('searchSpinner').style.display = 'none';
+        
+        // Show user-friendly error message
+        let userMessage = 'An error occurred';
+        if (error.message.includes('camera')) {
+            userMessage = 'Camera error. Please check permissions and try again.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            userMessage = 'Network error. Please check your connection.';
+        } else if (error.message.includes('not found')) {
+            userMessage = 'No movie found for this barcode.';
+        } else if (error.message.includes('API')) {
+            userMessage = 'API error. Please try again later.';
+        } else {
+            userMessage = error.message || 'Unknown error occurred.';
+        }
+        
+        showStatusMessage(userMessage, 'error');
+        
+        // Reset any selected search results
+        const selectedResults = document.querySelectorAll('.search-result.selected');
+        selectedResults.forEach(result => {
+            result.classList.remove('selected');
+            result.style.opacity = '';
+            result.style.pointerEvents = '';
+        });
+    }
+
+// Updated manual barcode lookup with better error handling
+function lookupManualBarcode() {
+    const barcode = LibraryUtils.validation.sanitizeInput(document.getElementById('barcodeInput').value);
+    
+    // Improved barcode validation
+    if (!barcode || !/^\d{8,18}$/.test(barcode)) {
+        showStatusMessage('Please enter a valid barcode (8-18 digits only).', 'error');
+        return;
+    }
+    
+    document.getElementById('barcodeSpinner').style.display = 'block';
+    document.getElementById('lookupBarcodeBtn').disabled = true;
+    
+    lookupMovieByBarcode(barcode)
+        .catch(error => handleBarcodeError(error, 'Manual barcode lookup'))
+        .finally(() => {
+            hideManualInput();
+            document.getElementById('barcodeSpinner').style.display = 'none';
+            document.getElementById('lookupBarcodeBtn').disabled = false;
+        });
+}
     console.log('Looking up barcode:', barcode);
     
     try {
@@ -839,7 +1236,7 @@
             performSearch(barcode, 1);
         }
     }
-}
+
 
 // Fix the scanner setup function:
 async function setupBarcodeScanner() {
