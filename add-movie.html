@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Media - the library sale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#24143E">
+    <meta name="format-detection" content="telephone=no">    <title>Add Media - the library sale</title>
     <!-- Google Fonts Import -->
      <link rel="preconnect" href="https://fonts.googleapis.com">
      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,7 +65,7 @@
                         Lookup
                     </button>
                     <button type="button" id="cancelBarcodeBtn" class="btn btn-md btn-secondary">
-                        <span class="icon icon-close icon-md"></span>
+                        <span class="icon icon-close icon-3xl"></span>
                         Cancel
                     </button>
                 </div>
@@ -78,9 +82,8 @@
                     </div>
                     <p>Position barcode in camera view</p>
                     <div class="modal-buttons">
-                        <button type="button" id="stopScanBtn" class="btn btn-lg btn-secondary">
-                            <span class="icon icon-close icon-lg"></span>
-                            Stop Camera
+                        <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger">
+                            <i class="icon icon-close"></i>
                         </button>
                     </div>
                 </div>
@@ -689,7 +692,7 @@
             const manualBtn = document.getElementById('manualBarcodeBtn');
             const lookupBtn = document.getElementById('lookupBarcodeBtn');
             const cancelBtn = document.getElementById('cancelBarcodeBtn');
-            const stopBtn = document.getElementById('stopScanBtn');
+            const stopBtn = document.getElementById('stop-scanner-btn');
             const barcodeInput = document.getElementById('barcodeInput');
             
             manualBtn.addEventListener('click', showManualInput);
@@ -782,6 +785,410 @@
             if (codeReader) codeReader.reset();
             document.getElementById('scannerContainer').classList.remove('active');
         }
+
+    async function lookupMovieByBarcode(barcode) {
+    console.log('Looking up barcode:', barcode);
+    
+    try {
+        showStatusMessage('Looking up barcode...', 'info');
+        
+        // Call your UPC API endpoint
+        const response = await fetch(`${UPC_BASE_URL}/lookup?upc=${encodeURIComponent(barcode)}`);
+        const data = await response.json();
+        
+        if (!response.ok || !data.title) {
+            throw new Error('No movie found for this barcode');
+        }
+        
+        // If UPC lookup returns movie data, populate the form
+        if (data.title) {
+            // Create mock TMDB-style data from UPC response
+            const mockTmdbData = {
+                id: `upc_${barcode}`,
+                title: data.title,
+                name: data.title, // For TV shows
+                overview: data.description || 'No description available',
+                release_date: data.year ? `${data.year}-01-01` : '',
+                first_air_date: data.year ? `${data.year}-01-01` : '',
+                poster_path: null,
+                genres: data.genre ? [{ name: data.genre }] : [],
+                credits: {
+                    cast: data.actors ? data.actors.split(',').slice(0, 5).map(name => ({ name: name.trim() })) : [],
+                    crew: data.director ? [{ job: 'Director', name: data.director }] : []
+                },
+                media_type: 'movie' // Default to movie
+            };
+            
+            populateFormWithData(mockTmdbData);
+            showStatusMessage('Barcode lookup successful!', 'success');
+            
+            // Set additional barcode-specific data
+            document.getElementById('upc-code').value = barcode;
+            
+        } else {
+            throw new Error('No movie information found for this barcode');
+        }
+        
+    } catch (error) {
+        console.error('Barcode lookup failed:', error);
+        showStatusMessage(`Barcode lookup failed: ${error.message}`, 'error');
+        
+        // Optionally try searching TMDB with the barcode as a query
+        if (confirm('UPC lookup failed. Would you like to search for this title manually?')) {
+            document.getElementById('movieSearch').value = barcode;
+            performSearch(barcode, 1);
+        }
+    }
+}
+
+// Fix the scanner setup function:
+async function setupBarcodeScanner() {
+    const cameraBtn = document.getElementById('cameraBtn');
+    const manualBtn = document.getElementById('manualBarcodeBtn');
+    const lookupBtn = document.getElementById('lookupBarcodeBtn');
+    const cancelBtn = document.getElementById('cancelBarcodeBtn');
+    const stopBtn = document.getElementById('stop-scanner-btn');
+    const barcodeInput = document.getElementById('barcodeInput');
+    
+    manualBtn.addEventListener('click', showManualInput);
+    lookupBtn.addEventListener('click', lookupManualBarcode);
+    cancelBtn.addEventListener('click', hideManualInput);
+    stopBtn.addEventListener('click', stopScanner);
+    
+    barcodeInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            lookupManualBarcode();
+        }
+    });
+    
+    barcodeInput.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (!/^\d{0,18}$/.test(value)) {
+            e.target.value = value.replace(/\D/g, '').slice(0, 18);
+        }
+        const isValid = LibraryUtils && LibraryUtils.validation 
+            ? LibraryUtils.validation.isValidBarcode(e.target.value)
+            : e.target.value.length >= 8 && e.target.value.length <= 18;
+        document.getElementById('lookupBarcodeBtn').disabled = !isValid;
+    });
+    
+    cameraBtn.addEventListener('click', startScanner);
+    
+    try {
+        if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
+            codeReader = new ZXing.BrowserMultiFormatReader();
+            videoInputDevices = await codeReader.listVideoInputDevices();
+            
+            if (videoInputDevices.length === 0) {
+                cameraBtn.disabled = true;
+                cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>No Camera';
+                console.warn('No camera devices found');
+            }
+        } else {
+            throw new Error('ZXing library not loaded');
+        }
+    } catch (err) {
+        console.error("Error setting up barcode scanner:", err);
+        cameraBtn.disabled = true;
+        cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>Scanner N/A';
+    }
+}
+
+// Fix the scanner start function:
+async function startScanner() {
+    if (!codeReader || videoInputDevices.length === 0) {
+        showStatusMessage('Camera not available', 'error');
+        return;
+    }
+    
+    const modal = document.getElementById('scannerContainer');
+    const video = document.getElementById('video'); // Make sure this matches your HTML
+    
+    modal.classList.add('active');
+    showStatusMessage('Starting camera...', 'info');
+    
+        try {
+            // Use the correct video element ID
+            await codeReader.decodeFromVideoDevice(
+                videoInputDevices[0].deviceId, 
+                video, // This should match the ID in your HTML
+                (result, err) => {
+                    if (result) {
+                        console.log('Barcode detected:', result.text);
+                        stopScanner();
+                        lookupMovieByBarcode(result.text);
+                    }
+                    // Only log errors that aren't "NotFoundException" (normal when no barcode in view)
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.warn('Scanner error:', err);
+                    }
+                }
+            );
+            showStatusMessage('Camera ready. Position barcode in view.', 'info');
+        } catch (error) {
+            console.error('Failed to start camera:', error);
+            showStatusMessage(`Camera error: ${error.message}`, 'error');
+            stopScanner();
+        }
+    }
+
+    // Add validation helper if LibraryUtils isn't available:
+    function isValidBarcode(barcode) {
+        if (!barcode) return false;
+        const cleaned = barcode.replace(/\D/g, '');
+        return cleaned.length >= 8 && cleaned.length <= 18;
+    }
+
+    // Make sure the stop scanner function works properly:
+    function stopScanner() {
+        if (codeReader) {
+            try {
+                codeReader.reset();
+            } catch (e) {
+                console.warn('Error stopping scanner:', e);
+            }
+        }
+        document.getElementById('scannerContainer').classList.remove('active');
+        document.getElementById('statusMessage').innerHTML = '';
+    }
+
+        // Mobile-friendly status message improvements
+    function showStatusMessage(message, type) {
+        const statusDiv = document.getElementById('statusMessage');
+        const iconClass = type === 'success' ? 'icon-confirm' : type === 'error' ? 'icon-close' : 'icon-details';
+        
+        // Create mobile-friendly status message
+        statusDiv.innerHTML = `
+            <div class="status-message status-${type}" style="
+                position: fixed;
+                top: var(--space-lg);
+                left: var(--space-md);
+                right: var(--space-md);
+                z-index: var(--z-modal);
+                text-align: center;
+                font-size: var(--font-size-base);
+                padding: var(--space-lg);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-lg);
+            ">
+                <span class="icon ${iconClass} icon-md"></span>
+                ${message}
+            </div>
+        `;
+        
+        // Auto-dismiss after 4 seconds on mobile
+        if (window.innerWidth <= 768) {
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 4000);
+        }
+    }
+
+    // Mobile-friendly search improvements
+    function displayResults(results, isNewSearch) {
+        const resultsDiv = document.getElementById('searchResults');
+        if (isNewSearch) {
+            resultsDiv.innerHTML = '';
+        }
+        
+        if (results.length === 0 && isNewSearch) {
+            resultsDiv.innerHTML = `
+                <div class="empty-state">
+                    <span class="icon icon-search" style="font-size: var(--icon-size-3xl); margin-bottom: var(--space-lg);"></span>
+                    <h3>No results found</h3>
+                    <p>Try adjusting your search terms or check the spelling.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const resultsHTML = results.map((item) => {
+            const title = item.title || item.name;
+            const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+            const overview = LibraryUtils.ui.truncateText(item.overview, window.innerWidth <= 480 ? 80 : 100);
+            const badgeHTML = item.media_type === 'tv' 
+                ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>`
+                : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
+            
+            return `
+                <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')" style="cursor: pointer;">
+                    <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : 'https://placehold.co/80x120/2D194D/DEF0F7?text=N/A'}" 
+                        class="search-result-poster" 
+                        loading="lazy"
+                        onerror="this.style.display='none'">
+                    <div class="search-result-info">
+                        <h4>${title} (${year}) ${badgeHTML}</h4>
+                        <p>${overview}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        resultsDiv.insertAdjacentHTML('beforeend', resultsHTML);
+    }
+
+    // Mobile-friendly scanner improvements
+    async function startScanner() {
+        if (!codeReader || videoInputDevices.length === 0) {
+            showStatusMessage('Camera not available', 'error');
+            return;
+        }
+        
+        const modal = document.getElementById('scannerContainer');
+        const video = document.getElementById('video');
+        
+        modal.classList.add('active');
+        
+        // Mobile-specific scanner message
+        const isMobile = window.innerWidth <= 768;
+        showStatusMessage(
+            isMobile ? 'Starting camera... Hold phone steady and position barcode in center of screen.' : 'Starting camera...', 
+            'info'
+        );
+        
+        try {
+            await codeReader.decodeFromVideoDevice(
+                videoInputDevices[0].deviceId, 
+                video,
+                (result, err) => {
+                    if (result) {
+                        console.log('Barcode detected:', result.text);
+                        
+                        // Provide haptic feedback on mobile if available
+                        if (navigator.vibrate) {
+                            navigator.vibrate(200);
+                        }
+                        
+                        stopScanner();
+                        lookupMovieByBarcode(result.text);
+                    }
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.warn('Scanner error:', err);
+                    }
+                }
+            );
+            
+            showStatusMessage(
+                isMobile ? 'Camera ready. Center barcode in view and hold steady.' : 'Camera ready. Position barcode in view.',
+                'info'
+            );
+        } catch (error) {
+            console.error('Failed to start camera:', error);
+            showStatusMessage(`Camera error: ${error.message}. Please ensure camera permissions are granted.`, 'error');
+            stopScanner();
+        }
+    }
+
+    // Improved form validation for mobile
+    function validateFormOnMobile() {
+        const titleValue = document.getElementById('title').value.trim();
+        if (!titleValue) {
+            showStatusMessage('Please search for and select a movie first.', 'error');
+            
+            // Scroll to search section on mobile
+            if (window.innerWidth <= 768) {
+                document.querySelector('.search-section').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // Mobile-friendly modal improvements
+    function showTimedRedirectModal(title, message, redirectUrl, duration = 5) {
+        const modal = document.getElementById('alertModal');
+        if (!modal) {
+            alert(message);
+            setTimeout(() => { window.location.href = redirectUrl; }, 100);
+            return;
+        }
+
+        const titleEl = modal.querySelector('#alertModalTitle');
+        const messageEl = modal.querySelector('#alertModalMessage');
+        const okBtn = modal.querySelector('#alertModalOk');
+        const closeBtn = modal.querySelector('#alertModalClose');
+
+        titleEl.textContent = title;
+        okBtn.style.display = 'inline-flex';
+        closeBtn.style.display = 'flex';
+
+        let countdown = duration;
+        const isMobile = window.innerWidth <= 768;
+        
+        messageEl.innerHTML = isMobile 
+            ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
+            : `${message}<br><br>Redirecting in ${countdown} seconds...`;
+        
+        modal.classList.add('active');
+
+        const interval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                messageEl.innerHTML = isMobile 
+                    ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
+                    : `${message}<br><br>Redirecting in ${countdown} seconds...`;
+            } else {
+                clearInterval(interval);
+                window.location.href = redirectUrl;
+            }
+        }, 1000);
+
+        const cleanup = () => {
+            clearInterval(interval);
+            modal.classList.remove('active');
+        };
+        
+        okBtn.onclick = () => {
+            cleanup();
+            window.location.href = redirectUrl;
+        };
+
+        closeBtn.onclick = cleanup;
+        
+        // Close modal on background tap for mobile
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                cleanup();
+            }
+        };
+    }
+
+    // Add touch event improvements for mobile
+    document.addEventListener('DOMContentLoaded', () => {
+        // Improve touch targets on mobile
+        if (window.innerWidth <= 768) {
+            const style = document.createElement('style');
+            style.textContent = `
+                .search-result {
+                    min-height: 60px;
+                    touch-action: manipulation;
+                }
+                .btn {
+                    touch-action: manipulation;
+                }
+                .star-rating-interactive .star {
+                    touch-action: manipulation;
+                    padding: var(--space-xs);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Prevent zoom on input focus for iOS
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            const inputs = document.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+                if (parseFloat(getComputedStyle(input).fontSize) < 16) {
+                    input.style.fontSize = '16px';
+                }
+            });
+        }
+    });
+
     </script>
     <footer id="footer-placeholder"></footer>
 </body>

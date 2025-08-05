@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#24143E">
+    <meta name="format-detection" content="telephone=no">
     <title>Edit Media - the library sale</title>
     <!-- Google Fonts Import -->
      <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,14 +137,16 @@
                 <div class="form-group">
                 <textarea id="comments" name="comments" rows="4" placeholder="Your notes, thoughts, or review..."></textarea>
                 </div>
-                
+                <br>
                 <!-- Physical Edition Details (conditionally visible) -->
-                <div id="physical-edition-details" class="form-group" style="display: none;">
-                    <label>Physical Copy Details</label>
-                    <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary btn-right-align">
-                        <i class="icon icon-search"></i>
-                        <span>Scan Barcode</span>
-                    </button>
+                <div class="form-group" id="physical-edition-details" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+                        <label>Physical Copy Details</label>
+                        <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary">
+                            <i class="icon icon-search"></i>
+                            <span>Scan Barcode</span>
+                        </button>
+                    </div>
                     
                     <div class="form-row">
                         <div class="form-group">
@@ -188,9 +195,8 @@
             </div>
             <p class="text-center">Position barcode within the frame</p>
             <div class="flex-center">
-                <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-secondary">
-                    <i class="icon icon-close"></i>
-                    <span>Stop Scanner</span>
+                <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger">
+                    <i class="icon icon-close icon-2xl"></i>
                 </button>
             </div>
         </section>
@@ -500,6 +506,242 @@
                     deleteBtn.classList.remove('loading');
                 }
             });
+        });
+
+        // Mobile-friendly status message improvements
+        function showStatusMessage(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            const iconClass = type === 'success' ? 'icon-confirm' : type === 'error' ? 'icon-close' : 'icon-details';
+            
+            // Create mobile-friendly status message
+            statusDiv.innerHTML = `
+                <div class="status-message status-${type}" style="
+                    position: fixed;
+                    top: var(--space-lg);
+                    left: var(--space-md);
+                    right: var(--space-md);
+                    z-index: var(--z-modal);
+                    text-align: center;
+                    font-size: var(--font-size-base);
+                    padding: var(--space-lg);
+                    border-radius: var(--radius-lg);
+                    box-shadow: var(--shadow-lg);
+                ">
+                    <span class="icon ${iconClass} icon-md"></span>
+                    ${message}
+                </div>
+            `;
+            
+            // Auto-dismiss after 4 seconds on mobile
+            if (window.innerWidth <= 768) {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 4000);
+            }
+        }
+
+        // Mobile-friendly search improvements
+        function displayResults(results, isNewSearch) {
+            const resultsDiv = document.getElementById('searchResults');
+            if (isNewSearch) {
+                resultsDiv.innerHTML = '';
+            }
+            
+            if (results.length === 0 && isNewSearch) {
+                resultsDiv.innerHTML = `
+                    <div class="empty-state">
+                        <span class="icon icon-search" style="font-size: var(--icon-size-3xl); margin-bottom: var(--space-lg);"></span>
+                        <h3>No results found</h3>
+                        <p>Try adjusting your search terms or check the spelling.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const resultsHTML = results.map((item) => {
+                const title = item.title || item.name;
+                const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+                const overview = LibraryUtils.ui.truncateText(item.overview, window.innerWidth <= 480 ? 80 : 100);
+                const badgeHTML = item.media_type === 'tv' 
+                    ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>`
+                    : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
+                
+                return `
+                    <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')" style="cursor: pointer;">
+                        <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : 'https://placehold.co/80x120/2D194D/DEF0F7?text=N/A'}" 
+                            class="search-result-poster" 
+                            loading="lazy"
+                            onerror="this.style.display='none'">
+                        <div class="search-result-info">
+                            <h4>${title} (${year}) ${badgeHTML}</h4>
+                            <p>${overview}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            resultsDiv.insertAdjacentHTML('beforeend', resultsHTML);
+        }
+
+        // Mobile-friendly scanner improvements
+        async function startScanner() {
+            if (!codeReader || videoInputDevices.length === 0) {
+                showStatusMessage('Camera not available', 'error');
+                return;
+            }
+            
+            const modal = document.getElementById('scannerContainer');
+            const video = document.getElementById('video');
+            
+            modal.classList.add('active');
+            
+            // Mobile-specific scanner message
+            const isMobile = window.innerWidth <= 768;
+            showStatusMessage(
+                isMobile ? 'Starting camera... Hold phone steady and position barcode in center of screen.' : 'Starting camera...', 
+                'info'
+            );
+            
+            try {
+                await codeReader.decodeFromVideoDevice(
+                    videoInputDevices[0].deviceId, 
+                    video,
+                    (result, err) => {
+                        if (result) {
+                            console.log('Barcode detected:', result.text);
+                            
+                            // Provide haptic feedback on mobile if available
+                            if (navigator.vibrate) {
+                                navigator.vibrate(200);
+                            }
+                            
+                            stopScanner();
+                            lookupMovieByBarcode(result.text);
+                        }
+                        if (err && !(err instanceof ZXing.NotFoundException)) {
+                            console.warn('Scanner error:', err);
+                        }
+                    }
+                );
+                
+                showStatusMessage(
+                    isMobile ? 'Camera ready. Center barcode in view and hold steady.' : 'Camera ready. Position barcode in view.',
+                    'info'
+                );
+            } catch (error) {
+                console.error('Failed to start camera:', error);
+                showStatusMessage(`Camera error: ${error.message}. Please ensure camera permissions are granted.`, 'error');
+                stopScanner();
+            }
+        }
+
+        // Improved form validation for mobile
+        function validateFormOnMobile() {
+            const titleValue = document.getElementById('title').value.trim();
+            if (!titleValue) {
+                showStatusMessage('Please search for and select a movie first.', 'error');
+                
+                // Scroll to search section on mobile
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.search-section').scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }
+                return false;
+            }
+            return true;
+        }
+
+        // Mobile-friendly modal improvements
+        function showTimedRedirectModal(title, message, redirectUrl, duration = 5) {
+            const modal = document.getElementById('alertModal');
+            if (!modal) {
+                alert(message);
+                setTimeout(() => { window.location.href = redirectUrl; }, 100);
+                return;
+            }
+
+            const titleEl = modal.querySelector('#alertModalTitle');
+            const messageEl = modal.querySelector('#alertModalMessage');
+            const okBtn = modal.querySelector('#alertModalOk');
+            const closeBtn = modal.querySelector('#alertModalClose');
+
+            titleEl.textContent = title;
+            okBtn.style.display = 'inline-flex';
+            closeBtn.style.display = 'flex';
+
+            let countdown = duration;
+            const isMobile = window.innerWidth <= 768;
+            
+            messageEl.innerHTML = isMobile 
+                ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
+                : `${message}<br><br>Redirecting in ${countdown} seconds...`;
+            
+            modal.classList.add('active');
+
+            const interval = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    messageEl.innerHTML = isMobile 
+                        ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
+                        : `${message}<br><br>Redirecting in ${countdown} seconds...`;
+                } else {
+                    clearInterval(interval);
+                    window.location.href = redirectUrl;
+                }
+            }, 1000);
+
+            const cleanup = () => {
+                clearInterval(interval);
+                modal.classList.remove('active');
+            };
+            
+            okBtn.onclick = () => {
+                cleanup();
+                window.location.href = redirectUrl;
+            };
+
+            closeBtn.onclick = cleanup;
+            
+            // Close modal on background tap for mobile
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    cleanup();
+                }
+            };
+        }
+
+        // Add touch event improvements for mobile
+        document.addEventListener('DOMContentLoaded', () => {
+            // Improve touch targets on mobile
+            if (window.innerWidth <= 768) {
+                const style = document.createElement('style');
+                style.textContent = `
+                    .search-result {
+                        min-height: 60px;
+                        touch-action: manipulation;
+                    }
+                    .btn {
+                        touch-action: manipulation;
+                    }
+                    .star-rating-interactive .star {
+                        touch-action: manipulation;
+                        padding: var(--space-xs);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // Prevent zoom on input focus for iOS
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                const inputs = document.querySelectorAll('input, textarea, select');
+                inputs.forEach(input => {
+                    if (parseFloat(getComputedStyle(input).fontSize) < 16) {
+                        input.style.fontSize = '16px';
+                    }
+                });
+            }
         });
     </script>
     <footer id="footer-placeholder"></footer>

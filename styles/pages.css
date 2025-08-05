@@ -216,79 +216,177 @@
   }
 }
 
-/* ===== INDEX PAGE (HOME) ===== */
-/* Square grid media layout */
+/* ===== FIXED MOBILE OVERLAY SYSTEM ===== */
 
-.index-page .hero-section {
-  text-align: left;
-  margin-bottom: var(--space-4xl);
-}
-
-.index-page .hero-title {
-  font-size: var(--font-size-6xl);
-  margin-bottom: var(--space-lg);
-  font-weight: normal;
-}
-
-.index-page .controls-section {
+/* Base media actions positioning */
+.media-actions {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-3xl);
-  flex-wrap: wrap;
-  gap: var(--space-xl);
+  flex-direction: column;
+  gap: var(--space-xs);
+  z-index: var(--z-overlay);
+  opacity: 1;
+  transform: translateY(0);
+  transition: var(--transition-opacity), var(--transition-transform);
+  
+  /* Ensure actions don't get cut off */
+  max-width: calc(100% - var(--space-lg));
 }
 
-.index-page .filter-controls {
-  display: flex;
-  gap: var(--space-md);
-}
-
-.index-page .filter-dropdown {
-  font-family: var(--font-family-mono);
-  padding: var(--space-md) var(--space-md);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  background-color: var(--color-secondary-bg);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-  cursor: pointer;
-}
-
-/* Index page specific media grid - square layout */
-.index-page .media-grid {
-  grid-template-columns: repeat(auto-fill, minmax(var(--media-card-min-width-lg), 1fr));
-  gap: var(--grid-gap-xl) var(--grid-gap-lg);
-}
-
-.index-page .media-card {
-  transition: var(--transition-transform);
-}
-
-.index-page .media-card:hover {
-  transform: scale(1.05);
-  z-index: var(--z-dropdown);
-}
-
-/* Index page responsive */
-@media (max-width: 768px) {
-  .index-page .media-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: var(--grid-gap-lg);
+/* Desktop: Hide by default, show on hover */
+@media (hover: hover) and (pointer: fine) {
+  .media-actions {
+    opacity: 0;
+    transform: translateY(-10px);
   }
   
-  .index-page .controls-section {
-    flex-direction: column;
-    align-items: stretch;
+  .media-card:hover .media-actions {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-@media (max-width: 480px) {
-  .index-page .media-grid {
-    grid-template-columns: repeat(auto-fill, minmax(var(--media-card-min-width), 1fr));
-    gap: var(--grid-gap-md);
+/* Mobile improvements - ensure all icons are visible */
+@media (max-width: 768px) {
+  .media-actions {
+    /* Always visible on mobile */
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    
+    /* Better positioning to prevent cutoff */
+    top: var(--space-xs);
+    right: var(--space-xs);
+    gap: var(--space-xs);
+    
+    /* Ensure proper stacking */
+    align-items: flex-end;
+    
+    /* Prevent overflow */
+    max-width: 80px; /* Allow space for 2 columns if needed */
+  }
+  
+  /* Option 1: Stack vertically (recommended) */
+  .media-actions {
+    flex-direction: column;
+  }
+  
+  /* Option 2: If you prefer 2x2 grid layout, uncomment below */
+  /*
+  .media-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 80px;
+    justify-content: flex-end;
+  }
+  */
+  
+  .media-actions .btn,
+  .status-badge-positive,
+  .status-badge-negative {
+    width: var(--btn-size-md);
+    height: var(--btn-size-md);
+    font-size: var(--icon-size-md);
+    
+    /* Better visibility */
+    background-color: rgba(var(--color-primary-bg-rgb), 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(222, 240, 247, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    
+    /* Ensure icons are centered */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Flex shrink to prevent overflow */
+    flex-shrink: 0;
+  }
+  
+  /* Make sure poster container has proper overflow handling */
+  .media-poster {
+    position: relative;
+    overflow: visible; 
+  }
+  .media-card {
+    padding: var(--space-xs);
+    position: relative;
   }
 }
+
+/* Very small screens - make overlays even more compact */
+@media (max-width: 480px) {
+  .media-actions {
+    top: 2px;
+    right: 2px;
+    gap: 2px;
+    max-width: 60px;
+  }
+  
+  .media-actions .btn,
+  .status-badge-positive,
+  .status-badge-negative {
+    width: var(--btn-size-sm);
+    height: var(--btn-size-sm);
+    font-size: var(--icon-size-sm);
+    min-width: 28px;
+    min-height: 28px;
+  }
+}
+
+
+
+/* Alternative: Bottom overlay approach for very cramped layouts */
+@media (max-width: 480px) {
+  /* Uncomment this if top-right is still too cramped */
+  /*
+  .media-actions {
+    top: auto;
+    bottom: var(--space-xs);
+    right: var(--space-xs);
+    left: var(--space-xs);
+    flex-direction: row;
+    justify-content: space-between;
+    background: rgba(var(--color-primary-bg-rgb), 0.9);
+    backdrop-filter: blur(8px);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs);
+    max-width: none;
+  }
+  */
+}
+
+/* Touch improvements */
+@media (hover: none) and (pointer: coarse) {
+  .media-actions .btn,
+  .status-badge-positive,
+  .status-badge-negative {
+    /* Ensure minimum touch target size */
+    min-width: 32px;
+    min-height: 32px;
+    touch-action: manipulation;
+  }
+  
+  /* Touch feedback */
+  .media-actions .btn:active {
+    transform: scale(0.9);
+    background-color: var(--color-brand-yellow);
+    color: var(--color-primary-bg);
+  }
+}
+
+/* Debug helper - remove after testing */
+/*
+
+.media-actions {
+  border: 2px solid red !important;
+}
+.media-card {
+  border: 1px solid blue !important;
+}
+*/
+
 
 /* ===== PROFILE PAGE ===== */
 /* Sidebar + main content layout */
@@ -1337,7 +1435,7 @@ input.error {
 .add-movie-container {
   text-align: center;
   justify-content: center;
-  max-width: var(--container-width-lg);
+  max-width: var(--container-width-md);
 }
 
 .edit-movie-container {
@@ -1510,48 +1608,46 @@ input.error {
 }
 
 /* Scanner modal */
-#scanner-container {
+#scannerContainer {
+  display: none; /* Hidden by default */
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--overlay-darker);
-  display: flex;
-  flex-direction: column;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-scanner);
 }
 
-#scanner-container.active {
-  display: flex;
+#scannerContainer.active {
+  display: flex; /* Show when active */
 }
 
-#scanner-container .modal-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+#scannerContainer .modal-content {
+  background: var(--color-secondary-bg);
+  padding: var(--space-2xl);
+  border-radius: var(--radius-xl);
+  text-align: center;
+  max-width: 90vw;
+  max-height: 90vh;
 }
 
-
-#scanner-container #interactive.viewport {
-  width: 80vw;
-  max-width: 640px;
-  height: auto;
-}
-
-#scanner-container #interactive.viewport video {
+#scannerContainer video {
   width: 100%;
-  height: auto;
+  max-width: 400px;
+  height: 300px;
+  border-radius: var(--radius-lg);
+  background: var(--color-secondary-bg);
 }
 
-#scanner-container #interactive.viewport canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
+.scanner-viewport {
+  position: relative;
+  margin: var(--space-lg) 0;
 }
 
+/* Update the stop button to match your actual HTML ID */
 #stop-scanner-btn {
   margin-top: 1rem;
   background-color: var(--color-brand-pink);
@@ -1619,23 +1715,130 @@ input.error {
   .edit-movie-container {
     padding: var(--space-xl) var(--space-lg);
   }
+}
+
+/* Base mobile improvements */
+@media (max-width: 768px) {
+  .add-movie-container,
+  .edit-movie-container {
+    padding: var(--space-lg) var(--space-md);
+  }
   
-  /* Stack form rows on mobile */
+  .hero-section h1 {
+    font-size: var(--font-size-3xl);
+  }
+  
+  .search-controls .flex-center {
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+  
+  .search-bar {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .btn-rectangular,
+  .btn-barcode {
+    width: 100%;
+    max-width: 280px;
+    font-size: var(--font-size-base);
+    height: var(--btn-size-xl);
+  }
+  
+  /* Override desktop search result layout for mobile */
+  .search-result {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-md);
+  }
+  
+  .search-result-poster {
+    width: 80px;
+    height: 120px;
+    align-self: center;
+  }
+  
+  .details-main-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+    text-align: center;
+  }
+  
+  .details-poster {
+    width: 100%;
+    max-width: 200px;
+    margin: 0 auto;
+  }
+  
+  .details-info {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    text-align: center;
+  }
+  
+  .rating-and-status-container {
+    flex-direction: column;
+    gap: var(--space-xl);
+    align-items: center;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    gap: var(--space-xl);
+    align-items: center;
+  }
+  
   .form-row {
     flex-direction: column;
     gap: var(--space-lg);
   }
-  
-  /* Adjust headings */
-  .hero-title {
-    font-size: var(--font-size-5xl);
+}
+
+@media (max-width: 480px) {
+  .add-movie-container,
+  .edit-movie-container {
+    padding: var(--space-md) var(--space-xs);
   }
   
-  /* Mobile controls sections */
-  .controls-section {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-lg);
+  .hero-section h1 {
+    font-size: var(--font-size-2xl);
+  }
+  
+  .search-result {
+    padding: var(--space-md);
+  }
+  
+  .search-result-poster {
+    width: 60px;
+    height: 90px;
+  }
+  
+  .star-rating-interactive .star {
+    width: var(--star-size-md);
+    height: var(--star-size-md);
+  }
+  
+  .toggle-btn {
+    width: var(--btn-size-xl);
+    height: var(--btn-size-xl);
+    font-size: var(--icon-size-lg);
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  .toggle-btn,
+  .search-result {
+    min-height: 44px;
+  }
+  
+  .star-rating-interactive .star {
+    width: var(--star-size-xl);
+    height: var(--star-size-xl);
+    margin: var(--space-xs);
   }
 }
 

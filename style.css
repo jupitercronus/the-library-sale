@@ -2806,6 +2806,138 @@ body:has(.main-container .hero-section):not(:has(.profile-page-container)) .skel
     z-index: 1;
 }
 
+.sidebar-search {
+    position: relative;
+    width: 90%;
+    padding: 5px;
+    border: none;
+    border-radius: 0px;
+    margin-right: 20px; 
+}
+
+#userSearchResultsContainer {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #24143E;
+    border: 1px solid #3a2a5c;
+    border-radius: 5px;
+    z-index: 100;
+    max-height: 250px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+.user-search-result {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.user-search-result:hover {
+    background-color: #3a2a5c;
+}
+
+/* Profile-specific skeleton styles */
+.skeleton-sidebar-block {
+    background: #2D194D;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.skeleton-username {
+    height: 28px;
+    width: 80%;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.skeleton-email {
+    height: 16px;
+    width: 60%;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.skeleton-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #3a2a5c;
+}
+
+.skeleton-stat-label {
+    height: 16px;
+    width: 50%;
+    border-radius: 4px;
+}
+
+.skeleton-stat-value {
+    height: 16px;
+    width: 30%;
+    border-radius: 4px;
+}
+
+.skeleton-media-section {
+    margin-bottom: 40px;
+}
+
+.skeleton-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #90dcff;
+    padding-bottom: 10px;
+}
+
+.skeleton-section-title {
+    height: 32px;
+    width: 120px;
+    border-radius: 6px;
+}
+
+.skeleton-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.skeleton-search-input {
+    height: 36px;
+    width: 200px;
+    border-radius: 5px;
+}
+
+.skeleton-dropdown {
+    height: 36px;
+    width: 150px;
+    border-radius: 5px;
+}
+
+.skeleton-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.skeleton-profile-item {
+    aspect-ratio: 1 / 1;
+    border-radius: 5px;
+    position: relative;
+}
+
+.skeleton-profile-title {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    border-radius: 0 0 5px 5px;
+}
+
 /* Profile sidebar styling */
 .profile-sidebar {
     display: flex;
@@ -2818,7 +2950,7 @@ body:has(.main-container .hero-section):not(:has(.profile-page-container)) .skel
 
 .sidebar-block {
     background: #2D194D;
-    padding: 20px;
+    padding: 15px;
     border-radius: 8px;
     border: 1px solid rgba(222, 240, 247, 0.1);
 }
@@ -2832,13 +2964,13 @@ body:has(.main-container .hero-section):not(:has(.profile-page-container)) .skel
 
 .sidebar-username {
     font-family: 'Syne Mono', cursive;
-    font-size: 1.8em;
+    font-size: 1.5em;
     margin: 0 0 8px 0;
     color: #DEF0F7;
 }
 
 .sidebar-email {
-    font-size: 0.9em;
+    font-size: 0.7em;
     color: #aaa;
     margin: 0 0 15px 0;
 }
@@ -2855,7 +2987,7 @@ body:has(.main-container .hero-section):not(:has(.profile-page-container)) .skel
 }
 
 .sidebar-link:hover {
-    background: #00FFFF;
+    background: #fdfb76;
     color: #24143E;
 }
 
@@ -3183,6 +3315,73 @@ body:has(.profile-page-container) .profile-media-item img {
     }
 }
 
+/* SCANNER MODAL STYLES */
+.barcode-scanner-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scanner-overlay {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 400px;
+}
+
+.scanner-content h3 {
+    margin-top: 0;
+    text-align: center;
+}
+
+.scanner-viewport {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background: #000;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+#scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scanner-guideline {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 2px;
+    background: #ff0000;
+    box-shadow: 0 0 10px #ff0000;
+}
+
+.scanner-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.scanner-content p {
+    text-align: center;
+    margin: 10px 0;
+    color: #666;
+}
+
 /* ===== SKELETON UI STYLES ===== */
 
 /* Base skeleton styling */
@@ -3440,4 +3639,138 @@ body:has(.profile-page-container) .profile-media-item img {
         width: 40px;
         height: 60px;
     }
+}
+
+
+/* ===== FOOTER STYLES ===== */
+/* Page wrapper to ensure footer stays at bottom */
+html, body {
+    min-height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Main content area should grow to push footer down */
+main,
+.main-container,
+.container,
+.profile-page-container,
+.details-page-container,
+.view-list-container,
+.edit-movie-container {
+    flex: 1;
+    margin-bottom: 60px; /* Add margin at bottom of each page */
+}
+
+/* Footer styles */
+.site-footer {
+    background: #1a0f2e;
+    border-top: 1px solid rgba(222, 240, 247, 0.1);
+    padding: 40px 0 20px;
+    margin-top: auto; /* Push footer to bottom */
+    font-family: 'M PLUS 2', sans-serif;
+}
+
+.footer-container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footer-content {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2fr;
+    gap: 40px;
+    margin-bottom: 30px;
+}
+
+.footer-section h3,
+.footer-section h4 {
+    margin: 0 0 15px 0;
+    color: #00FFFF;
+}
+
+.footer-title {
+    font-family: 'Kirang Haerang', cursive;
+    font-size: 1.8em;
+    color: #DEF0F7;
+}
+
+.footer-tagline {
+    font-size: 0.9em;
+    color: rgba(222, 240, 247, 0.7);
+    margin: 0;
+}
+
+.footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-links li {
+    margin-bottom: 8px;
+}
+
+.footer-links a {
+    color: rgba(222, 240, 247, 0.7);
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-size: 0.9em;
+}
+
+.footer-links a:hover {
+    color: #fdfb76;
+}
+
+.footer-text {
+    font-size: 0.9em;
+    color: rgba(222, 240, 247, 0.7);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.footer-bottom {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid rgba(222, 240, 247, 0.1);
+}
+
+.footer-bottom p {
+    margin: 0;
+    font-size: 0.85em;
+    color: rgba(222, 240, 247, 0.5);
+}
+
+/* Responsive footer */
+@media (max-width: 768px) {
+    .footer-content {
+        grid-template-columns: 1fr;
+        gap: 30px;
+        text-align: center;
+    }
+    
+    .footer-section {
+        padding: 0 20px;
+    }
+    
+    .footer-links {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .footer-links li {
+        margin-bottom: 0;
+    }
+}
+
+/* Special case for auth page - no margin bottom */
+body.auth-page .auth-container {
+    margin-bottom: 0;
 }
