@@ -7,6 +7,7 @@
   /* ===== COLOR PALETTE ===== */
   /* Primary Colors */
   --color-primary-bg: #24143E;           /* Main dark purple background */
+  --color-primary-bg-rgb: 36, 20, 62;
   --color-secondary-bg: #2D194D;         /* Lighter purple for cards/sections */
   --color-tertiary-bg: #1a0f2e;          /* Darkest purple for footer */
   --color-accent-bg: #3a2a5c;            /* Hover/interactive backgrounds */

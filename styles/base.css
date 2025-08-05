@@ -205,6 +205,12 @@ main,
 .text-left { text-align: left; }
 .text-right { text-align: right; }
 
+.btn-right-align {
+  margin-left: auto;
+  display: flex; /* Ensures buttons inside align correctly */
+  gap: var(--space-md); /* Adds a little space between buttons */
+}
+
 /* Flex utilities */
 .flex {
   display: flex;

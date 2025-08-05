@@ -150,6 +150,22 @@
   gap: var(--space-sm);
 }
 
+.nav-add-btn {
+  width: auto;
+  height: 36px;
+  padding: 0 var(--space-md); 
+  border-radius: var(--radius-lg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--icon-size-3xl) 
+}
+
+.nav-add-btn:hover {
+  transform: scale(1.10);
+  transition: var( --transition-all)
+}
+
 /* Button Loading State */
 .btn.loading {
   background-color: var(--color-brand-yellow);
@@ -308,7 +324,7 @@
 
 .badge-owned{
   background-color: var(--color-primary-bg);
-  color: (var(--color-brand-yellow));
+  color: var(--color-brand-cyan);
 }
 
 .status-badge-positive,
@@ -319,7 +335,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-brand-yellow);
+  background-color: rgba(var(--color-primary-bg-rgb), 0.8);
   font-size: var(--icon-size-md);
   backdrop-filter: blur(4px);
   border: 2px solid rgba(222, 240, 247, 0.2);
