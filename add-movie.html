@@ -177,6 +177,36 @@
                         <label for="summary">Summary</label>
                         <textarea id="summary" rows="6" placeholder="Media summary from TMDb" readonly></textarea>
                     </div>
+                    <!-- Physical Edition Details (shows when barcode data exists) -->
+                    <div id="physicalEditionSection" class="form-group" style="display: none;">
+                        <label>Physical Edition Details</label>
+                        <div class="physical-edition-info">
+                            <div class="edition-row">
+                                <span class="edition-label">Format:</span>
+                                <span id="editionFormat">-</span>
+                            </div>
+                            <div class="edition-row">
+                                <span class="edition-label">Edition:</span>
+                                <span id="editionType">-</span>
+                            </div>
+                            <div class="edition-row">
+                                <span class="edition-label">Region:</span>
+                                <span id="editionRegion">-</span>
+                            </div>
+                            <div class="edition-row">
+                                <span class="edition-label">Distributor:</span>
+                                <span id="editionDistributor">-</span>
+                            </div>
+                            <div class="edition-row" id="editionFeaturesRow" style="display: none;">
+                                <span class="edition-label">Features:</span>
+                                <span id="editionFeatures">-</span>
+                            </div>
+                            <div class="edition-row">
+                                <span class="edition-label">Barcode:</span>
+                                <span id="editionBarcode">-</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- SUBMIT BUTTON -->
@@ -320,7 +350,8 @@
                         brand: form.dataset.upcBrand || '',
                         category: form.dataset.upcCategory || '',
                         originalTitle: form.dataset.upcOriginalTitle || '',
-                        description: form.dataset.upcDescription || ''
+                        description: form.dataset.upcDescription || '',
+                        physicalEdition: JSON.parse(form.dataset.physicalEdition || '{}')
                     } : null
                 };
                 
@@ -680,7 +711,8 @@
         form.dataset.upcCategory = upcData.category;
         form.dataset.upcOriginalTitle = upcData.originalTitle;
         form.dataset.upcDescription = upcData.description;
-        
+        form.dataset.physicalEdition = JSON.stringify(upcData.physicalEdition || {});
+
         // Make fields readonly since we have good data
         togglePublicFieldsReadonly(true);
         isPublicFieldsEditable = false;
@@ -690,6 +722,31 @@
             upc: upcData.originalTitle,
             barcode: upcData.barcode
         });
+        displayPhysicalEditionDetails(upcData.physicalEdition, upcData.barcode);
+    }
+    function displayPhysicalEditionDetails(physicalEdition, barcode) {
+        const section = document.getElementById('physicalEditionSection');
+        if (!physicalEdition || !barcode) {
+            section.style.display = 'none';
+            return;
+        }
+        
+        section.style.display = 'block';
+        document.getElementById('editionFormat').textContent = physicalEdition.format || 'Unknown';
+        document.getElementById('editionType').textContent = physicalEdition.edition || 'Standard';
+        document.getElementById('editionRegion').textContent = physicalEdition.region || 'Unknown';
+        document.getElementById('editionDistributor').textContent = physicalEdition.distributor || 'Unknown';
+        document.getElementById('editionBarcode').textContent = barcode;
+        
+        const featuresRow = document.getElementById('editionFeaturesRow');
+        const featuresSpan = document.getElementById('editionFeatures');
+        
+        if (physicalEdition.features && physicalEdition.features.length > 0) {
+            featuresRow.style.display = 'flex';
+            featuresSpan.textContent = physicalEdition.features.join(', ');
+        } else {
+            featuresRow.style.display = 'none';
+        }
     }
     function createBasicUPCEntry(cleanTitle, upcData) {
         const mockTmdbData = {
@@ -724,7 +781,76 @@
             updateUrl(query, currentPage);
             updateSearchFooter();
         }
+    function extractFormat(title, category) {
+    const formats = ['DVD', 'Blu-ray', 'Blu Ray', '4K', 'UHD', 'Digital', 'VHS'];
+    const titleUpper = title.toUpperCase();
+    const categoryUpper = (category || '').toUpperCase();
+    
+    for (const format of formats) {
+        if (titleUpper.includes(format.toUpperCase()) || categoryUpper.includes(format.toUpperCase())) {
+            if (format === 'Blu Ray') return 'Blu-ray';
+            if (titleUpper.includes('4K') || titleUpper.includes('UHD')) return '4K UHD';
+            return format;
+        }
+    }
+    return 'Unknown';
+}
+    function extractEdition(title) {
+        const editions = [
+            'Director\'s Cut', 'Extended Edition', 'Special Edition', 'Collector\'s Edition',
+            'Limited Edition', 'Theatrical', 'Unrated', 'Anniversary Edition'
+        ];
         
+        for (const edition of editions) {
+            if (title.toLowerCase().includes(edition.toLowerCase())) {
+                return edition;
+            }
+        }
+        return 'Standard';
+    }
+    function extractRegion(title, description) {
+        const regions = ['Region 1', 'Region 2', 'Region 3', 'Region A', 'Region B', 'Region C', 'All Regions'];
+        const searchText = `${title} ${description || ''}`.toLowerCase();
+        
+        for (const region of regions) {
+            if (searchText.includes(region.toLowerCase())) {
+                return region;
+            }
+        }
+        return 'Unknown';
+    }
+    function extractReleaseType(title) {
+        const types = ['Initial Release', 'Re-release', 'Special Release', 'Anniversary'];
+        const titleLower = title.toLowerCase();
+        
+        if (titleLower.includes('anniversary')) return 'Anniversary';
+        if (titleLower.includes('special')) return 'Special Release';
+        if (titleLower.includes('re-release') || titleLower.includes('rerelease')) return 'Re-release';
+        
+        return 'Initial Release';
+    }
+    function extractFeatures(title, description) {
+        const features = [];
+        const searchText = `${title} ${description || ''}`.toLowerCase();
+        
+        const featureMap = {
+            'commentary': 'Director Commentary',
+            'deleted scenes': 'Deleted Scenes',
+            'behind the scenes': 'Behind the Scenes',
+            'making of': 'Making Of',
+            'bloopers': 'Bloopers/Outtakes',
+            'documentary': 'Documentary',
+            'interviews': 'Cast/Crew Interviews'
+        };
+        
+        Object.entries(featureMap).forEach(([key, value]) => {
+            if (searchText.includes(key)) {
+                features.push(value);
+            }
+        });
+        
+        return features;
+    } 
     function cleanMovieTitle(title) {
             if (!title) return '';
 
@@ -843,7 +969,7 @@
         if (text.length <= maxLength) return text;
         return text.substring(0, maxLength - 3) + '...';
     }
-    async function selectMedia(id, type) {
+async function selectMedia(id, type) {
         const selectedResult = event.target.closest('.search-result');
         if (selectedResult) {
             selectedResult.classList.add('selected');
@@ -908,8 +1034,7 @@
             showStatusMessage('Failed to load movie details. Please try again.', 'error');
         }
     }
-
-        function clearSearchResults() {
+    function clearSearchResults() {
             document.getElementById('searchResults').innerHTML = '';
             document.getElementById('searchFooter').style.display = 'none';
             document.getElementById('movieSearch').value = '';
@@ -920,17 +1045,17 @@
             totalResults = 0;
             isLoadingMore = false;
         }
-        function showMovieSelectionSkeleton() {
+    function showMovieSelectionSkeleton() {
             // Hide the real form and show the skeleton UI
             document.getElementById('movieForm').style.display = 'none';
             document.getElementById('form-skeleton').style.display = 'block';
         }
-        function hideMovieSelectionSkeleton() {
+    function hideMovieSelectionSkeleton() {
             // Hide the skeleton UI and show the real form
             document.getElementById('form-skeleton').style.display = 'none';
             document.getElementById('movieForm').style.display = 'block';
         }
-        async function lookupMovieByBarcode(barcode) {
+async function lookupMovieByBarcode(barcode) {
     console.log('Looking up barcode with UPCItemDB:', barcode);
     
     try {
@@ -972,9 +1097,17 @@
             brand: product.brand || '',
             category: product.category || '',
             description: product.description || '',
-            images: product.images || []
+            images: product.images || [],
+            physicalEdition: {
+                format: extractFormat(rawTitle, product.category),
+                edition: extractEdition(rawTitle),
+                region: extractRegion(rawTitle, product.description),
+                distributor: product.brand || '',
+                releaseType: extractReleaseType(rawTitle),
+                features: extractFeatures(rawTitle, product.description)
+            }
         };
-        
+
         showStatusMessage('Product found! Now searching TMDB for movie details...', 'info');
         
         // Step 2: Search TMDB with the cleaned title
@@ -993,7 +1126,7 @@
         }, 2000);
     }
 }
-    async function setupBarcodeScanner() {
+async function setupBarcodeScanner() {
             const cameraBtn = document.getElementById('cameraBtn');
             const manualBtn = document.getElementById('manualBarcodeBtn');
             const lookupBtn = document.getElementById('lookupBarcodeBtn');
@@ -1042,7 +1175,7 @@
                 cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>Scanner Error';
             }
         }
-        function lookupManualBarcode() {
+    function lookupManualBarcode() {
             const barcode = document.getElementById('barcodeInput').value.trim();
             
             if (!barcode || !/^\d{8,18}$/.test(barcode)) {
@@ -1064,7 +1197,7 @@
                     document.getElementById('lookupBarcodeBtn').disabled = false;
                 });
         }  
-        function stopScanner() {
+    function stopScanner() {
             if (codeReader) {
                 try {
                     codeReader.reset();
@@ -1075,16 +1208,16 @@
             document.getElementById('scannerContainer').classList.remove('active');
             document.getElementById('statusMessage').innerHTML = '';
         }
-        function showManualInput() {
+    function showManualInput() {
                 document.getElementById('manualBarcodeInput').style.display = 'block';
                 document.getElementById('barcodeInput').focus();
                 document.getElementById('lookupBarcodeBtn').disabled = true;
             }
-        function hideManualInput() {
+    function hideManualInput() {
             document.getElementById('manualBarcodeInput').style.display = 'none';
             document.getElementById('barcodeInput').value = '';
         }
-    async function startScanner() {
+async function startScanner() {
         if (!codeReader || videoInputDevices.length === 0) {
             showStatusMessage('Camera not available', 'error');
             return;
@@ -1134,7 +1267,7 @@
             stopScanner();
         }
     }
-        function validateFormOnMobile() {
+    function validateFormOnMobile() {
         const titleValue = document.getElementById('title').value.trim();
         if (!titleValue) {
             showStatusMessage('Please search for and select a movie first.', 'error');

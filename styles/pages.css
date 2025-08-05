@@ -1731,6 +1731,51 @@ input.error {
   mask-image: var(--icon-tv);
 }
 
+/* Physical Edition Details Styles */
+.physical-edition-info {
+  background: var(--color-secondary-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-top: var(--space-xs);
+  border: 1px solid var(--color-border);
+}
+
+.edition-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.edition-row:last-child {
+  border-bottom: none;
+}
+
+.edition-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 100px;
+}
+
+.edition-row span:last-child {
+  font-family: var(--font-mono);
+  color: var(--color-primary);
+  text-align: right;
+  word-break: break-word;
+}
+
+#physicalEditionSection {
+  margin-top: var(--space-lg);
+}
+
+#physicalEditionSection label {
+  color: var(--color-primary);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  display: block;
+}
+
 /* Form sections with icons */
 
 
