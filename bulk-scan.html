@@ -215,6 +215,29 @@ async function initializeBulkScanner() {
 
     restoreProgress();
 }
+    function setupEventListeners() {
+        document.getElementById('startScanBtn').addEventListener('click', startBulkScanning);
+        document.getElementById('pauseScanBtn').addEventListener('click', pauseScanning);
+        document.getElementById('finishScanBtn').addEventListener('click', finishScanning);
+        document.getElementById('addAllBtn').addEventListener('click', addAllToLibrary);
+        document.getElementById('startOverBtn').addEventListener('click', startOver);
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => setResultFilter(btn.dataset.filter));
+        });
+
+        document.getElementById('resultsGrid').addEventListener('click', (e) => {
+            const removeBtn = e.target.closest('.btn-remove-item');
+            if (removeBtn) {
+                const resultId = parseFloat(removeBtn.dataset.resultId);
+                removeResult(resultId);
+            }
+        });
+
+        document.getElementById('manualEntryBtn').addEventListener('click', () => {
+            ScannerUI.showManualEntryModal();
+        });
+    }
 
 async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;

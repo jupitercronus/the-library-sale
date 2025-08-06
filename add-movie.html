@@ -323,7 +323,7 @@ async function initializeMovieScanner() {
                 try {
                     showStatusMessage('Looking up barcode...', 'info');
                     const lookupData = await MediaLookupUtils.completeMovieLookup(barcode);
-                    const { tmdbData, upcData, physicalEdition } = lookupData;
+                    const { tmdbData, upcData, physicalEdition } = lookupData; 
                     populateFormWithTMDBAndUPC(tmdbData, upcData, physicalEdition);
                     showStatusMessage('Movie details loaded successfully!', 'success');
                 } catch (error) {
@@ -386,6 +386,7 @@ async function initializeMovieScanner() {
         }
 
         try {
+            const form = document.getElementById('movieForm');
             const titleValue = document.getElementById('title').value.trim();
             if (!titleValue) {
                 throw new Error('Title is a required field. Please search for and select a movie first.');
