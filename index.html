@@ -187,121 +187,24 @@
                 }
             }
         }
-
-        function renderMedia() {
-            const container = document.getElementById('mediaContainer');
-            if(!container) return;
-
-            const view = document.getElementById('viewDropdown').value;
-            const sort = document.getElementById('sortDropdown').value;
-            const searchTerm = (document.getElementById('searchInput').value || '').trim();
-
-            let mediaToDisplay = [...allMedia];
-
-            if (view === 'my' && currentUser) {
-                mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
-            }
-
-            if (searchTerm) {
-                const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                mediaToDisplay = mediaToDisplay.filter(media => {
-                    const title = (media.title || '').toLowerCase();
-                    const director = (media.director || '').toLowerCase();
-                    const genre = (media.genre || '').toLowerCase();
-                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
-                    return title.includes(lowerCaseSearchTerm) || 
-                           director.includes(lowerCaseSearchTerm) ||
-                           genre.includes(lowerCaseSearchTerm) ||
-                           cast.includes(lowerCaseSearchTerm);
-                });
-            }
-
-            mediaToDisplay.sort((a, b) => {
-                const interactionA = myInteractions[a.id] || { rating: 0 };
-                const interactionB = myInteractions[b.id] || { rating: 0 };
-                switch (sort) {
-                    case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
-                    case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
-                    case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
-                    case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
-                    default:
-                        const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
-                        const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
-                        return timeB - timeA;
-                }
-            });
-
-            if (mediaToDisplay.length === 0) {
-                SkeletonUI.showEmptyState('mediaContainer', searchTerm);
-                return;
-            }
-
-            container.innerHTML = mediaToDisplay.map(media => {
-                const title = media.title || 'Untitled';
-                const interaction = myInteractions[media.id];
-                
-                const posterImg = media.posterUrl 
-                    ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
-                    : '<div class="no-poster">No Poster</div>';
-                
-                let actionsHTML = '';
-                if (currentUser) {
-                    let statusBadges = [];
-                    let actionButtons = [];
-                    
-                    if (interaction) {
-                        // User has this media, show statuses and actions
-                        if (interaction.watched) {
-                            statusBadges.push(`<div class="status-badge-positive" title="Watched"><i class="icon icon-watched"></i></div>`);
-                        } else {
-                            statusBadges.push(`<div class="status-badge-negative" title="Not Watched"><i class="icon icon-unwatched"></i></div>`);
-                        }
-
-                        if (interaction.owned) {
-                            statusBadges.push(`<div class="status-badge-positive" title="Owned"><i class="icon icon-dvds"></i></div>`);
-                        } else {
-                            statusBadges.push(`<div class="status-badge-negative" title="Not Owned"><i class="icon icon-dvds"></i></div>`);
-                        }
-                        
-                        // Buttons for users who have the media
-                        actionButtons.push(`<a href="library.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details"><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit"><i class="icon icon-edit"></i></button>`);
-                    
-                    } else {
-                        // User does not have this media, show add button
-                        actionButtons.push(`<a href="library.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details"><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media"><i class="icon icon-add"></i></button>`);
-                    }
-                    
-                    actionsHTML = `<div class="media-actions">${statusBadges.join('')}${actionButtons.join('')}</div>`;
-
-                } else {
-                    // Logged out user just sees details
-                    actionsHTML = `<div class="media-actions"><a href="library.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details"><i class="icon icon-details"></i></a></div>`;
-                }
-
-                return `
-                    <div class="media-card fade-in">
-                        <div class="media-poster" onclick="viewMediaDetails('${media.id}')">
-                            ${posterImg}
-                            ${actionsHTML}
-                        </div>
-                        <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
-                        <p class="media-year">${media.year || ''}</p>
-                        ${generateStarDisplay(interaction ? interaction.rating : 0)}
-                    </div>
-                `;
-            }).join('');
-
-            setTimeout(() => {
-                container.querySelectorAll('.media-card').forEach((card, index) => {
-                    setTimeout(() => {
-                        card.classList.add('visible');
-                    }, index * 30);
-                });
-            }, 50);
-        }
         
+        function getSortableTitle(title) {
+            if (!title) return '';
+
+            const lowerTitle = title.toLowerCase();
+            const articlesToIgnore = ['the ', 'a ', 'an '];
+
+            for (const article of articlesToIgnore) {
+                if (lowerTitle.startsWith(article)) {
+                    // If the title starts with an article, return the rest of the string
+                    return title.substring(article.length);
+                }
+            }
+            
+            // Otherwise, return the original title
+            return title;
+        }
+
         function generateStarDisplay(rating) {
             if (!rating || rating <= 0) return '<div class="star-rating"></div>'; 
             const totalStars = 5;
@@ -378,72 +281,72 @@
         });
 
 
-// Mobile-friendly interaction improvements
-function addMobileInteractionHandlers() {
-    // Detect if user is on mobile
-    const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
-    
-    if (isMobile) {
-        // Add visual feedback for button presses
-        document.addEventListener('touchstart', (e) => {
-            if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
-                e.target.style.transform = 'scale(0.95)';
+        // Mobile-friendly interaction improvements
+        function addMobileInteractionHandlers() {
+            // Detect if user is on mobile
+            const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+            
+            if (isMobile) {
+                // Add visual feedback for button presses
+                document.addEventListener('touchstart', (e) => {
+                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
+                        e.target.style.transform = 'scale(0.95)';
+                    }
+                });
+                
+                document.addEventListener('touchend', (e) => {
+                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
+                        setTimeout(() => {
+                            e.target.style.transform = '';
+                        }, 150);
+                    }
+                });
+                
+                // Prevent accidental card navigation when tapping buttons
+                document.addEventListener('click', (e) => {
+                    if (e.target.closest('.media-actions')) {
+                        e.stopPropagation();
+                    }
+                });
             }
-        });
-        
-        document.addEventListener('touchend', (e) => {
-            if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
-                setTimeout(() => {
-                    e.target.style.transform = '';
-                }, 150);
+        }
+
+        // Improved renderMedia function with mobile considerations
+        function renderMedia() {
+            const container = document.getElementById('mediaContainer');
+            if(!container) return;
+
+            const view = document.getElementById('viewDropdown').value;
+            const sort = document.getElementById('sortDropdown').value;
+            const searchTerm = (document.getElementById('searchInput').value || '').trim();
+            const isMobile = window.innerWidth <= 768;
+
+            let mediaToDisplay = [...allMedia];
+
+            if (view === 'my' && currentUser) {
+                mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
             }
-        });
-        
-        // Prevent accidental card navigation when tapping buttons
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.media-actions')) {
-                e.stopPropagation();
+
+            if (searchTerm) {
+                const lowerCaseSearchTerm = searchTerm.toLowerCase();
+                mediaToDisplay = mediaToDisplay.filter(media => {
+                    const title = (media.title || '').toLowerCase();
+                    const director = (media.director || '').toLowerCase();
+                    const genre = (media.genre || '').toLowerCase();
+                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+                    return title.includes(lowerCaseSearchTerm) || 
+                        director.includes(lowerCaseSearchTerm) ||
+                        genre.includes(lowerCaseSearchTerm) ||
+                        cast.includes(lowerCaseSearchTerm);
+                });
             }
-        });
-    }
-}
-
-// Improved renderMedia function with mobile considerations
-function renderMedia() {
-    const container = document.getElementById('mediaContainer');
-    if(!container) return;
-
-    const view = document.getElementById('viewDropdown').value;
-    const sort = document.getElementById('sortDropdown').value;
-    const searchTerm = (document.getElementById('searchInput').value || '').trim();
-    const isMobile = window.innerWidth <= 768;
-
-    let mediaToDisplay = [...allMedia];
-
-    if (view === 'my' && currentUser) {
-        mediaToDisplay = mediaToDisplay.filter(media => myInteractions[media.id]);
-    }
-
-    if (searchTerm) {
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        mediaToDisplay = mediaToDisplay.filter(media => {
-            const title = (media.title || '').toLowerCase();
-            const director = (media.director || '').toLowerCase();
-            const genre = (media.genre || '').toLowerCase();
-            const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
-            return title.includes(lowerCaseSearchTerm) || 
-                   director.includes(lowerCaseSearchTerm) ||
-                   genre.includes(lowerCaseSearchTerm) ||
-                   cast.includes(lowerCaseSearchTerm);
-        });
-    }
 
     mediaToDisplay.sort((a, b) => {
         const interactionA = myInteractions[a.id] || { rating: 0 };
         const interactionB = myInteractions[b.id] || { rating: 0 };
         switch (sort) {
-            case 'titleAsc': return (a.title || '').localeCompare(b.title || '');
-            case 'titleDesc': return (b.title || '').localeCompare(a.title || '');
+            case 'titleAsc': return getSortableTitle(a.title).localeCompare(getSortableTitle(b.title));
+            case 'titleDesc': return getSortableTitle(b.title).localeCompare(getSortableTitle(a.title));
             case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
             case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
             default:
