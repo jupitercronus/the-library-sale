@@ -67,8 +67,8 @@
                 <button id="startScanBtn" class="btn-rectangular btn-success" title="Start Bulk Scanning">
                     <span class="icon icon-bulk icon-xl"></span>
                 </button>
-                <button id="finishScanBtn" class="btn btn-xl btn-danger" style="display: none;" title="Finish and Review">
-                    <span class="icon icon-close icon-xl"></span>
+                <button id="finishScanBtn" class="btn btn-xl btn-success" style="display: none;" title="Finish and Review">
+                    <span class="icon icon-confirm icon-xl"></span>
                 </button>
             </div>
         </section>
@@ -183,16 +183,23 @@ async function initializeBulkScanner() {
     bulkScanner = new ScannerManager({
         continuous: true,
         allowDuplicates: false, // Manager will prevent re-processing the same barcode
-        pauseBetweenScans: 3000, 
+        pauseBetweenScans: 4000, 
         onBarcodeScanned: processBarcodeResult, // Use our function as the callback
         onStatusUpdate: updateScannerStatus,
         onError: (message) => LibraryUtils.ui.showStatusMessage(message, 'error'),
     });
 
-    ScannerUI.createManualEntryModal(async (barcode) => {
-        await bulkScanner.addManualBarcode(barcode);
-        return true;
-    });
+    // NEW: Set up periodic cleanup of stale processing
+    setInterval(() => {
+        if (bulkScanner) {
+            bulkScanner.cleanupStaleProcessing();
+        }
+    }, 10000); // Every 10 seconds
+
+        ScannerUI.initialize(async (barcode) => { 
+            await bulkScanner.addManualBarcode(barcode);
+            return true;
+        });
 
     document.getElementById('resultsGrid').addEventListener('click', (e) => {
         const removeBtn = e.target.closest('.btn-remove-item');
@@ -440,12 +447,31 @@ async function addMovieToDatabase(result) {
         }
 
     async function processBarcodeResult(barcode) {
+        // Double-check: prevent processing if already in results
+        if (scanResults.some(r => r.barcode === barcode)) {
+            console.log(`Barcode ${barcode} already in results, skipping`);
+            showScanIndicator('warning', 'Already processed');
+            return;
+        }
+
+        // Add to processed set immediately to prevent UI race conditions
         processedBarcodes.add(barcode);
         updateStats();
 
         try {
-            // Use the centralized lookup utility
-            const { upcData, tmdbData, physicalEdition } = await MediaLookupUtils.completeMovieLookup(barcode);
+            // Add visual feedback that processing started
+            showScanIndicator('processing', 'Looking up...');
+            
+            // Use the centralized lookup with timeout
+            const lookupPromise = mediaLookupUtils.completeMovieLookup(barcode);
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('API timeout after 15 seconds')), 15000);
+            });
+
+            const { upcData, tmdbData, physicalEdition } = await Promise.race([
+                lookupPromise,
+                timeoutPromise
+            ]);
 
             const scanResult = {
                 id: Date.now() + Math.random(),
@@ -456,15 +482,16 @@ async function addMovieToDatabase(result) {
                 tmdbData,
                 title: tmdbData.title || tmdbData.name,
                 year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
-                poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+                poster: tmdbData.poster_path ? mediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
                 physicalEdition
             };
 
             scanResults.push(scanResult);
-                showScanIndicator('success', scanResult.title);
+            showScanIndicator('success', scanResult.title);
 
         } catch (error) {
             console.error('Failed to process barcode:', barcode, error);
+            
             const failedResult = {
                 id: Date.now() + Math.random(),
                 barcode: barcode,
@@ -475,9 +502,10 @@ async function addMovieToDatabase(result) {
                 year: '',
                 poster: null
             };
+            
             scanResults.push(failedResult);
-                showScanIndicator('error', `Failed: ${barcode}`);
-            }
+            showScanIndicator('error', `Failed: ${error.message}`);
+        }
 
         updateStats();
         renderResults();

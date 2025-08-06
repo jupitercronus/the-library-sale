@@ -7,16 +7,16 @@
  */
 class ScannerManager {
     constructor(config = {}) {
-        // Configuration
+        // Existing config...
         this.onBarcodeScanned = config.onBarcodeScanned || (() => {});
         this.onStatusUpdate = config.onStatusUpdate || (() => {});
         this.onError = config.onError || (() => {});
         this.continuous = config.continuous || false;
         this.allowDuplicates = config.allowDuplicates || true;
         this.enableHapticFeedback = config.enableHapticFeedback !== false;
-        this.pauseBetweenScans = config.pauseBetweenScans || 1500; // ms
+        this.pauseBetweenScans = config.pauseBetweenScans || 1500;
         
-        // State
+        // Enhanced state management
         this.codeReader = null;
         this.videoInputDevices = [];
         this.isScanning = false;
@@ -24,13 +24,15 @@ class ScannerManager {
         this.scannedBarcodes = new Set();
         this.currentVideoElement = null;
         
-        // Bind methods to maintain context
+        // NEW: Add processing state tracking
+        this.processingBarcodes = new Map(); // barcode -> timestamp
+        this.lastScanTime = 0;
+        this.minScanInterval = 2000; // Minimum 2 seconds between any scans
+        
         this.handleScanResult = this.handleScanResult.bind(this);
     }
 
-    /**
-     * Initialize the scanner - must be called before use
-     */
+    /*Initialize the scanner - must be called before use*/
     async initialize() {
         try {
             if (typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) {
@@ -45,6 +47,7 @@ class ScannerManager {
             }
             
             console.log(`Scanner initialized with ${this.videoInputDevices.length} camera(s)`);
+            setInterval(() => this.cleanupStaleProcessing(), 30000); // Run every 30s
             return true;
             
         } catch (error) {
@@ -100,9 +103,7 @@ class ScannerManager {
         }
     }
 
-    /**
-     * Stop camera and reset scanner
-     */
+    /* Stop camera and reset scanner */
     stopCamera() {
         if (this.codeReader) {
             try {
@@ -143,71 +144,78 @@ class ScannerManager {
      * Handle barcode scan results from ZXing
      */
     handleScanResult(result, error) {
-        // Skip if not scanning or paused
         if (!this.isScanning || this.isPaused) {
             return;
         }
         
         if (result) {
             const barcode = result.text;
+            const now = Date.now();
             
-            // Check for duplicates if not allowed
-            if (!this.allowDuplicates && this.scannedBarcodes.has(barcode)) {
-                this.updateStatus(`Duplicate barcode: ${barcode}`, 'warning');
+            if (now - this.lastScanTime < this.minScanInterval) {
+                console.log(`Rate limiting: ${now - this.lastScanTime}ms since last scan`);
+                return;
+            }
+            this.lastScanTime = now;
+
+            if (this.processingBarcodes.has(barcode)) {
+                const processingTime = now - this.processingBarcodes.get(barcode);
+                console.log(`Barcode ${barcode} already processing for ${processingTime}ms`);
+                this.updateStatus(`Processing ${barcode}...`, 'processing');
                 return;
             }
             
-            // Add to scanned set
-            this.scannedBarcodes.add(barcode);
+            if (!this.allowDuplicates && this.scannedBarcodes.has(barcode)) {
+                this.updateStatus(`Already processed: ${barcode}`, 'warning');
+                return;
+            }
+
+            this.processingBarcodes.set(barcode, now);            
+            this.updateStatus(`Processing: ${barcode}`, 'processing');
             
-            // Provide user feedback
-            this.updateStatus(`Scanned: ${barcode}`, 'processing');
-            
-            // Haptic feedback on mobile
             if (this.enableHapticFeedback && navigator.vibrate) {
                 navigator.vibrate(100);
             }
             
-            // Process the barcode
             this.processBarcode(barcode);
-            
         } else if (error && !(error instanceof ZXing.NotFoundException)) {
             console.warn('Scanner error:', error);
-            // Don't show every NotFoundException as they're normal
         }
     }
 
     /**
-     * Process a scanned barcode
+     * Enhanced barcode processing
      */
     async processBarcode(barcode) {
         try {
-            // Validate barcode format
             if (!/^\d{8,18}$/.test(barcode)) {
                 throw new Error('Invalid barcode format (must be 8-18 digits)');
             }
             
-            // Call the configured callback
             await this.onBarcodeScanned(barcode);
             
-            // Handle continuous vs single scan modes
+            // NEW: Mark as completed and remove from processing
+            this.scannedBarcodes.add(barcode);
+            this.processingBarcodes.delete(barcode);
+            
             if (this.continuous) {
-                // Brief pause between scans in continuous mode
                 setTimeout(() => {
                     if (this.isScanning && !this.isPaused) {
                         this.updateStatus('Ready for next barcode...', 'ready');
                     }
                 }, this.pauseBetweenScans);
             } else {
-                // Single scan mode - stop after first successful scan
                 this.stopCamera();
             }
             
         } catch (error) {
             console.error('Error processing barcode:', error);
+            
+            // NEW: Remove from processing on error
+            this.processingBarcodes.delete(barcode);
+            
             this.onError(error.message, 'barcode_processing');
             
-            // In continuous mode, keep scanning despite errors
             if (this.continuous) {
                 setTimeout(() => {
                     if (this.isScanning && !this.isPaused) {
@@ -222,28 +230,36 @@ class ScannerManager {
      * Manually add a barcode (for manual entry)
      */
     async addManualBarcode(barcode) {
-        if (!barcode || !/^\d{8,18}$/.test(barcode.trim())) {
-            this.onError('Please enter a valid barcode (8-18 digits)', 'manual_entry');
-            return false;
-        }
-        
         const cleanBarcode = barcode.trim();
+
+            if (this.processingBarcodes.has(cleanBarcode)) {
+                this.onError('Barcode is currently being processed', 'processing');
+                return false;
+            }
+            if (!barcode || !/^\d{8,18}$/.test(barcode.trim())) {
+                this.onError('Please enter a valid barcode (8-18 digits)', 'manual_entry');
+                return false;
+            }
+            
+            if (!this.allowDuplicates && this.scannedBarcodes.has(cleanBarcode)) {
+                this.onError('Barcode already processed', 'duplicate');
+                return false;
+            }
         
-        // Check for duplicates if not allowed
-        if (!this.allowDuplicates && this.scannedBarcodes.has(cleanBarcode)) {
-            this.onError('Barcode already processed', 'duplicate');
-            return false;
-        }
-        
-        try {
-            this.scannedBarcodes.add(cleanBarcode);
-            await this.onBarcodeScanned(cleanBarcode);
-            return true;
-        } catch (error) {
-            console.error('Error processing manual barcode:', error);
-            this.onError(error.message, 'manual_processing');
-            return false;
-        }
+            if (this.processingBarcodes.has(cleanBarcode)) {
+                this.onError('This barcode is currently being processed.', 'processing');
+                return false;
+            }   
+
+            try {
+                this.scannedBarcodes.add(cleanBarcode);
+                await this.onBarcodeScanned(cleanBarcode);
+                return true;
+            } catch (error) {
+                console.error('Error processing manual barcode:', error);
+                this.onError(error.message, 'manual_processing');
+                return false;
+            }
     }
 
     /**
@@ -263,6 +279,21 @@ class ScannerManager {
     }
 
     /**
+     * Clean up stale processing entries
+     */
+    cleanupStaleProcessing() {
+        const now = Date.now();
+        const staleTimeout = 30000; // 30 seconds
+        
+        for (const [barcode, timestamp] of this.processingBarcodes.entries()) {
+            if (now - timestamp > staleTimeout) {
+                console.log(`Cleaning up stale processing entry for ${barcode}`);
+                this.processingBarcodes.delete(barcode);
+            }
+        }
+    }
+
+    /**
      * Get scanner statistics
      */
     getStats() {
@@ -270,7 +301,9 @@ class ScannerManager {
             isScanning: this.isScanning,
             isPaused: this.isPaused,
             scannedCount: this.scannedBarcodes.size,
+            processingCount: this.processingBarcodes.size,
             scannedBarcodes: Array.from(this.scannedBarcodes),
+            processingBarcodes: Array.from(this.processingBarcodes.keys()),
             hasCamera: this.videoInputDevices.length > 0,
             continuous: this.continuous
         };
@@ -282,23 +315,78 @@ class ScannerManager {
     reset() {
         this.stopCamera();
         this.scannedBarcodes.clear();
+        this.processingBarcodes.clear();
+        this.lastScanTime = 0;
     }
 }
 
-/**
- * MEDIA LOOKUP UTILITIES
- * Handles UPC lookups and TMDB searches
- */
+/*MEDIA LOOKUP UTILITIES === Handles UPC lookups and TMDB searches */
 const MediaLookupUtils = {
     // API endpoints
     UPC_BASE_URL: '/api/upc',
     TMDB_BASE_URL: '/api/tmdb',
     TMDB_IMAGE_BASE: 'https://image.tmdb.org/t/p/w500',
+    
+    // Enhanced caching with persistence and TTL
+    sessionCache: new Map(),
+    persistentCache: null, // Will initialize with CacheManager
+    
+    // Request deduplication - prevent multiple simultaneous calls for same data
+    pendingRequests: new Map(),
+    
+    // Initialize persistent caching
+    init() {
+        this.persistentCache = new CacheManager('media_lookup_cache_', 100, 24); // 24 hour cache
+    },
 
-    /**
-     * Look up product information from UPC barcode
-     */
+    /* Enhanced UPC lookup with better caching and deduplication */
     async lookupUPCData(barcode) {
+        const cacheKey = `upc_${barcode}`;
+        
+        // Check session cache first (fastest)
+        if (this.sessionCache.has(cacheKey)) {
+            console.log(`📦 Using session cache for UPC ${barcode}`);
+            return this.sessionCache.get(cacheKey);
+        }
+        
+        // Check persistent cache
+        if (this.persistentCache) {
+            const cached = this.persistentCache.get('upc', cacheKey);
+            if (cached) {
+                console.log(`💾 Using persistent cache for UPC ${barcode}`);
+                this.sessionCache.set(cacheKey, cached);
+                return cached;
+            }
+        }
+        
+        // Check if request is already pending (prevent duplicate API calls)
+        if (this.pendingRequests.has(cacheKey)) {
+            console.log(`⏳ Waiting for pending UPC request ${barcode}`);
+            return this.pendingRequests.get(cacheKey);
+        }
+        
+        // Make new request
+        const requestPromise = this._fetchUPCData(barcode);
+        this.pendingRequests.set(cacheKey, requestPromise);
+        
+        try {
+            const result = await requestPromise;
+            
+            // Cache the result in both caches
+            this.sessionCache.set(cacheKey, result);
+            if (this.persistentCache) {
+                this.persistentCache.set('upc', cacheKey, result);
+            }
+            
+            return result;
+        } finally {
+            // Clean up pending request
+            this.pendingRequests.delete(cacheKey);
+        }
+    },
+
+    /* Internal UPC fetch method */
+    async _fetchUPCData(barcode) {
         try {
             const response = await fetch(`${this.UPC_BASE_URL}?upc=${encodeURIComponent(barcode)}`);
             
@@ -313,17 +401,15 @@ const MediaLookupUtils = {
                 throw new Error('No product found for this barcode');
             }
             
-            const product = data.items[0];
-            
             return {
                 barcode: barcode,
-                originalTitle: product.title || '',
-                brand: product.brand || '',
-                category: product.category || '',
-                description: product.description || '',
-                images: product.images || []
+                originalTitle: data.items[0].title || '',
+                brand: data.items[0].brand || '',
+                category: data.items[0].category || '',
+                description: data.items[0].description || '',
+                images: data.items[0].images || []
             };
-            
+
         } catch (error) {
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 throw new Error('Network error - check your internet connection');
@@ -332,59 +418,136 @@ const MediaLookupUtils = {
         }
     },
 
-    /**
-     * Search TMDB for a movie/TV show by title
-     */
-    async searchTMDBForTitle(title, year = null) {
+ async searchTMDBForTitle(title, year = null, exactMatch = false) {
+        // Create more specific cache keys based on search strategy
+        const searchStrategy = exactMatch ? 'exact' : 'fuzzy';
+        const cacheKey = `tmdb_${searchStrategy}_${title.toLowerCase().replace(/\s+/g, '_')}_${year || 'no_year'}`;
+        
+        // Check session cache
+        if (this.sessionCache.has(cacheKey)) {
+            console.log(`🎬 Using session cache for TMDB: "${title}"`);
+            return this.sessionCache.get(cacheKey);
+        }
+        
+        // Check persistent cache
+        if (this.persistentCache) {
+            const cached = this.persistentCache.get('tmdb', cacheKey);
+            if (cached) {
+                console.log(`💾 Using persistent cache for TMDB: "${title}"`);
+                this.sessionCache.set(cacheKey, cached);
+                return cached;
+            }
+        }
+        
+        // Check pending requests
+        if (this.pendingRequests.has(cacheKey)) {
+            console.log(`⏳ Waiting for pending TMDB request: "${title}"`);
+            return this.pendingRequests.get(cacheKey);
+        }
+        
+        // Make new request
+        const requestPromise = this._searchTMDB(title, year, exactMatch);
+        this.pendingRequests.set(cacheKey, requestPromise);
+        
+        try {
+            const result = await requestPromise;
+            
+            // Cache successful results
+            if (result) {
+                this.sessionCache.set(cacheKey, result);
+                if (this.persistentCache) {
+                    this.persistentCache.set('tmdb', cacheKey, result);
+                }
+            }
+            
+            return result;
+        } finally {
+            this.pendingRequests.delete(cacheKey);
+        }
+    },
+
+    /* Internal TMDB search with optimized queries */
+    async _searchTMDB(title, year = null, exactMatch = false) {
         try {
             if (!title || title.trim() === '') {
                 throw new Error('No title to search');
             }
             
-            let searchQuery = title.trim();
-            if (year) {
-                searchQuery += ` ${year}`;
-            }
+            // Try different search strategies in order of preference
+            const searchStrategies = [
+                // Strategy 1: Exact title + year (if provided)
+                ...(year ? [{ query: `"${title}" ${year}`, priority: 'high' }] : []),
+                
+                // Strategy 2: Title + year without quotes
+                ...(year ? [{ query: `${title} ${year}`, priority: 'medium' }] : []),
+                
+                // Strategy 3: Exact title only
+                { query: `"${title}"`, priority: 'medium' },
+                
+                // Strategy 4: Title without quotes (fallback)
+                ...(exactMatch ? [] : [{ query: title, priority: 'low' }])
+            ];
             
-            const searchUrl = `${this.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(searchQuery)}`;
-            const response = await fetch(searchUrl);
+            let bestResult = null;
+            let bestScore = 0;
             
-            if (!response.ok) {
-                throw new Error(`TMDB API returned ${response.status}`);
-            }
-            
-            const searchData = await response.json();
-            
-            if (!searchData.results || searchData.results.length === 0) {
-                if (year) {
-                    // Try again without year
-                    return await this.searchTMDBForTitle(title, null);
+            for (const strategy of searchStrategies) {
+                console.log(`🔍 TMDB Search Strategy: ${strategy.query} (${strategy.priority} priority)`);
+                
+                try {
+                    const searchUrl = `${this.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(strategy.query)}`;
+                    const response = await fetch(searchUrl);
+                    
+                    if (!response.ok) continue;
+                    
+                    const searchData = await response.json();
+                    
+                    if (!searchData.results || searchData.results.length === 0) continue;
+                    
+                    // Filter to movies and TV shows only
+                    const mediaResults = searchData.results.filter(item => 
+                        item.media_type === 'movie' || item.media_type === 'tv'
+                    );
+                    
+                    if (mediaResults.length === 0) continue;
+                    
+                    // Score this result set
+                    const candidateResult = this.findBestTMDBMatch(mediaResults, title, year);
+                    const score = this.scoreSearchResult(candidateResult, title, year, strategy.priority);
+                    
+                    console.log(`📊 Strategy "${strategy.query}" score: ${score}`);
+                    
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestResult = candidateResult;
+                        
+                        // If we got a very high score, don't bother with other strategies
+                        if (score > 90 && strategy.priority === 'high') {
+                            break;
+                        }
+                    }
+                    
+                } catch (strategyError) {
+                    console.warn(`Strategy "${strategy.query}" failed:`, strategyError);
+                    continue;
                 }
+            }
+            
+            if (!bestResult) {
                 throw new Error(`No TMDB results found for "${title}"`);
             }
             
-            // Filter to movies and TV shows only
-            const mediaResults = searchData.results.filter(item => 
-                item.media_type === 'movie' || item.media_type === 'tv'
-            );
+            // Get full details for the best match
+            console.log(`🏆 Best match selected: "${bestResult.title || bestResult.name}" (score: ${bestScore})`);
             
-            if (mediaResults.length === 0) {
-                throw new Error(`No movies or TV shows found for "${title}"`);
-            }
-            
-            // Get the best match (first result after filtering)
-            const bestMatch = mediaResults[0];
-            
-            // Get full details with credits
-            const detailsUrl = `${this.TMDB_BASE_URL}/${bestMatch.media_type}/${bestMatch.id}?append_to_response=credits`;
+            const detailsUrl = `${this.TMDB_BASE_URL}/${bestResult.media_type}/${bestResult.id}?append_to_response=credits`;
             const detailsResponse = await fetch(detailsUrl);
             
             if (!detailsResponse.ok) {
                 throw new Error('Failed to load full movie details from TMDB');
             }
             
-            const detailsData = await detailsResponse.json();
-            return detailsData;
+            return await detailsResponse.json();
             
         } catch (error) {
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -394,20 +557,216 @@ const MediaLookupUtils = {
         }
     },
 
+    /*Score a search result based on strategy and match quality*/
+    scoreSearchResult(result, originalTitle, targetYear, strategyPriority) {
+        let score = result.matchScore || 0;
+        
+        // Bonus for high-priority search strategies
+        if (strategyPriority === 'high') score += 20;
+        else if (strategyPriority === 'medium') score += 10;
+        
+        // Additional scoring for exact matches
+        const resultTitle = (result.title || result.name || '').toLowerCase();
+        const cleanOriginal = originalTitle.toLowerCase().trim();
+        
+        if (resultTitle === cleanOriginal) score += 25;
+        
+        // Year match bonus
+        if (targetYear) {
+            const resultYear = this.extractYearFromDate(result.release_date || result.first_air_date);
+            if (resultYear === parseInt(targetYear)) score += 20;
+        }
+        
+        return score;
+    },
+    
+    /* Find the best TMDB match using multiple criteria */
+    findBestTMDBMatch(results, originalTitle, targetYear = null) {
+        if (results.length === 1) {
+            return results[0];
+        }
+
+        console.log(`\n=== TMDB MATCHING DEBUG ===`);
+        console.log(`Original title: "${originalTitle}"`);
+        console.log(`Target year: ${targetYear}`);
+        console.log(`Candidates (${results.length}):`);
+        
+        // Score each result
+        const scoredResults = results.map(item => {
+            const itemTitle = item.title || item.name;
+            const itemYear = this.extractYearFromDate(item.release_date || item.first_air_date);
+            
+            let score = 0;
+            let debugInfo = [];
+
+            // 1. Title similarity (most important - 40 points max)
+            const titleScore = this.calculateTitleSimilarity(originalTitle, itemTitle);
+            score += titleScore;
+            debugInfo.push(`Title: ${titleScore.toFixed(1)}`);
+
+            // 2. Year matching (30 points max)
+            if (targetYear && itemYear) {
+                const yearDiff = Math.abs(targetYear - itemYear);
+                if (yearDiff === 0) {
+                    score += 30;
+                    debugInfo.push(`Year: +30 (exact)`);
+                } else if (yearDiff === 1) {
+                    score += 20;
+                    debugInfo.push(`Year: +20 (±1)`);
+                } else if (yearDiff <= 3) {
+                    score += 10;
+                    debugInfo.push(`Year: +10 (±${yearDiff})`);
+                } else {
+                    debugInfo.push(`Year: +0 (±${yearDiff})`);
+                }
+            } else if (!targetYear) {
+                debugInfo.push(`Year: N/A`);
+            }
+
+            // 3. Popularity bonus (15 points max)
+            const popularityScore = Math.min(item.popularity / 10, 15);
+            score += popularityScore;
+            debugInfo.push(`Pop: ${popularityScore.toFixed(1)}`);
+
+            // 4. Media type preference (10 points max)
+            if (item.media_type === 'movie') {
+                score += 10; // Prefer movies for physical media
+                debugInfo.push(`Type: +10 (movie)`);
+            } else {
+                debugInfo.push(`Type: +0 (tv)`);
+            }
+
+            // 5. Vote average bonus (5 points max)
+            const voteScore = Math.min(item.vote_average / 2, 5);
+            score += voteScore;
+            debugInfo.push(`Vote: ${voteScore.toFixed(1)}`);
+
+            console.log(`  "${itemTitle}" (${itemYear || 'no year'}) - Score: ${score.toFixed(1)} [${debugInfo.join(', ')}]`);
+
+            return {
+                ...item,
+                matchScore: score,
+                matchYear: itemYear,
+                debugInfo: debugInfo.join(', ')
+            };
+        });
+
+        // Sort by score (highest first)
+        scoredResults.sort((a, b) => b.matchScore - a.matchScore);
+
+        const winner = scoredResults[0];
+        console.log(`\nWinner: "${winner.title || winner.name}" with score ${winner.matchScore.toFixed(1)}`);
+        console.log(`========================\n`);
+
+        return winner;
+    },
+
     /**
-     * Complete lookup: UPC -> Title Extraction -> TMDB Search
+     * Calculate title similarity using multiple methods
      */
+    calculateTitleSimilarity(original, candidate) {
+        if (!original || !candidate) return 0;
+
+        const origClean = this.normalizeTitle(original);
+        const candClean = this.normalizeTitle(candidate);
+
+        // Exact match gets full points
+        if (origClean === candClean) {
+            return 40;
+        }
+
+        // Check if one contains the other
+        if (origClean.includes(candClean) || candClean.includes(origClean)) {
+            return 35;
+        }
+
+        // Levenshtein distance-based scoring
+        const distance = this.levenshteinDistance(origClean, candClean);
+        const maxLength = Math.max(origClean.length, candClean.length);
+        const similarity = 1 - (distance / maxLength);
+        
+        // Word overlap scoring
+        const origWords = new Set(origClean.split(/\s+/));
+        const candWords = new Set(candClean.split(/\s+/));
+        const intersection = new Set([...origWords].filter(word => candWords.has(word)));
+        const union = new Set([...origWords, ...candWords]);
+        const wordSimilarity = intersection.size / union.size;
+
+        // Combine the scores
+        const combinedScore = (similarity * 0.6 + wordSimilarity * 0.4) * 40;
+        
+        return Math.max(0, combinedScore);
+    },
+
+    /**
+     * Normalize title for comparison
+     */
+    normalizeTitle(title) {
+        return title
+            .toLowerCase()
+            .replace(/[^\w\s]/g, '') // Remove punctuation
+            .replace(/\b(the|a|an)\b/g, '') // Remove articles
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+    },
+
+    /**
+     * Calculate Levenshtein distance between two strings
+     */
+    levenshteinDistance(str1, str2) {
+        const matrix = [];
+        
+        for (let i = 0; i <= str2.length; i++) {
+            matrix[i] = [i];
+        }
+        
+        for (let j = 0; j <= str1.length; j++) {
+            matrix[0][j] = j;
+        }
+        
+        for (let i = 1; i <= str2.length; i++) {
+            for (let j = 1; j <= str1.length; j++) {
+                if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
+            }
+        }
+        
+        return matrix[str2.length][str1.length];
+    },
+
+    /**
+     * Extract year from TMDB date string
+     */
+    extractYearFromDate(dateString) {
+        if (!dateString) return null;
+        const year = parseInt(dateString.substring(0, 4));
+        return (year >= 1900 && year <= 2030) ? year : null;
+    },
+
+    /* Complete lookup: UPC -> Title Extraction -> TMDB Search */
     async completeMovieLookup(barcode) {
         try {
-            // Step 1: Get UPC data
+            console.log(`🚀 Starting complete lookup for barcode: ${barcode}`);
+            
+            // Step 1: Get UPC data (cached)
             const upcData = await this.lookupUPCData(barcode);
+            console.log(`✅ UPC data retrieved: "${upcData.originalTitle}"`);
             
             // Step 2: Extract and clean movie title
             const cleanTitle = this.cleanMovieTitle(upcData.originalTitle);
             const extractedYear = this.extractYearFromTitle(upcData.originalTitle);
+            console.log(`🧹 Cleaned title: "${cleanTitle}", Year: ${extractedYear || 'none'}`);
             
-            // Step 3: Search TMDB
+            // Step 3: Search TMDB with optimization
             const tmdbData = await this.searchTMDBForTitle(cleanTitle, extractedYear);
+            console.log(`✅ TMDB data retrieved: "${tmdbData.title || tmdbData.name}"`);
             
             // Step 4: Create physical edition data
             const physicalEdition = this.createPhysicalEditionData(upcData);
@@ -421,7 +780,7 @@ const MediaLookupUtils = {
             };
             
         } catch (error) {
-            console.error('Complete movie lookup failed:', error);
+            console.error('💥 Complete movie lookup failed:', error);
             throw error;
         }
     },
@@ -432,18 +791,27 @@ const MediaLookupUtils = {
     cleanMovieTitle(title) {
         if (!title) return '';
         
-        return title
+        let cleaned = title
             // Remove format indicators
-            .replace(/\b(DVD|Blu-ray|Blu Ray|BD|4K|UHD|Ultra HD)\b/gi, '')
+            .replace(/\b(DVD|Blu-ray|Blu Ray|BD|4K|UHD|Ultra HD|HD)\b/gi, '')
             // Remove edition types  
-            .replace(/\b(Widescreen|Full Screen|Director's Cut|Extended Edition|Special Edition|Collector's Edition|Limited Edition)\b/gi, '')
-            // Remove years in parentheses or brackets
+            .replace(/\b(Widescreen|Full Screen|Director's Cut|Extended Edition|Special Edition|Collector's Edition|Limited Edition|Anniversary Edition|Unrated|Theatrical|Ultimate Edition|Criterion Collection)\b/gi, '')
+            // Remove years in parentheses or brackets first
             .replace(/[\(\[]?\b(19|20)\d{2}\b[\)\]]?/g, '')
-            // Clean up whitespace
+            // Remove other common disc indicators
+            .replace(/\b(Disc \d+|Side [AB]|Region \d)\b/gi, '')
+            // Clean up whitespace and punctuation
             .replace(/\s+/g, ' ')
-            // Remove parenthetical info
-            .replace(/\([^)]*\)/g, '')
-            .trim() || title; // Return original if cleaning results in empty string
+            .replace(/[^\w\s&'-]/g, '') // Keep only word chars, spaces, ampersands, apostrophes, hyphens
+            .trim();
+        
+        // If cleaning resulted in empty or very short string, return original
+        if (cleaned.length < 2) {
+            return title.trim();
+        }
+        
+        console.log(`Title cleaning: "${title}" → "${cleaned}"`);
+        return cleaned;
     },
 
     /**
@@ -576,17 +944,116 @@ const MediaLookupUtils = {
         if (titleLower.includes('re-release') || titleLower.includes('rerelease')) return 'Re-release';
         
         return 'Initial Release';
-    }
+    },
+
+    /* Clear caches (useful for testing)*/
+    clearCaches() {
+        this.sessionCache.clear();
+        this.pendingRequests.clear();
+        if (this.persistentCache) {
+            this.persistentCache.clearAll();
+        }
+        console.log('🗑️ All caches cleared');
+    },
+
+    /**
+     * Get cache statistics
+     */
+    getCacheStats() {
+        return {
+            sessionCacheSize: this.sessionCache.size,
+            pendingRequests: this.pendingRequests.size,
+            persistentCacheSize: this.persistentCache ? this.persistentCache.getStats() : null
+        };
+    },
 };
 
-/**
- * SCANNER UI HELPERS
- * Common UI functions for scanner interfaces
- */
+/* SCANNER UI HELPERS * Common UI functions for scanner interfaces */
 const ScannerUI = {
-    /**
-     * Create manual barcode entry modal
-     */
+    modal: null,
+    input: null,
+
+    /* Creates the modal and attaches listeners. Call this once on page load.*/
+    initialize(onSubmit, onCancel) {
+        // If modal already exists, do nothing.
+        if (document.getElementById('manualBarcodeModal')) {
+            return;
+        }
+
+        const modalHtml = `
+            <div class="modal" id="manualBarcodeModal">
+                <div class="modal-content">
+                    <h3>Manual Barcode Entry</h3>
+                    <div class="form-group">
+                        <label for="manualBarcodeInput">Barcode (8-18 digits)</label>
+                        <input type="text" id="manualBarcodeInput" 
+                               placeholder="Enter 8-18 digit barcode" 
+                               pattern="[0-9]{8,18}" 
+                               maxlength="18">
+                    </div>
+                    <div class="modal-buttons">
+                        <button id="submitManualBarcodeBtn" class="btn btn-lg btn-success" title="Submit">
+                            <span class="icon icon-confirm icon-lg"></span>
+                        </button>
+                        <button id="cancelManualBarcodeBtn" class="btn btn-lg btn-secondary" title="Cancel">
+                            <span class="icon icon-close icon-lg"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Store references to the elements
+        this.modal = document.getElementById('manualBarcodeModal');
+        this.input = document.getElementById('manualBarcodeInput');
+        const submitBtn = document.getElementById('submitManualBarcodeBtn');
+        const cancelBtn = document.getElementById('cancelManualBarcodeBtn');
+        
+        const handleSubmit = () => {
+            if (onSubmit(this.input.value.trim())) {
+                this.hideManualEntryModal();
+            }
+        };
+        
+        const handleCancel = () => {
+            this.hideManualEntryModal();
+            if (onCancel) onCancel();
+        };
+        
+        submitBtn.addEventListener('click', handleSubmit);
+        cancelBtn.addEventListener('click', handleCancel);
+        this.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+            }
+        });
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                handleCancel();
+            }
+        });
+    },
+
+    /* Show the existing modal */
+    showManualEntryModal() {
+        if (this.modal) {
+            this.modal.classList.add('active');
+            this.input.value = ''; // Clear previous input
+            this.input.focus();
+        }
+    },
+
+     /* Hide the existing modal */
+    hideManualEntryModal() {
+        if (this.modal) {
+            this.modal.classList.remove('active');
+        }
+    },
+
+    /*Create manual barcode entry modal*/
     createManualEntryModal(onSubmit, onCancel) {
         const modalHtml = `
             <div class="modal" id="manualBarcodeModal">
@@ -656,9 +1123,7 @@ const ScannerUI = {
         });
     },
 
-    /**
-     * Show manual entry modal
-     */
+    /* Show manual entry modal */
     showManualEntryModal() {
         const modal = document.getElementById('manualBarcodeModal');
         const input = document.getElementById('manualBarcodeInput');
@@ -672,9 +1137,7 @@ const ScannerUI = {
         }
     },
 
-    /**
-     * Hide manual entry modal
-     */
+    /* Hide manual entry modal */
     hideManualEntryModal() {
         const modal = document.getElementById('manualBarcodeModal');
         if (modal) {
@@ -694,9 +1157,7 @@ const ScannerUI = {
         `;
     },
 
-    /**
-     * Update scanner status display
-     */
+    /* Update scanner status display*/
     updateStatus(message, type = 'info', elementId = 'scannerStatus') {
         const element = document.getElementById(elementId);
         if (element) {
@@ -706,12 +1167,49 @@ const ScannerUI = {
     }
 };
 
-// Make utilities globally available
-if (typeof window !== 'undefined') {
-    window.ScannerManager = ScannerManager;
-    window.MediaLookupUtils = MediaLookupUtils;
-    window.ScannerUI = ScannerUI;
+    if (typeof window !== 'undefined') {
+        // Initialize MediaLookupUtils immediately
+        MediaLookupUtils.init();
+        
+        // Make utilities globally available
+        window.ScannerManager = ScannerManager;
+        window.MediaLookupUtils = MediaLookupUtils;
+        window.ScannerUI = ScannerUI;
+        
+        // For backward compatibility, also expose as mediaLookupUtils
+        window.mediaLookupUtils = MediaLookupUtils;
+        
+        console.log('🚀 Scanner utilities initialized successfully');
+        
+        // Optional: Log cache stats periodically in development
+        if (window.location.hostname === 'localhost') {
+            setInterval(() => {
+                const stats = MediaLookupUtils.getCacheStats();
+                console.log('📊 Cache Stats:', stats);
+            }, 30000); // Every 30 seconds
+        }
 }
+
+// Usage example with cache monitoring:
+/*
+// Monitor cache performance
+setInterval(() => {
+    const stats = MediaLookupUtils.getCacheStats();
+    console.log('📊 Cache Stats:', stats);
+}, 30000); // Every 30 seconds
+
+// Test optimized lookup
+async function testOptimizedLookup() {
+    try {
+        console.time('Lookup Time');
+        const result = await MediaLookupUtils.completeMovieLookup('883929736171');
+        console.timeEnd('Lookup Time');
+        console.log('Result:', result);
+    } catch (error) {
+        console.error('Lookup failed:', error);
+    }
+}
+*/
 
 // Export for Node.js environments
 if (typeof module !== 'undefined' && module.exports) {

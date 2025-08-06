@@ -247,7 +247,6 @@
         const TMDB_BASE_URL = '/api/tmdb';
         const UPC_BASE_URL = '/api/upc';
         const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
-
     const firebaseConfig = {
       apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
       authDomain: "tiny-lizard.firebaseapp.com",
@@ -281,8 +280,12 @@ async function initializePage() {
         // Use the manager's method to handle the barcode.
         // This will automatically call your onBarcodeScanned logic.
         await movieScanner.addManualBarcode(barcode); 
-        return true; 
-    });
+            return true; 
+        }, () => {
+            // Optional: Define a function for what happens on cancel.
+            console.log('Manual entry cancelled.');
+        });
+
         const urlParams = new URLSearchParams(window.location.search);
         const queryFromUrl = urlParams.get('query');
         const pageFromUrl = parseInt(urlParams.get('page')) || 1;

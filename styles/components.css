@@ -197,6 +197,7 @@
 .icon-movie { -webkit-mask-image: var(--icon-movie); mask-image: var(--icon-movie); }
 .icon-tv { -webkit-mask-image: var(--icon-tv); mask-image: var(--icon-tv); }
 .icon-list { -webkit-mask-image: var(--icon-list); mask-image: var(--icon-list); }
+.icon-bulk { -webkit-mask-image: var(--icon-bulk); mask-image: var(--icon-bulk); }
 
 /* ===== STAR RATING SYSTEM ===== */
 /* Your star rating components */
