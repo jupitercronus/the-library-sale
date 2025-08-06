@@ -752,7 +752,7 @@ async function initializeMovieScanner() {
             }, 2000);
         }
     }
-    function populateFormWithTMDBAndUPC(tmdbData, upcData) {
+    function populateFormWithTMDBAndUPC(tmdbData, upcData, physicalEdition) {
         // Use TMDB data for all the rich movie info
         document.getElementById('title').value = tmdbData.title || tmdbData.name;
         document.getElementById('year').value = (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4);
@@ -785,6 +785,12 @@ async function initializeMovieScanner() {
         form.dataset.upcCategory = upcData.category;
         form.dataset.upcOriginalTitle = upcData.originalTitle;
         form.dataset.upcDescription = upcData.description;
+        
+        // FIX: If physicalEdition wasn't passed, create it from upcData
+        if (!physicalEdition && upcData && window.MediaLookupUtils) {
+            physicalEdition = MediaLookupUtils.createPhysicalEditionData(upcData);
+        }
+
         form.dataset.physicalEdition = JSON.stringify(physicalEdition || {});
 
         // Make fields readonly since we have good data
@@ -796,7 +802,9 @@ async function initializeMovieScanner() {
             upc: upcData.originalTitle,
             barcode: upcData.barcode
         });
-        displayPhysicalEditionDetails(upcData.physicalEdition, upcData.barcode);
+
+        // FIX: Pass the correct physicalEdition object
+        displayPhysicalEditionDetails(physicalEdition, upcData.barcode);
     }
     function displayPhysicalEditionDetails(physicalEdition, barcode) {
         const section = document.getElementById('physicalEditionSection');

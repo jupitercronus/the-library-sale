@@ -338,7 +338,8 @@ async function addMovieToDatabase(result) {
         // Show/hide keyboard hints based on scanning state
         function updateKeyboardHints() {
             const hints = document.getElementById('keyboardHints');
-            if (isScanning) {
+            // FIX: Check the scanning state from the bulkScanner manager instance
+            if (bulkScanner && bulkScanner.getStats().isScanning) {
                 hints.classList.remove('hidden');
             } else {
                 hints.classList.add('hidden');
@@ -659,18 +660,6 @@ async function addAllToLibrary() {
             setTimeout(() => {
                 window.location.href = `index.html?bulk_imported=${successCount}`;
             }, 2000);
-        }
-
-        // Show/hide keyboard hints based on scanning state
-        function updateKeyboardHints() {
-            const hints = document.getElementById('keyboardHints');
-            if (hints) {
-                if (isScanning) {
-                    hints.classList.remove('hidden');
-                } else {
-                    hints.classList.add('hidden');
-                }
-            }
         }
 
         // Update progress bar during bulk operations
