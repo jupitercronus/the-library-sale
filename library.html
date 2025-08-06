@@ -99,7 +99,7 @@
             </div>
         </div>
 
-        <!-- Physical Copies Section -->
+        <!-- Enhanced Physical Copies Section -->
         <div class="details-section">
             <h2 class="details-section-header">
                 <i class="icon icon-dvds"></i>
@@ -108,6 +108,7 @@
             <div id="physicalCopiesContainer" class="physical-copies-list">
                 <!-- Physical copies will be injected by JS -->
             </div>
+        </div>
         </div>
 
     </main>
@@ -289,16 +290,61 @@
             const copyEl = document.createElement('div');
             copyEl.className = 'physical-copy-item';
             
-            let editionText = copy.editionDetails || copy.format || 'Physical Copy';
+            // Enhanced physical copy display
+            let copyInfo = '';
+            
+            if (copy.physicalEdition) {
+                const edition = copy.physicalEdition;
+                const details = [];
+                
+                if (edition.format && edition.format !== 'Unknown') {
+                    details.push(`<span class="copy-format">${edition.format}</span>`);
+                }
+                if (edition.edition && edition.edition !== 'Standard') {
+                    details.push(`<span class="copy-edition">${edition.edition}</span>`);
+                }
+                if (edition.region && edition.region !== 'Unknown') {
+                    details.push(`<span class="copy-region">${edition.region}</span>`);
+                }
+                if (edition.distributor && edition.distributor !== 'Unknown') {
+                    details.push(`<span class="copy-distributor">${edition.distributor}</span>`);
+                }
+                
+                copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
+                
+                // Add special features if available
+                if (edition.features && edition.features.length > 0) {
+                    const featuresText = Array.isArray(edition.features) 
+                        ? edition.features.join(', ') 
+                        : edition.features;
+                    copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
+                }
+                
+                // Add barcode if available
+                if (copy.upc || edition.barcode) {
+                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc || edition.barcode}</small></div>`;
+                }
+            } else {
+                // Legacy format support
+                let legacyDetails = [];
+                if (copy.editionFormat) legacyDetails.push(copy.editionFormat);
+                if (copy.editionTitle && copy.editionTitle !== copy.editionFormat) {
+                    legacyDetails.push(copy.editionTitle);
+                }
+                copyInfo = legacyDetails.length > 0 ? legacyDetails.join(' ') : 'Physical Copy';
+                
+                if (copy.upc) {
+                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc}</small></div>`;
+                }
+            }
             
             copyEl.innerHTML = `
-                <div class="copy-edition-details">${editionText}</div>
+                <div class="copy-edition-details">${copyInfo}</div>
                 <div class="copy-owner">by <a href="profile.html?id=${copy.userId}">${username}</a></div>
             `;
             container.appendChild(copyEl);
         });
     }
-
     function renderStars(container, rating) {
         if (!container) return;
         container.innerHTML = '';

@@ -22,10 +22,13 @@
     <!-- App Utilities -->
     <script src="utils.js"></script>
     <script src="cache.js"></script>
+    <script src="scanner-utils.js"></script>
+    <!-- Styles -->
     <link rel="stylesheet" href="styles/variables.css">
     <link rel="stylesheet" href="styles/base.css">  
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/pages.css">
+    <!-- Main utilities -->
     <script src="main.js" defer></script>
 </head>
 <body>
@@ -104,7 +107,6 @@
                     <i class="icon icon-comment"></i>
                     <span>Comments</span>
                 </h2>
-                
                 <!-- Rating and Status Toggles -->
                 <div class="rating-and-status-container">
                     <div class="form-group">
@@ -138,32 +140,91 @@
                 <textarea id="comments" name="comments" rows="4" placeholder="Your notes, thoughts, or review..."></textarea>
                 </div>
                 <br>
-                <!-- Physical Edition Details (conditionally visible) -->
-                <div class="form-group" id="physical-edition-details" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
-                        <label>Physical Copy Details</label>
-                        <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary">
-                            <i class="icon icon-search"></i>
-                            <span>Scan Barcode</span>
-                        </button>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edition-title">Edition Title</label>
-                            <input type="text" id="edition-title" name="edition-title">
+            <!-- Enhanced Physical Edition Details -->
+            <div class="form-group" id="physical-edition-details" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
+                    <label>Physical Copy Details</label>
+                    <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary">
+                        <i class="icon icon-search"></i>
+                        <span>Scan Barcode</span>
+                    </button>
+                </div>
+                <!-- SCANNER -->
+              <section id="scanner-section" class="scanner-section" style="display: none;">
+                <div class="scanner-viewport">
+                    <video id="scanner-video" autoplay muted playsinline></video>
+                    <div class="scanner-guideline"></div>
+                    <div class="scanner-status" id="scannerStatus">Position barcode in view</div>
+                </div>
+                <div class="quick-actions">
+                    <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger" title="Stop Scanner">
+                        <i class="icon icon-close"></i>
+                    </button>
+                </div>
+            </section>
+                
+                <!-- Current Physical Edition Display -->
+                <div id="currentPhysicalEdition" style="display: none;">
+                    <div class="physical-edition-info">
+                        <div class="edition-row">
+                            <span class="edition-label">Format:</span>
+                            <span id="currentEditionFormat">-</span>
                         </div>
+                        <div class="edition-row">
+                            <span class="edition-label">Edition:</span>
+                            <span id="currentEditionType">-</span>
+                        </div>
+                        <div class="edition-row">
+                            <span class="edition-label">Region:</span>
+                            <span id="currentEditionRegion">-</span>
+                        </div>
+                        <div class="edition-row">
+                            <span class="edition-label">Distributor:</span>
+                            <span id="currentEditionDistributor">-</span>
+                        </div>
+                        <div class="edition-row" id="currentEditionFeaturesRow" style="display: none;">
+                            <span class="edition-label">Features:</span>
+                            <span id="currentEditionFeatures">-</span>
+                        </div>
+                        <div class="edition-row">
+                            <span class="edition-label">Barcode:</span>
+                            <span id="currentEditionBarcode">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Editable Form (hidden by default) -->
+                <div id="editablePhysicalForm" style="display: none;">
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="edition-format">Format</label>
                             <input type="text" id="edition-format" name="edition-format" placeholder="e.g., 4K, Blu-ray, DVD">
                         </div>
+                        <div class="form-group">
+                            <label for="edition-type">Edition</label>
+                            <input type="text" id="edition-type" name="edition-type" placeholder="e.g., Special Edition, Director's Cut">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edition-region">Region</label>
+                            <input type="text" id="edition-region" name="edition-region" placeholder="e.g., Region 1, All Regions">
+                        </div>
+                        <div class="form-group">
+                            <label for="edition-distributor">Distributor</label>
+                            <input type="text" id="edition-distributor" name="edition-distributor" placeholder="e.g., Warner Bros, Sony">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="upc-code">UPC</label>
-                        <input type="text" id="upc-code" name="upc-code" readonly>
+                        <label for="edition-features">Special Features</label>
+                        <textarea id="edition-features" name="edition-features" rows="3" placeholder="e.g., Director Commentary, Deleted Scenes, Behind the Scenes"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="upc-code">UPC/Barcode</label>
+                        <input type="text" id="upc-code" name="upc-code">
                     </div>
                 </div>
-
+            </div>
                 <!-- Action Buttons -->
                 <div class="form-actions">
                     <div class="form-actions-left">
@@ -182,24 +243,6 @@
                 </div>
             </form>
         </div>
-
-        <!-- In-Page Barcode Scanner Section (initially hidden) -->
-        <section id="scanner-section" class="details-section" style="display: none;">
-            <h2 class="heading-with-icon">
-                <i class="icon icon-search"></i>
-                <span>Scan Barcode</span>
-            </h2>
-            <div class="scanner-viewport">
-                <video id="scanner-video" autoplay muted playsinline></video>
-                <div class="scanner-guideline"></div>
-            </div>
-            <p class="text-center">Position barcode within the frame</p>
-            <div class="flex-center">
-                <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger">
-                    <i class="icon icon-close icon-2xl"></i>
-                </button>
-            </div>
-        </section>
     </main>
 
     <script>
@@ -219,8 +262,9 @@
         // Global variables
         let currentRating = 0;
         let starRatingController = null;
-        let codeReader = null;
-        let isScanning = false;
+        let editScanner = null;
+        let physicalEditionData = {};
+        let isEditingPhysical = false;
 
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
@@ -289,6 +333,10 @@
                 }
             });
 
+            document.getElementById('updatePhysicalBtn').addEventListener('click', togglePhysicalEditMode);
+            document.getElementById('savePhysicalBtn').addEventListener('click', savePhysicalEditionChanges);
+            document.getElementById('cancelPhysicalBtn').addEventListener('click', togglePhysicalEditMode);
+
             // Cancel Button Logic
             cancelBtn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -313,11 +361,11 @@
 
                 ownedToggle.dataset.active = userData.owned === true ? 'true' : 'false';
 
+                ownedToggle.dataset.active = userData.owned === true ? 'true' : 'false';
+
                 if (userData.owned === true) {
                     physicalDetailsSection.style.display = 'block';
-                    document.getElementById('edition-title').value = userData.editionTitle || userData.editionDetails || '';
-                    document.getElementById('edition-format').value = userData.editionFormat || userData.format || '';
-                    document.getElementById('upc-code').value = userData.upc || '';
+                    displayCurrentPhysicalEdition(userData);
                 } else {
                     physicalDetailsSection.style.display = 'none';
                 }
@@ -378,6 +426,7 @@
             auth.onAuthStateChanged(user => {
                 if (user) {
                     loadMovieData(user.uid);
+                    initializeEditScanner(); 
                 } else {
                     window.location.href = 'auth.html';
                 }
@@ -405,9 +454,18 @@
                     };
 
                 if (updatedData.owned) {
-                    updatedData.editionTitle = document.getElementById('edition-title').value.trim();
-                    updatedData.editionFormat = document.getElementById('edition-format').value.trim();
-                    updatedData.upc = document.getElementById('upc-code').value.trim();
+                    // Read directly from the form fields
+                    const featuresText = document.getElementById('edition-features').value.trim();
+                    
+                    updatedData.physicalEdition = {
+                        format: document.getElementById('edition-format').value.trim(),
+                        edition: document.getElementById('edition-type').value.trim(),
+                        region: document.getElementById('edition-region').value.trim(),
+                        distributor: document.getElementById('edition-distributor').value.trim(),
+                        features: featuresText ? featuresText.split(',').map(f => f.trim()) : [],
+                        barcode: document.getElementById('upc-code').value.trim()
+                    };
+                    updatedData.upc = updatedData.physicalEdition.barcode;
                 }
 
                 try {
@@ -426,59 +484,6 @@
             const scanBtn = document.getElementById('scan-barcode-btn');
             const stopBtn = document.getElementById('stop-scanner-btn');
             const video = document.getElementById('scanner-video');
-
-            const initializeScanner = async () => {
-                if (codeReader) return true;
-                if (typeof ZXing === 'undefined') {
-                    LibraryUtils.ui.showStatusMessage('Scanner library not loaded.', 'error');
-                    return false;
-                }
-                codeReader = new ZXing.BrowserMultiFormatReader();
-                return true;
-            };
-
-            const startScanning = async () => {
-                if (isScanning || !await initializeScanner()) return;
-
-                mainContent.style.display = 'none';
-                scannerSection.style.display = 'block';
-
-                try {
-                    isScanning = true;
-                    const videoInputDevices = await codeReader.listVideoInputDevices();
-                    if (videoInputDevices.length === 0) throw new Error('No camera found');
-
-                    codeReader.decodeFromVideoDevice(videoInputDevices[0].deviceId, video, (result, error) => {
-                        if (result) {
-                            stopScanning();
-                            document.getElementById('upc-code').value = result.text;
-                            ownedToggle.dataset.active = 'true';
-                            physicalDetailsSection.style.display = 'block';
-                            LibraryUtils.ui.showStatusMessage(`Barcode scanned: ${result.text}`, 'success');
-                        }
-                        if (error && !(error instanceof ZXing.NotFoundException)) {
-                            console.error('Scanner error:', error);
-                            LibraryUtils.ui.showStatusMessage('Error during scanning.', 'error');
-                            stopScanning();
-                        }
-                    });
-                } catch (error) {
-                    console.error('Failed to start scanner:', error);
-                    LibraryUtils.ui.showStatusMessage(`Failed to start camera: ${error.message}`, 'error');
-                    stopScanning();
-                }
-            };
-
-            const stopScanning = () => {
-                if (!isScanning) return;
-                isScanning = false;
-                if (codeReader) codeReader.reset();
-                scannerSection.style.display = 'none';
-                mainContent.style.display = 'block';
-            };
-
-            scanBtn.addEventListener('click', startScanning);
-            stopBtn.addEventListener('click', stopScanning);
 
             // Delete Button Logic
             const deleteBtn = document.getElementById('delete-btn');
@@ -507,6 +512,156 @@
                 }
             });
         });
+
+async function initializeEditScanner() {
+    // Get references to the UI elements
+    const scanBtn = document.getElementById('scan-barcode-btn');
+    const stopBtn = document.getElementById('stop-scanner-btn');
+    const scannerSection = document.getElementById('scanner-section');
+    const videoEl = document.getElementById('scanner-video');
+
+    // Create a new ScannerManager instance
+    editScanner = new ScannerManager({
+        continuous: false, // Stop after one successful scan
+        onBarcodeScanned: async (barcode) => {
+            // When a barcode is found, hide the scanner UI
+            scannerSection.style.display = 'none';
+
+            try {
+                // Use the centralized lookup utility
+                LibraryUtils.ui.showStatusMessage('Looking up barcode...', 'info');
+                const { physicalEdition } = await MediaLookupUtils.completeMovieLookup(barcode);
+
+                // Populate the editable form with the new data
+                document.getElementById('edition-format').value = physicalEdition.format || '';
+                document.getElementById('edition-type').value = physicalEdition.edition || '';
+                document.getElementById('edition-region').value = physicalEdition.region || '';
+                document.getElementById('edition-distributor').value = physicalEdition.distributor || '';
+                document.getElementById('edition-features').value = physicalEdition.features.join(', ');
+                document.getElementById('upc-code').value = barcode;
+
+                LibraryUtils.ui.showStatusMessage('Physical edition details updated!', 'success');
+
+            } catch (error) {
+                console.error('Barcode lookup failed:', error);
+                LibraryUtils.ui.showStatusMessage(error.message, 'error');
+            }
+        },
+        onStatusUpdate: (message, type) => {
+            ScannerUI.updateStatus(message, type, 'scannerStatus');
+        },
+        onError: (message) => {
+            LibraryUtils.ui.showStatusMessage(message, 'error');
+            scannerSection.style.display = 'none';
+        }
+    });
+
+        // Initialize the scanner and set up button event listeners
+        const initialized = await editScanner.initialize();
+        if (!initialized) {
+            scanBtn.disabled = true;
+            scanBtn.textContent = 'Scanner N/A';
+            return;
+        }
+
+        scanBtn.addEventListener('click', async () => {
+            document.getElementById('editablePhysicalForm').style.display = 'block';
+            document.getElementById('currentPhysicalEdition').style.display = 'none';
+            scannerSection.style.display = 'block';
+            await editScanner.startCamera(videoEl, 'scannerStatus');
+        });
+
+        stopBtn.addEventListener('click', () => {
+            editScanner.stopCamera();
+            scannerSection.style.display = 'none';
+        });
+}
+        function displayCurrentPhysicalEdition(userData) {
+            const physicalSection = document.getElementById('physical-edition-details');
+            const editableForm = document.getElementById('editablePhysicalForm');
+
+            if (userData.owned) {
+                physicalSection.style.display = 'block';
+                editableForm.style.display = 'block'; // Always show the editable form
+
+                const edition = userData.physicalEdition || {};
+
+                // Populate the input fields directly
+                document.getElementById('edition-format').value = edition.format || userData.editionFormat || '';
+                document.getElementById('edition-type').value = edition.edition || userData.editionTitle || '';
+                document.getElementById('edition-region').value = edition.region || '';
+                document.getElementById('edition-distributor').value = edition.distributor || '';
+                const featuresText = Array.isArray(edition.features) ? edition.features.join(', ') : (edition.features || '');
+                document.getElementById('edition-features').value = featuresText;
+                document.getElementById('upc-code').value = userData.upc || '';
+            } else {
+                physicalSection.style.display = 'none';
+            }
+        }
+
+        function togglePhysicalEditMode() {
+            const currentSection = document.getElementById('currentPhysicalEdition');
+            const editableForm = document.getElementById('editablePhysicalForm');
+            
+            if (isEditingPhysical) {
+                // Switch to display mode
+                currentSection.style.display = 'block';
+                editableForm.style.display = 'none';
+                isEditingPhysical = false;
+            } else {
+                // Switch to edit mode - populate form with current data
+                document.getElementById('edition-format').value = physicalEditionData.format || '';
+                document.getElementById('edition-type').value = physicalEditionData.edition || '';
+                document.getElementById('edition-region').value = physicalEditionData.region || '';
+                document.getElementById('edition-distributor').value = physicalEditionData.distributor || '';
+                document.getElementById('edition-features').value = Array.isArray(physicalEditionData.features) 
+                    ? physicalEditionData.features.join(', ') : (physicalEditionData.features || '');
+                document.getElementById('upc-code').value = physicalEditionData.barcode || '';
+                
+                currentSection.style.display = 'none';
+                editableForm.style.display = 'block';
+                isEditingPhysical = true;
+            }
+        }
+
+        function savePhysicalEditionChanges() {
+            const format = document.getElementById('edition-format').value.trim();
+            const edition = document.getElementById('edition-type').value.trim();
+            const region = document.getElementById('edition-region').value.trim();
+            const distributor = document.getElementById('edition-distributor').value.trim();
+            const featuresText = document.getElementById('edition-features').value.trim();
+            const features = featuresText ? featuresText.split(',').map(f => f.trim()).filter(f => f) : [];
+            const barcode = document.getElementById('upc-code').value.trim();
+            
+            // Update physical edition data
+            physicalEditionData = {
+                format: format || 'Unknown',
+                edition: edition || 'Standard', 
+                region: region || 'Unknown',
+                distributor: distributor || 'Unknown',
+                features: features,
+                barcode: barcode
+            };
+            document.getElementById('currentEditionFormat').textContent = physicalEditionData.format;
+            document.getElementById('currentEditionType').textContent = physicalEditionData.edition;
+            document.getElementById('currentEditionRegion').textContent = physicalEditionData.region;
+            document.getElementById('currentEditionDistributor').textContent = physicalEditionData.distributor;
+            document.getElementById('currentEditionBarcode').textContent = physicalEditionData.barcode || 'None';
+            
+            const featuresRow = document.getElementById('currentEditionFeaturesRow');
+            const featuresSpan = document.getElementById('currentEditionFeatures');
+            if (features.length > 0) {
+                featuresRow.style.display = 'flex';
+                featuresSpan.textContent = features.join(', ');
+            } else {
+                featuresRow.style.display = 'none';
+            }
+            
+            // Switch back to display mode
+            togglePhysicalEditMode();
+            
+            LibraryUtils.ui.showStatusMessage('Physical edition details updated locally. Save the form to persist changes.', 'info');
+        }
 
         // Mobile-friendly status message improvements
         function showStatusMessage(message, type) {
@@ -743,6 +898,7 @@
                 });
             }
         });
+        
     </script>
     <footer id="footer-placeholder"></footer>
 </body>

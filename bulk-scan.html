@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#24143E">
+    <title>Bulk Scan - the library sale</title>
+    
+    <!-- Google Fonts Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    
+    <!-- ZXing Barcode Scanner Library -->
+    <script type="text/javascript" src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+    
+    <!-- App Utilities -->
+    <script src="utils.js"></script>
+    <script src="cache.js"></script>
+    <script src="scanner-utils.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
+    
+    <!-- Main Script -->
+    <script src="main.js" defer></script>
+</head>
+<body>
+    <header id="navbar-placeholder"></header>
+
+    <main class="bulk-scan-container">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <h1 id="bulkScanTitle">Bulk Scan Collection</h1>
+            <p class="hero-subtitle">Scan multiple barcodes</p>
+        </section>
+
+        <!-- Scanning Controls -->
+        <section class="scan-controls-section">
+            <div class="scan-stats">
+                <div class="stat-card">
+                    <span class="stat-number" id="scannedCount">0</span>
+                    <span class="stat-label">Scanned</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="foundCount">0</span>
+                    <span class="stat-label">Found</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="failedCount">0</span>
+                    <span class="stat-label">Failed</span>
+                </div>
+            </div>
+            
+            <div class="scan-actions">
+                <button id="startScanBtn" class="btn-rectangular btn-success" title="Start Bulk Scanning">
+                    <span class="icon icon-bulk icon-xl"></span>
+                </button>
+                <button id="pauseScanBtn" class="btn btn-xl btn-secondary" style="display: none;" title="Pause Scanning">
+                    <span class="icon icon-close icon-xl"></span>
+                </button>
+                <button id="finishScanBtn" class="btn btn-xl btn-primary" style="display: none;" title="Finish & Review">
+                    <span class="icon icon-confirm icon-xl"></span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Scanner Section -->
+        <section id="scannerSection" class="scanner-section" style="display: none;">
+            <div class="scanner-viewport-bulk">
+                <video id="scanner-video" autoplay muted playsinline></video>
+                <div class="scanner-guideline"></div>
+                <div class="scanner-status" id="scannerStatus">Position barcode in center</div>
+            </div>
+            
+            <!-- Quick Action Buttons -->
+            <div class="quick-actions">
+                <button id="skipBtn" class="btn btn-rectangular btn-secondary">Skip Current</button>
+                <button id="manualEntryBtn" class="btn btn-rectangular btn-primary">Manual Entry</button>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section">
+            <h3 class="section-title">
+                Scan Results
+            </h3>
+            <p class="section-subtitle" id="resultsSubtitle">Items will appear here as you scan </p> 
+            
+            <!-- Filter Tabs -->
+            <div class="result-filters">
+                <button class="filter-btn active" data-filter="all">All (<span id="allCount">0</span>)</button>
+                <button class="filter-btn" data-filter="found">Found (<span id="foundTabCount">0</span>)</button>
+                <button class="filter-btn" data-filter="failed">Failed (<span id="failedTabCount">0</span>)</button>
+            </div>
+            
+            <!-- Results Grid -->
+            <div id="resultsGrid" class="bulk-results-grid">
+                <div class="empty-state">
+                    <span class="icon icon-add icon-4xl"></span>
+                    <h3>Ready to scan</h3>
+                    <p>Start scanning barcodes to see here</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Final Actions -->
+        <section id="finalActions" class="final-actions" style="display: none;">
+            <h2>Review & Add to Library</h2>
+            <div class="final-stats">
+                <p><strong id="finalFoundCount">0</strong> items found and ready to add</p>
+                <p><strong id="finalFailedCount">0</strong> items failed (you can add these manually later)</p>
+            </div>
+            
+            <div class="final-buttons">
+                <button id="addAllBtn" class="btn btn-xl btn-success" title="Add All Found Items">
+                    <span class="icon icon-add icon-xl"></span>
+                </button>
+                <button id="reviewFailedBtn" class="btn btn-xl btn-secondary" title="Review Failed Items">
+                    <span class="icon icon-details icon-xl"></span>
+                </button>
+                <button id="startOverBtn" class="btn btn-xl btn-danger" title="Start Over">
+                    <span class="icon icon-back icon-xl"></span>
+                </button>
+            </div>
+
+            <!-- Keyboard Shortcuts Hint -->
+            <div id="keyboardHints" class="keyboard-hints hidden">
+                <div><strong>Shortcuts:</strong></div>
+                <div>Space: Pause/Resume</div>
+                <div>Esc: Finish Scanning</div>
+                <div>M: Manual Entry</div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="scanProgress" class="scan-progress" style="display: none;">
+                <div id="scanProgressBar" class="scan-progress-bar"></div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+            authDomain: "tiny-lizard.firebaseapp.com",
+            projectId: "tiny-lizard",
+            storageBucket: "tiny-lizard.firebasestorage.app",
+            messagingSenderId: "250872474692",
+            appId: "1:250872474692:web:969e0b1302ae3cb4666011",
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        // Global variables
+        let currentUser = null;
+        let bulkScanner = null;
+        
+        // Scan results storage
+        let scanResults = [];
+        let currentFilter = 'all';
+        let processedBarcodes = new Set(); // Prevent duplicates
+        
+        const apiCache = new CacheManager('bulk_scan_cache_', 50, 2); // 2 hour cache for bulk scanning
+        const TMDB_BASE_URL = '/api/tmdb';
+        const UPC_BASE_URL = '/api/upc';
+        const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
+
+async function initializeBulkScanner() {
+    setupEventListeners();
+
+    bulkScanner = new ScannerManager({
+        continuous: true,
+        allowDuplicates: false, // Manager will prevent re-processing the same barcode
+        onBarcodeScanned: processBarcodeResult, // Use our function as the callback
+        onStatusUpdate: updateScannerStatus,
+        onError: (message) => LibraryUtils.ui.showStatusMessage(message, 'error'),
+    });
+
+    ScannerUI.createManualEntryModal(async (barcode) => {
+        await bulkScanner.addManualBarcode(barcode);
+        return true;
+    });
+
+    document.getElementById('resultsGrid').addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.btn-remove-item');
+        if (removeBtn) {
+            const resultId = parseFloat(removeBtn.dataset.resultId);
+            removeResult(resultId);
+        }
+    });
+
+    // Find your event listener for 'manualEntryBtn' and simplify it
+    document.getElementById('manualEntryBtn').addEventListener('click', () => {
+        ScannerUI.showManualEntryModal();
+    });
+
+    const initialized = await bulkScanner.initialize();
+    if (!initialized) {
+        LibraryUtils.ui.showStatusMessage('Camera scanner not available.', 'error');
+        document.getElementById('startScanBtn').disabled = true;
+    }
+
+    restoreProgress();
+}
+
+async function addMovieToDatabase(result) {
+    const { tmdbData, upcData, physicalEdition } = result;
+    
+    // Check if movie already exists
+    let movieDocRef;
+    if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
+        const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbData.id)).limit(1).get();
+        if (!existingQuery.empty) {
+            movieDocRef = existingQuery.docs[0].ref;
+        }
+    }
+    
+
+    // Create new movie if doesn't exist
+    if (!movieDocRef) {
+        const movieData = {
+            title: tmdbData.title || tmdbData.name,
+            year: tmdbData.release_date ? parseInt(tmdbData.release_date.substring(0, 4)) : (tmdbData.first_air_date ? parseInt(tmdbData.first_air_date.substring(0, 4)) : null),
+            director: tmdbData.credits?.crew?.find(c => c.job === 'Director')?.name || '',
+            genre: tmdbData.genres?.map(g => g.name).join(', ') || '',
+            posterUrl: tmdbData.poster_path ? TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+            runtime: tmdbData.runtime || (tmdbData.episode_run_time ? tmdbData.episode_run_time[0] : null),
+            tmdbId: tmdbData.id && !`${tmdbData.id}`.startsWith('upc_') ? parseInt(tmdbData.id) : null,
+            overview: tmdbData.overview || '',
+            cast: tmdbData.credits?.cast?.slice(0, 5).map(c => c.name) || [],
+            contentType: tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie'),
+            dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
+            originalUploaderId: currentUser.uid,
+            originalUploaderDisplayName: currentUser.displayName || currentUser.email,
+            isManualEntry: false,
+        };
+        
+        movieDocRef = await db.collection('movies').add(movieData);
+    }
+    
+    // Add user interaction
+    const userInteractionData = {
+        movieId: movieDocRef.id,
+        rating: 0,
+        review: "",
+        watched: false,
+        watchedDate: null,
+        owned: true, // Always owned since we scanned a physical barcode
+        interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+        physicalEdition: physicalEdition || {},
+        upc: upcData?.barcode || '',
+        // Legacy fields for backward compatibility
+        editionTitle: physicalEdition?.edition || '',
+        editionFormat: physicalEdition?.format || ''
+    };
+
+    await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
+}
+
+        function startOver() {
+            if (confirm('Are you sure you want to start over? All scanned results will be lost.')) {
+                // Clear everything
+                scanResults = [];
+                processedBarcodes.clear();
+                currentFilter = 'all';
+                
+                // Clear localStorage
+                localStorage.removeItem('bulkScanProgress');
+                
+                // Reset UI
+                updateStats();
+                renderResults();
+                setResultFilter('all');
+                
+                document.getElementById('finalActions').style.display = 'none';
+                stopScanning();
+                
+                LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
+            }
+        }
+
+        // Enhanced keyboard shortcuts with hints
+        document.addEventListener('keydown', (e) => {
+            // Check the scanner's state directly from the manager object
+            if (bulkScanner && bulkScanner.getStats().isScanning) {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    pauseScanning();
+                } else if (e.code === 'Escape') {
+                    e.preventDefault();
+                    finishScanning();
+                }
+            }
+
+                // Use the new centralized modal function for manual entry
+            if (e.code === 'KeyM' && !document.querySelector('.modal.active')) {
+                e.preventDefault();
+                ScannerUI.showManualEntryModal();
+            }
+        });
+
+        // Show/hide keyboard hints based on scanning state
+        function updateKeyboardHints() {
+            const hints = document.getElementById('keyboardHints');
+            if (isScanning) {
+                hints.classList.remove('hidden');
+            } else {
+                hints.classList.add('hidden');
+            }
+        }
+
+        // Update progress bar during bulk operations
+        function updateProgressBar(current, total) {
+            const progressContainer = document.getElementById('scanProgress');
+            const progressBar = document.getElementById('scanProgressBar');
+            
+            if (current > 0 && total > 0) {
+                const percentage = (current / total) * 100;
+                progressBar.style.width = `${percentage}%`;
+                progressContainer.style.display = 'block';
+            } else {
+                progressContainer.style.display = 'none';
+            }
+        }
+
+        // Auto-save progress to localStorage
+        function saveProgress() {
+            if (scanResults.length > 0) {
+                localStorage.setItem('bulkScanProgress', JSON.stringify({
+                    results: scanResults,
+                    processedBarcodes: Array.from(processedBarcodes),
+                    timestamp: Date.now()
+                }));
+            }
+        }
+
+        // Auto-save every 5 seconds
+        setInterval(saveProgress, 5000);
+
+        // Also save on major actions
+        function saveProgressOnAction() {
+            setTimeout(saveProgress, 100);
+        }
+
+        // Restore progress on page load
+        function restoreProgress() {
+            const saved = localStorage.getItem('bulkScanProgress');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    const age = Date.now() - data.timestamp;
+                    
+                    // Only restore if less than 1 hour old
+                    if (age < 3600000 && data.results && data.results.length > 0) {
+                        if (confirm(`Found ${data.results.length} items from a previous scanning session. Restore them?`)) {
+                            scanResults = data.results;
+                            processedBarcodes = new Set(data.processedBarcodes || data.results.map(r => r.barcode));
+                            updateStats();
+                            renderResults();
+                            LibraryUtils.ui.showStatusMessage('Previous session restored!', 'success');
+                        } else {
+                            localStorage.removeItem('bulkScanProgress');
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to restore scan progress:', e);
+                    localStorage.removeItem('bulkScanProgress');
+                }
+            }
+        }
+
+
+    async function startBulkScanning() {
+        if (!bulkScanner || !bulkScanner.getStats().hasCamera) {
+            LibraryUtils.ui.showStatusMessage('Camera not available', 'error');
+            return;
+        }
+
+        // Update UI
+        document.getElementById('scannerSection').style.display = 'block';
+        document.getElementById('startScanBtn').style.display = 'none';
+        document.getElementById('pauseScanBtn').style.display = 'inline-flex';
+        document.getElementById('finishScanBtn').style.display = 'inline-flex';
+        updateKeyboardHints();
+
+        const video = document.getElementById('scanner-video');
+        await bulkScanner.startCamera(video, 'scannerStatus');
+        }
+
+    async function processBarcodeResult(barcode) {
+        processedBarcodes.add(barcode);
+        updateStats();
+
+        try {
+            // Use the centralized lookup utility
+            const { upcData, tmdbData, physicalEdition } = await MediaLookupUtils.completeMovieLookup(barcode);
+
+            const scanResult = {
+                id: Date.now() + Math.random(),
+                barcode: barcode,
+                status: 'found',
+                timestamp: new Date(),
+                upcData,
+                tmdbData,
+                title: tmdbData.title || tmdbData.name,
+                year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
+                poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+                physicalEdition
+            };
+
+            scanResults.push(scanResult);
+            updateScannerStatus(`Found: ${scanResult.title}`, 'success');
+
+        } catch (error) {
+            console.error('Failed to process barcode:', barcode, error);
+            const failedResult = {
+                id: Date.now() + Math.random(),
+                barcode: barcode,
+                status: 'failed',
+                timestamp: new Date(),
+                error: error.message,
+                title: `Unknown (${barcode})`,
+                year: '',
+                poster: null
+            };
+            scanResults.push(failedResult);
+            updateScannerStatus(`Failed: ${barcode}`, 'error');
+        }
+
+        updateStats();
+        renderResults();
+        saveProgressOnAction();
+    }
+
+        function updateScannerStatus(message, type = 'info') {
+            const statusEl = document.getElementById('scannerStatus');
+            statusEl.textContent = message;
+            statusEl.className = `scanner-status status-${type}`;
+        }
+
+        function updateStats() {
+            const scannedCount = scanResults.length;
+            const foundCount = scanResults.filter(r => r.status === 'found').length;
+            const failedCount = scanResults.filter(r => r.status === 'failed').length;
+            
+            document.getElementById('scannedCount').textContent = scannedCount;
+            document.getElementById('foundCount').textContent = foundCount;
+            document.getElementById('failedCount').textContent = failedCount;
+            
+            // Update filter tabs
+            document.getElementById('allCount').textContent = scannedCount;
+            document.getElementById('foundTabCount').textContent = foundCount;
+            document.getElementById('failedTabCount').textContent = failedCount;
+            
+            // Update final stats
+            document.getElementById('finalFoundCount').textContent = foundCount;
+            document.getElementById('finalFailedCount').textContent = failedCount;
+        }
+
+        function setResultFilter(filter) {
+            currentFilter = filter;
+            
+            // Update active tab
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+            
+            renderResults();
+        }
+
+        function renderResults() {
+            const grid = document.getElementById('resultsGrid');
+            
+            if (scanResults.length === 0) {
+                grid.innerHTML = `
+                <div class="bulk-result-actions">
+                    <button class="btn btn-sm btn-danger btn-remove-item" data-result-id="${result.id}" title="Remove">
+                        <span class="icon icon-delete icon-sm"></span>
+                    </button>
+                </div>
+                `;
+                return;
+            }
+            
+            // Filter results
+            let filteredResults = scanResults;
+            if (currentFilter !== 'all') {
+                filteredResults = scanResults.filter(r => r.status === currentFilter);
+            }
+            
+            if (filteredResults.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <span class="icon icon-details icon-3xl"></span>
+                        <h3>No ${currentFilter} results</h3>
+                        <p>Try scanning more items or switch to another tab</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort by timestamp (most recent first)
+            filteredResults.sort((a, b) => b.timestamp - a.timestamp);
+            
+            grid.innerHTML = filteredResults.map(result => {
+                const statusClass = result.status === 'found' ? 'success' : 'error';
+                const posterSrc = result.poster || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
+                
+                return `
+                    <div class="bulk-result-item status-${result.status}">
+                        <img src="${posterSrc}" alt="${result.title}" class="bulk-result-poster" loading="lazy">
+                        <div class="bulk-result-info">
+                            <h4 class="bulk-result-title">${result.title}</h4>
+                            <p class="bulk-result-year">${result.year || 'Unknown'}</p>
+                            <p class="bulk-result-barcode">UPC: ${result.barcode}</p>
+                            ${result.status === 'failed' ? `<p class="bulk-result-error">${result.error}</p>` : ''}
+                            ${result.physicalEdition ? `<p class="bulk-result-format">${result.physicalEdition.format} • ${result.physicalEdition.edition}</p>` : ''}
+                        </div>
+                        <div class="bulk-result-actions">
+                            <button class="btn btn-sm btn-danger" onclick="removeResult(${result.id})" title="Remove">
+                                <span class="icon icon-delete icon-sm"></span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function removeResult(resultId) {
+            scanResults = scanResults.filter(r => r.id !== resultId);
+            const barcode = scanResults.find(r => r.id === resultId)?.barcode;
+            if (barcode) {
+                processedBarcodes.delete(barcode);
+            }
+            updateStats();
+            renderResults();
+        }
+
+        function pauseScanning() {
+            if (!bulkScanner) return;
+            const isNowPaused = bulkScanner.togglePause();
+
+            const pauseBtn = document.getElementById('pauseScanBtn');
+            if (isNowPaused) {
+                pauseBtn.innerHTML = '<span class="icon icon-search icon-xl"></span>';
+                pauseBtn.title = 'Resume Scanning';
+            } else {
+                pauseBtn.innerHTML = '<span class="icon icon-close icon-xl"></span>';
+                pauseBtn.title = 'Pause Scanning';
+            }
+        }
+
+        function finishScanning() {
+            if (bulkScanner) {
+                bulkScanner.stopCamera();
+            }
+
+            // Update UI
+            document.getElementById('scannerSection').style.display = 'none';
+            document.getElementById('startScanBtn').style.display = 'inline-flex';
+            document.getElementById('pauseScanBtn').style.display = 'none';
+            document.getElementById('finishScanBtn').style.display = 'none';
+            updateKeyboardHints();
+
+            document.getElementById('finalActions').style.display = 'block';
+            document.getElementById('finalActions').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function skipCurrent() {
+            if (isPaused) {
+                pauseScanning(); // Resume if paused
+            }
+            updateScannerStatus('Skipped. Ready for next barcode...', 'info');
+        }
+
+async function addAllToLibrary() {
+            const foundResults = scanResults.filter(r => r.status === 'found');
+            
+            if (foundResults.length === 0) {
+                LibraryUtils.ui.showStatusMessage('No items found to add', 'warning');
+                return;
+            }
+            
+            const addAllBtn = document.getElementById('addAllBtn');
+            addAllBtn.classList.add('saving');
+            addAllBtn.disabled = true;
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            // Show progress during bulk add
+            for (let i = 0; i < foundResults.length; i++) {
+                const result = foundResults[i];
+                updateProgressBar(i + 1, foundResults.length);
+                
+                try {
+                    await addMovieToDatabase(result);
+                    successCount++;
+                    
+                    // Update progress message
+                    LibraryUtils.ui.showStatusMessage(`Added ${successCount}/${foundResults.length} items...`, 'info');
+                } catch (error) {
+                    console.error('Failed to add movie:', result.title, error);
+                    errorCount++;
+                }
+            }
+            
+            // Hide progress bar
+            updateProgressBar(0, 0);
+            
+            addAllBtn.classList.remove('saving');
+            addAllBtn.disabled = false;
+            
+            // Clear localStorage progress
+            localStorage.removeItem('bulkScanProgress');
+            
+            LibraryUtils.ui.showStatusMessage(
+                `Added ${successCount} items to library. ${errorCount > 0 ? `${errorCount} failed.` : ''}`, 
+                errorCount > 0 ? 'warning' : 'success'
+            );
+            
+            // Redirect to library with success parameter
+            setTimeout(() => {
+                window.location.href = `index.html?bulk_imported=${successCount}`;
+            }, 2000);
+        }
+
+        // Show/hide keyboard hints based on scanning state
+        function updateKeyboardHints() {
+            const hints = document.getElementById('keyboardHints');
+            if (hints) {
+                if (isScanning) {
+                    hints.classList.remove('hidden');
+                } else {
+                    hints.classList.add('hidden');
+                }
+            }
+        }
+
+        // Update progress bar during bulk operations
+        function updateProgressBar(current, total) {
+            const progressContainer = document.getElementById('scanProgress');
+            const progressBar = document.getElementById('scanProgressBar');
+            
+            if (progressContainer && progressBar) {
+                if (current > 0 && total > 0) {
+                    const percentage = (current / total) * 100;
+                    progressBar.style.width = `${percentage}%`;
+                    progressContainer.style.display = 'block';
+                } else {
+                    progressContainer.style.display = 'none';
+                }
+            }
+        }
+
+        // Initialize when auth is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    initializeBulkScanner();
+                } else {
+                    window.location.href = 'auth.html'; 
+                }
+            });
+        });
+    </script>
+</body>
+</html>

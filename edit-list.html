@@ -427,6 +427,29 @@
             
             setTimeout(() => infoMessage.remove(), 2000);
         }
+
+        function validatePhysicalEditionData(data) {
+            // Handle missing or corrupted physical edition data
+            if (!data || typeof data !== 'object') {
+                return {
+                    format: 'Unknown',
+                    edition: 'Standard',
+                    region: 'Unknown',
+                    distributor: 'Unknown',
+                    features: [],
+                    barcode: ''
+                };
+            }
+            
+            // Ensure arrays are properly handled
+            if (data.features && !Array.isArray(data.features)) {
+                data.features = typeof data.features === 'string' 
+                    ? data.features.split(',').map(f => f.trim()) 
+                    : [];
+            }
+            
+            return data;
+        }
     </script>
     <footer id="footer-placeholder"></footer>
 </body>

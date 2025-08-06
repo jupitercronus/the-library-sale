@@ -29,6 +29,10 @@
 <main>
     <div class="main-container">
         <div class="controls-section">
+        <div id="bulkImportSuccess" class="status-message status-success" style="display: none; margin-bottom: var(--space-xl);">
+            <span class="icon icon-confirm icon-md"></span>
+            <span id="bulkImportMessage">Bulk import completed!</span>
+        </div>
             <div class="search-bar">
                 <input type="text" id="searchInput" placeholder="Search by title, director, cast, genre...">
             </div>
@@ -350,7 +354,29 @@
             document.getElementById('sortDropdown')?.addEventListener('change', renderMedia);
         });
 
-    // Add this to your index.html script section
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bulkImported = urlParams.get('bulk_imported');
+            
+            if (bulkImported) {
+                const successDiv = document.getElementById('bulkImportSuccess');
+                const messageSpan = document.getElementById('bulkImportMessage');
+                
+                if (successDiv && messageSpan) {
+                    messageSpan.textContent = `Successfully imported ${bulkImported} items from bulk scan!`;
+                    successDiv.style.display = 'block';
+                    
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    
+                    // Hide after 5 seconds
+                    setTimeout(() => {
+                        successDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
+        });
+
 
 // Mobile-friendly interaction improvements
 function addMobileInteractionHandlers() {

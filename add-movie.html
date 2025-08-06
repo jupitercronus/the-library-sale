@@ -21,10 +21,13 @@
     <!-- App Utilities -->
     <script src="utils.js"></script>
     <script src="cache.js"></script>
+    <script src="scanner-utils.js"></script>
+    <!-- Styles -->
     <link rel="stylesheet" href="styles/variables.css">
     <link rel="stylesheet" href="styles/base.css">  
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/pages.css">
+    <!-- Main utilities -->
     <script src="main.js" defer></script>
 </head>
 <body>
@@ -43,51 +46,43 @@
                     <input type="text" id="movieSearch" placeholder="Type title, actor, director..."> 
                 </div>              
                 <button type="button" id="searchBtn" class="btn btn-rectangular btn-primary" title="Search">
-                    <span class="icon icon-search icon-md"></span>
+                    <span class="icon icon-search icon-lg"></span>
                 </button>
                 </div>
                 <div class="loading-spinner" id="searchSpinner" style="display: none;"></div>
+            </div>    
+        </section>
                 <br>
+        <section class="button-section">
+            <div>
                 <button type="button" id="cameraBtn" class="btn btn-rectangular btn-primary">
                     Scan Barcode
                 </button>
                 <button type="button" id="manualBarcodeBtn" class="btn btn-rectangular btn-primary">
                     Enter Barcode
                 </button>
+                <p class="text-muted">Need to scan many items?</p>
+                <a href="bulk-scan.html" class="btn btn-rectangular btn-primary">
+                    <span class="icon icon-bulk icon-md"></span>
+                    Go to Bulk Scanning
+                </a>
             </div>
-            
-            <div id="manualBarcodeInput" class="form-group" style="display: none;">
-                <label for="barcodeInput">Barcode (8-18 digits)</label>
-                <div class="flex gap-md">
-                    <input type="text" id="barcodeInput" placeholder="Enter 8-18 digit barcode" pattern="[0-9]{8,18}" maxlength="18" style="flex: 1;">
-                    <button type="button" id="lookupBarcodeBtn" class="btn btn-md btn-primary">
-                        <span class="icon icon-search icon-md"></span>
-                        Lookup
-                    </button>
-                    <button type="button" id="cancelBarcodeBtn" class="btn btn-md btn-secondary">
-                        <span class="icon icon-close icon-3xl"></span>
-                        Cancel
+        </section>
+
+        <!-- Scanner  -->
+            <section id="scannerSection" class="scanner-section" style="display: none;">
+                <div class="scanner-viewport">
+                    <video id="video" autoplay muted playsinline></video>
+                    <div class="scanner-guideline"></div> 
+                    <div class="scanner-status" id="scannerStatus">Position barcode in camera view</div>
+                </div>
+                <div class="quick-actions">
+                    <p>Position the barcode in the camera view.</p>
+                    <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger" title="Stop Scanner">
+                        <i class="icon icon-close"></i>
                     </button>
                 </div>
-                <small class="text-muted">UPC/EAN barcodes are typically 12-13 digits</small>
-                <div class="loading-spinner" id="barcodeSpinner" style="display: none;"></div>
-            </div>
-            
-            <!-- Scanner Modal -->
-            <div id="scannerContainer" class="modal">
-                <div class="modal-content">
-                    <h3>Scan Barcode</h3>
-                    <div class="scanner-viewport">
-                        <video id="video" autoplay muted playsinline style="width: 100%; max-width: 400px; height: 300px; border-radius: var(--radius-lg); background: var(--color-secondary-bg);"></video>
-                    </div>
-                    <p>Position barcode in camera view</p>
-                    <div class="modal-buttons">
-                        <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger">
-                            <i class="icon icon-close"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </section>
             
             <div id="statusMessage"></div>
             <div id="searchResults"></div>
@@ -239,8 +234,7 @@
     <script>
         let currentUser = null; 
         let isPublicFieldsEditable = true;
-        let codeReader = null;
-        let videoInputDevices = [];
+        let movieScanner = null;
         
         let currentSearchQuery = '';
         let currentPage = 1;
@@ -277,11 +271,18 @@
         });
     });
 
-    function initializePage() {
+async function initializePage() {
         setupForm();
         setupSearch();
-        setupBarcodeScanner();
+        await initializeMovieScanner();       
         
+        // Create the modal on page load and define what happens on submit.
+    ScannerUI.createManualEntryModal(async (barcode) => {
+        // Use the manager's method to handle the barcode.
+        // This will automatically call your onBarcodeScanned logic.
+        await movieScanner.addManualBarcode(barcode); 
+        return true; 
+    });
         const urlParams = new URLSearchParams(window.location.search);
         const queryFromUrl = urlParams.get('query');
         const pageFromUrl = parseInt(urlParams.get('page')) || 1;
@@ -289,7 +290,12 @@
             document.getElementById('movieSearch').value = queryFromUrl;
             performSearch(queryFromUrl, pageFromUrl);
         }
-    }
+        
+    document.getElementById('manualBarcodeBtn').addEventListener('click', () => {
+    ScannerUI.showManualEntryModal();
+    });
+}
+
 
     function setupForm() {
         const form = document.getElementById('movieForm');
@@ -298,7 +304,81 @@
             addMedia();
         });
     }
+async function initializeMovieScanner() {
+    // Define constants for the elements we'll be working with
+    const cameraBtn = document.getElementById('cameraBtn');
+    const stopBtn = document.getElementById('stop-scanner-btn');
+    const scannerSection = document.getElementById('scannerSection');
+    const videoEl = document.getElementById('video');
 
+        movieScanner = new ScannerManager({
+            continuous: false, // This is correct for single-item adding
+            allowDuplicates: true,
+            enableHapticFeedback: true,
+            onBarcodeScanned: async (barcode) => {
+                // When a barcode is found, hide the scanner view
+                scannerSection.style.display = 'none';
+                
+                // Process the barcode as before
+                try {
+                    showStatusMessage('Looking up barcode...', 'info');
+                    const lookupData = await MediaLookupUtils.completeMovieLookup(barcode);
+                    const { tmdbData, upcData, physicalEdition } = lookupData;
+                    populateFormWithTMDBAndUPC(tmdbData, upcData, physicalEdition);
+                    showStatusMessage('Movie details loaded successfully!', 'success');
+                } catch (error) {
+                    console.error('Movie lookup failed:', error);
+                    showStatusMessage(`Lookup failed: ${error.message}. You can search manually or try again.`, 'error');
+                }
+            },
+            onStatusUpdate: (message, type) => {
+                // Correctly targets the status element inside the scanner section
+                ScannerUI.updateStatus(message, type, 'scannerStatus');
+            },
+            onError: (message, context) => {
+                console.error(`Scanner error (${context}):`, message);
+                showStatusMessage(message, 'error');
+                // Also hide the scanner if an error occurs
+                scannerSection.style.display = 'none';
+            }
+        });
+    
+        // Initialize the scanner
+        const initialized = await movieScanner.initialize();
+        
+        if (!initialized) {
+            // Disable camera button if scanner fails to initialize
+            if (cameraBtn) {
+                cameraBtn.disabled = true;
+                cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>Scanner N/A';
+            }
+            return;
+        }
+    
+        // CORRECTED: Event listener for the "Scan Barcode" button
+        cameraBtn.addEventListener('click', async () => {
+            if (movieScanner) {
+                // Show the scanner section inline
+                scannerSection.style.display = 'block'; 
+                const success = await movieScanner.startCamera(videoEl, 'scannerStatus');
+                
+                if (!success) {
+                    // Hide the section if the camera fails to start
+                    scannerSection.style.display = 'none';
+                }
+            }
+        });
+
+        // CORRECTED: Event listener for the stop button
+        stopBtn.addEventListener('click', () => {
+            if (movieScanner) {
+                movieScanner.stopCamera();
+            }
+            // Hide the scanner section
+            scannerSection.style.display = 'none';
+            document.getElementById('statusMessage').innerHTML = '';
+        });
+    }
     async function addMedia() {
         const submitBtn = document.getElementById('save-btn');
         if (submitBtn) {
@@ -344,15 +424,6 @@
                     originalUploaderId: currentUser.uid,
                     originalUploaderDisplayName: currentUser.displayName || currentUser.email,
                     isManualEntry: isPublicFieldsEditable,
-                    
-                    upcData: form.dataset.upcCode ? {
-                        barcode: form.dataset.upcCode,
-                        brand: form.dataset.upcBrand || '',
-                        category: form.dataset.upcCategory || '',
-                        originalTitle: form.dataset.upcOriginalTitle || '',
-                        description: form.dataset.upcDescription || '',
-                        physicalEdition: JSON.parse(form.dataset.physicalEdition || '{}')
-                    } : null
                 };
                 
                 console.log('Creating new movie entry:', mainMediaData);
@@ -366,7 +437,9 @@
                 watched: false,
                 watchedDate: null,
                 owned: true,
-                interactionDate: firebase.firestore.FieldValue.serverTimestamp()
+                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                upc: form.dataset.upcCode || '',
+                physicalEdition: JSON.parse(form.dataset.physicalEdition || '{}')
             };
 
             await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
@@ -704,14 +777,14 @@
         form.dataset.tmdbId = tmdbData.id;
         form.dataset.posterUrl = posterUrl;
         form.dataset.runtime = tmdbData.runtime || (tmdbData.episode_run_time ? tmdbData.episode_run_time[0] : null);
-        
+
         // Store UPC/barcode data
         form.dataset.upcCode = upcData.barcode;
         form.dataset.upcBrand = upcData.brand;
         form.dataset.upcCategory = upcData.category;
         form.dataset.upcOriginalTitle = upcData.originalTitle;
         form.dataset.upcDescription = upcData.description;
-        form.dataset.physicalEdition = JSON.stringify(upcData.physicalEdition || {});
+        form.dataset.physicalEdition = JSON.stringify(physicalEdition || {});
 
         // Make fields readonly since we have good data
         togglePublicFieldsReadonly(true);
@@ -781,107 +854,6 @@
             updateUrl(query, currentPage);
             updateSearchFooter();
         }
-    function extractFormat(title, category) {
-    const formats = ['DVD', 'Blu-ray', 'Blu Ray', '4K', 'UHD', 'Digital', 'VHS'];
-    const titleUpper = title.toUpperCase();
-    const categoryUpper = (category || '').toUpperCase();
-    
-    for (const format of formats) {
-        if (titleUpper.includes(format.toUpperCase()) || categoryUpper.includes(format.toUpperCase())) {
-            if (format === 'Blu Ray') return 'Blu-ray';
-            if (titleUpper.includes('4K') || titleUpper.includes('UHD')) return '4K UHD';
-            return format;
-        }
-    }
-    return 'Unknown';
-}
-    function extractEdition(title) {
-        const editions = [
-            'Director\'s Cut', 'Extended Edition', 'Special Edition', 'Collector\'s Edition',
-            'Limited Edition', 'Theatrical', 'Unrated', 'Anniversary Edition'
-        ];
-        
-        for (const edition of editions) {
-            if (title.toLowerCase().includes(edition.toLowerCase())) {
-                return edition;
-            }
-        }
-        return 'Standard';
-    }
-    function extractRegion(title, description) {
-        const regions = ['Region 1', 'Region 2', 'Region 3', 'Region A', 'Region B', 'Region C', 'All Regions'];
-        const searchText = `${title} ${description || ''}`.toLowerCase();
-        
-        for (const region of regions) {
-            if (searchText.includes(region.toLowerCase())) {
-                return region;
-            }
-        }
-        return 'Unknown';
-    }
-    function extractReleaseType(title) {
-        const types = ['Initial Release', 'Re-release', 'Special Release', 'Anniversary'];
-        const titleLower = title.toLowerCase();
-        
-        if (titleLower.includes('anniversary')) return 'Anniversary';
-        if (titleLower.includes('special')) return 'Special Release';
-        if (titleLower.includes('re-release') || titleLower.includes('rerelease')) return 'Re-release';
-        
-        return 'Initial Release';
-    }
-    function extractFeatures(title, description) {
-        const features = [];
-        const searchText = `${title} ${description || ''}`.toLowerCase();
-        
-        const featureMap = {
-            'commentary': 'Director Commentary',
-            'deleted scenes': 'Deleted Scenes',
-            'behind the scenes': 'Behind the Scenes',
-            'making of': 'Making Of',
-            'bloopers': 'Bloopers/Outtakes',
-            'documentary': 'Documentary',
-            'interviews': 'Cast/Crew Interviews'
-        };
-        
-        Object.entries(featureMap).forEach(([key, value]) => {
-            if (searchText.includes(key)) {
-                features.push(value);
-            }
-        });
-        
-        return features;
-    } 
-    function cleanMovieTitle(title) {
-            if (!title) return '';
-
-            let cleaned = title
-                // Remove common physical media indicators
-                .replace(/\b(DVD|Blu-ray|Blu Ray|BD|4K|UHD|Ultra HD)\b/gi, '')
-                // Remove edition types
-                .replace(/\b(Widescreen|Full Screen|Director's Cut|Extended Edition|Special Edition|Collector's Edition)\b/gi, '')
-                // Remove year in parentheses or brackets
-                .replace(/[\(\[]?\b(19|20)\d{2}\b[\)\]]?/g, '')
-                // Remove extra whitespace
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            // Remove parenthetical info that's likely not part of the movie title
-            cleaned = cleaned.replace(/\([^)]*\)/g, '').trim();
-
-            return cleaned || title; // Return original if cleaning results in empty string
-            }
-    function extractYearFromTitle(title) {
-            if (!title) return null;
-
-            const yearMatch = title.match(/\b(19|20)\d{2}\b/);
-            if (yearMatch) {
-                const year = parseInt(yearMatch[0]);
-                if (year >= 1900 && year <= new Date().getFullYear() + 2) {
-                    return `${year}-01-01`;
-                }
-            }
-            return null;
-            }
     function calculateRelevanceScore(item, query) {
             const keywords = query.toLowerCase().split(' ').filter(k => k.length > 2);
             const title = (item.title || item.name || '').toLowerCase();
@@ -1055,218 +1027,7 @@ async function selectMedia(id, type) {
             document.getElementById('form-skeleton').style.display = 'none';
             document.getElementById('movieForm').style.display = 'block';
         }
-async function lookupMovieByBarcode(barcode) {
-    console.log('Looking up barcode with UPCItemDB:', barcode);
-    
-    try {
-        showStatusMessage('Looking up barcode...', 'info');
-        
-        // Step 1: Get basic product info from UPC database
-        const response = await fetch(`/api/upc?upc=${encodeURIComponent(barcode)}`);
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            throw new Error(errorData.error || `API returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('UPC API Response:', data);
-        
-        if (!data || data.code !== 'OK' || !data.items || data.items.length === 0) {
-            throw new Error('No product found for this barcode');
-        }
-        
-        const product = data.items[0];
-        
-        if (!product.title) {
-            throw new Error('Product found but no title available');
-        }
-        
-        // Extract and clean the movie title from UPC data
-        const rawTitle = product.title;
-        const cleanedTitle = cleanMovieTitle(rawTitle);
-        const extractedYear = extractYearFromTitle(rawTitle);
-        
-        console.log('Extracted title:', cleanedTitle);
-        console.log('Extracted year:', extractedYear);
-        
-        // Store UPC data for later use
-        const upcData = {
-            barcode: barcode,
-            originalTitle: rawTitle,
-            brand: product.brand || '',
-            category: product.category || '',
-            description: product.description || '',
-            images: product.images || [],
-            physicalEdition: {
-                format: extractFormat(rawTitle, product.category),
-                edition: extractEdition(rawTitle),
-                region: extractRegion(rawTitle, product.description),
-                distributor: product.brand || '',
-                releaseType: extractReleaseType(rawTitle),
-                features: extractFeatures(rawTitle, product.description)
-            }
-        };
 
-        showStatusMessage('Product found! Now searching TMDB for movie details...', 'info');
-        
-        // Step 2: Search TMDB with the cleaned title
-        await searchTMDBAndPopulate(cleanedTitle, extractedYear, upcData);
-        
-    } catch (error) {
-        console.error('UPC lookup failed:', error);
-        showStatusMessage(error.message || 'Barcode lookup failed', 'error');
-        
-        // Offer manual search as fallback
-        setTimeout(() => {
-            if (confirm('Barcode lookup failed. Would you like to search for this title manually?')) {
-                document.getElementById('movieSearch').value = barcode;
-                performSearch(barcode, 1);
-            }
-        }, 2000);
-    }
-}
-async function setupBarcodeScanner() {
-            const cameraBtn = document.getElementById('cameraBtn');
-            const manualBtn = document.getElementById('manualBarcodeBtn');
-            const lookupBtn = document.getElementById('lookupBarcodeBtn');
-            const cancelBtn = document.getElementById('cancelBarcodeBtn');
-            const stopBtn = document.getElementById('stop-scanner-btn');
-            const barcodeInput = document.getElementById('barcodeInput');
-            
-            manualBtn.addEventListener('click', showManualInput);
-            lookupBtn.addEventListener('click', lookupManualBarcode);
-            cancelBtn.addEventListener('click', hideManualInput);
-            stopBtn.addEventListener('click', stopScanner);
-            
-            barcodeInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    lookupManualBarcode();
-                }
-            });
-            
-            barcodeInput.addEventListener('input', (e) => {
-                const value = e.target.value;
-                if (!/^\d{0,18}$/.test(value)) {
-                    e.target.value = value.replace(/\D/g, '').slice(0, 18);
-                }
-                const isValid = e.target.value.length >= 8 && e.target.value.length <= 18;
-                document.getElementById('lookupBarcodeBtn').disabled = !isValid;            });
-            
-            cameraBtn.addEventListener('click', startScanner);
-            
-            try {
-                if (typeof ZXing !== 'undefined' && ZXing.BrowserMultiFormatReader) {
-                    codeReader = new ZXing.BrowserMultiFormatReader();
-                    videoInputDevices = await codeReader.listVideoInputDevices();
-                    
-                    if (videoInputDevices.length === 0) {
-                        cameraBtn.disabled = true;
-                        cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>No Camera';
-                    }
-                } else {
-                    cameraBtn.disabled = true;
-                    cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>Scanner N/A';
-                }
-            } catch (err) {
-                console.error("Error setting up barcode scanner:", err);
-                cameraBtn.disabled = true;
-                cameraBtn.innerHTML = '<span class="icon icon-close icon-md"></span>Scanner Error';
-            }
-        }
-    function lookupManualBarcode() {
-            const barcode = document.getElementById('barcodeInput').value.trim();
-            
-            if (!barcode || !/^\d{8,18}$/.test(barcode)) {
-                showStatusMessage('Please enter a valid barcode (8-18 digits only).', 'error');
-                return;
-            }
-            
-            document.getElementById('barcodeSpinner').style.display = 'block';
-            document.getElementById('lookupBarcodeBtn').disabled = true;
-            
-            lookupMovieByBarcode(barcode)
-                .catch(error => {
-                    console.error('Manual barcode lookup error:', error);
-                    showStatusMessage(error.message || 'Barcode lookup failed', 'error');
-                })
-                .finally(() => {
-                    hideManualInput();
-                    document.getElementById('barcodeSpinner').style.display = 'none';
-                    document.getElementById('lookupBarcodeBtn').disabled = false;
-                });
-        }  
-    function stopScanner() {
-            if (codeReader) {
-                try {
-                    codeReader.reset();
-                } catch (e) {
-                    console.warn('Error stopping scanner:', e);
-                }
-            }
-            document.getElementById('scannerContainer').classList.remove('active');
-            document.getElementById('statusMessage').innerHTML = '';
-        }
-    function showManualInput() {
-                document.getElementById('manualBarcodeInput').style.display = 'block';
-                document.getElementById('barcodeInput').focus();
-                document.getElementById('lookupBarcodeBtn').disabled = true;
-            }
-    function hideManualInput() {
-            document.getElementById('manualBarcodeInput').style.display = 'none';
-            document.getElementById('barcodeInput').value = '';
-        }
-async function startScanner() {
-        if (!codeReader || videoInputDevices.length === 0) {
-            showStatusMessage('Camera not available', 'error');
-            return;
-        }
-
-        const modal = document.getElementById('scannerContainer');
-        const video = document.getElementById('video');
-
-        modal.classList.add('active');
-
-        // Mobile-specific scanner message
-        const isMobile = window.innerWidth <= 768;
-        showStatusMessage(
-            isMobile ? 'Starting camera... Hold phone steady and position barcode in center of screen.' : 'Starting camera...', 
-            'info'
-        );
-
-        try {
-            await codeReader.decodeFromVideoDevice(
-                videoInputDevices[0].deviceId, 
-                video,
-                (result, err) => {
-                    if (result) {
-                        console.log('Barcode detected:', result.text);
-                        
-                        // Provide haptic feedback on mobile if available
-                        if (navigator.vibrate) {
-                            navigator.vibrate(200);
-                        }
-                        
-                        stopScanner();
-                        lookupMovieByBarcode(result.text);
-                    }
-                    if (err && !(err instanceof ZXing.NotFoundException)) {
-                        console.warn('Scanner error:', err);
-                    }
-                }
-            );
-            
-            showStatusMessage(
-                isMobile ? 'Camera ready. Center barcode in view and hold steady.' : 'Camera ready. Position barcode in view.',
-                'info'
-            );
-        } catch (error) {
-            console.error('Failed to start camera:', error);
-            showStatusMessage(`Camera error: ${error.message}. Please ensure camera permissions are granted.`, 'error');
-            stopScanner();
-        }
-    }
     function validateFormOnMobile() {
         const titleValue = document.getElementById('title').value.trim();
         if (!titleValue) {
