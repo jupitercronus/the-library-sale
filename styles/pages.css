@@ -1943,6 +1943,47 @@ input.error {
   margin: var(--space-lg) 0;
 }
 
+ .scan-result-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none; /* Hidden by default */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  text-align: center;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.scan-result-indicator.show {
+  display: flex;
+}
+
+.scan-result-indicator.success {
+  background-color: rgba(40, 167, 69, 0.8); /* Green overlay */
+}
+
+.scan-result-indicator.error {
+  background-color: rgba(220, 53, 69, 0.8); /* Red overlay */
+}
+
+#scanResultIcon {
+  font-size: 6rem; /* Large icon */
+  margin-bottom: 1rem;
+  text-shadow: 0 0 15px rgba(0,0,0,0.5);
+}
+
+#scanResultText {
+  font-size: 1.5rem;
+  font-weight: bold;
+  max-width: 90%;
+  text-shadow: 0 0 10px rgba(0,0,0,0.7);
+}
+
 /* Update the stop button to match your actual HTML ID */
 #stop-scanner-btn {
   margin-top: 1rem;

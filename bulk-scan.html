@@ -67,11 +67,8 @@
                 <button id="startScanBtn" class="btn-rectangular btn-success" title="Start Bulk Scanning">
                     <span class="icon icon-bulk icon-xl"></span>
                 </button>
-                <button id="pauseScanBtn" class="btn btn-xl btn-secondary" style="display: none;" title="Pause Scanning">
+                <button id="finishScanBtn" class="btn btn-xl btn-danger" style="display: none;" title="Finish and Review">
                     <span class="icon icon-close icon-xl"></span>
-                </button>
-                <button id="finishScanBtn" class="btn btn-xl btn-primary" style="display: none;" title="Finish & Review">
-                    <span class="icon icon-confirm icon-xl"></span>
                 </button>
             </div>
         </section>
@@ -81,6 +78,10 @@
             <div class="scanner-viewport-bulk">
                 <video id="scanner-video" autoplay muted playsinline></video>
                 <div class="scanner-guideline"></div>
+                <div id="scanResultIndicator" class="scan-result-indicator">
+                    <span id="scanResultIcon" class="icon"></span>
+                    <p id="scanResultText"></p>
+                </div>
                 <div class="scanner-status" id="scannerStatus">Position barcode in center</div>
             </div>
             
@@ -122,10 +123,9 @@
                 <p><strong id="finalFoundCount">0</strong> items found and ready to add</p>
                 <p><strong id="finalFailedCount">0</strong> items failed (you can add these manually later)</p>
             </div>
-            
             <div class="final-buttons">
                 <button id="addAllBtn" class="btn btn-xl btn-success" title="Add All Found Items">
-                    <span class="icon icon-add icon-xl"></span>
+                    <span class="icon icon-confirm icon-xl"></span>
                 </button>
                 <button id="reviewFailedBtn" class="btn btn-xl btn-secondary" title="Review Failed Items">
                     <span class="icon icon-details icon-xl"></span>
@@ -138,7 +138,6 @@
             <!-- Keyboard Shortcuts Hint -->
             <div id="keyboardHints" class="keyboard-hints hidden">
                 <div><strong>Shortcuts:</strong></div>
-                <div>Space: Pause/Resume</div>
                 <div>Esc: Finish Scanning</div>
                 <div>M: Manual Entry</div>
             </div>
@@ -184,6 +183,7 @@ async function initializeBulkScanner() {
     bulkScanner = new ScannerManager({
         continuous: true,
         allowDuplicates: false, // Manager will prevent re-processing the same barcode
+        pauseBetweenScans: 3000, 
         onBarcodeScanned: processBarcodeResult, // Use our function as the callback
         onStatusUpdate: updateScannerStatus,
         onError: (message) => LibraryUtils.ui.showStatusMessage(message, 'error'),
@@ -217,7 +217,6 @@ async function initializeBulkScanner() {
 }
     function setupEventListeners() {
         document.getElementById('startScanBtn').addEventListener('click', startBulkScanning);
-        document.getElementById('pauseScanBtn').addEventListener('click', pauseScanning);
         document.getElementById('finishScanBtn').addEventListener('click', finishScanning);
         document.getElementById('addAllBtn').addEventListener('click', addAllToLibrary);
         document.getElementById('startOverBtn').addEventListener('click', startOver);
@@ -238,6 +237,26 @@ async function initializeBulkScanner() {
             ScannerUI.showManualEntryModal();
         });
     }
+    function showScanIndicator(status, message) {
+            const indicator = document.getElementById('scanResultIndicator');
+            const icon = document.getElementById('scanResultIcon');
+            const text = document.getElementById('scanResultText');
+
+            if (status === 'success') {
+                indicator.className = 'scan-result-indicator show success';
+                icon.className = 'icon icon-confirm';
+            } else {
+                indicator.className = 'scan-result-indicator show error';
+                icon.className = 'icon icon-close';
+            }
+            text.textContent = message;
+
+            // Hide the indicator just before the scanner becomes active again
+            setTimeout(() => {
+                indicator.className = 'scan-result-indicator';
+            }, 2800); // Slightly less than the 3000ms pause
+    }
+
 
 async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
@@ -309,7 +328,7 @@ async function addMovieToDatabase(result) {
                 setResultFilter('all');
                 
                 document.getElementById('finalActions').style.display = 'none';
-                stopScanning();
+                finishScanning();
                 
                 LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
             }
@@ -319,10 +338,7 @@ async function addMovieToDatabase(result) {
         document.addEventListener('keydown', (e) => {
             // Check the scanner's state directly from the manager object
             if (bulkScanner && bulkScanner.getStats().isScanning) {
-                if (e.code === 'Space') {
-                    e.preventDefault();
-                    pauseScanning();
-                } else if (e.code === 'Escape') {
+                if (e.code === 'Escape') {
                     e.preventDefault();
                     finishScanning();
                 }
@@ -416,7 +432,6 @@ async function addMovieToDatabase(result) {
         // Update UI
         document.getElementById('scannerSection').style.display = 'block';
         document.getElementById('startScanBtn').style.display = 'none';
-        document.getElementById('pauseScanBtn').style.display = 'inline-flex';
         document.getElementById('finishScanBtn').style.display = 'inline-flex';
         updateKeyboardHints();
 
@@ -446,7 +461,7 @@ async function addMovieToDatabase(result) {
             };
 
             scanResults.push(scanResult);
-            updateScannerStatus(`Found: ${scanResult.title}`, 'success');
+                showScanIndicator('success', scanResult.title);
 
         } catch (error) {
             console.error('Failed to process barcode:', barcode, error);
@@ -461,8 +476,8 @@ async function addMovieToDatabase(result) {
                 poster: null
             };
             scanResults.push(failedResult);
-            updateScannerStatus(`Failed: ${barcode}`, 'error');
-        }
+                showScanIndicator('error', `Failed: ${barcode}`);
+            }
 
         updateStats();
         renderResults();
@@ -508,16 +523,19 @@ async function addMovieToDatabase(result) {
         function renderResults() {
             const grid = document.getElementById('resultsGrid');
             
+            // ▼▼▼ THIS IS THE ONLY PART THAT CHANGED ▼▼▼
             if (scanResults.length === 0) {
+                // We replaced the incorrect button code with this simple "empty state" message.
                 grid.innerHTML = `
-                <div class="bulk-result-actions">
-                    <button class="btn btn-sm btn-danger btn-remove-item" data-result-id="${result.id}" title="Remove">
-                        <span class="icon icon-delete icon-sm"></span>
-                    </button>
+                <div class="empty-state">
+                    <span class="icon icon-add icon-4xl"></span>
+                    <h3>Ready to scan</h3>
+                    <p>Start scanning barcodes to see them here</p>
                 </div>
                 `;
                 return;
             }
+            // ▲▲▲ THE REST OF THE FUNCTION IS THE SAME ▲▲▲
             
             // Filter results
             let filteredResults = scanResults;
@@ -529,8 +547,8 @@ async function addMovieToDatabase(result) {
                 grid.innerHTML = `
                     <div class="empty-state">
                         <span class="icon icon-details icon-3xl"></span>
-                        <h3>No ${currentFilter} results</h3>
-                        <p>Try scanning more items or switch to another tab</p>
+                        <h3>No results for "${currentFilter}"</h3>
+                        <p>Try scanning more items or switch to another tab.</p>
                     </div>
                 `;
                 return;
@@ -540,7 +558,6 @@ async function addMovieToDatabase(result) {
             filteredResults.sort((a, b) => b.timestamp - a.timestamp);
             
             grid.innerHTML = filteredResults.map(result => {
-                const statusClass = result.status === 'found' ? 'success' : 'error';
                 const posterSrc = result.poster || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
                 
                 return `
@@ -573,40 +590,7 @@ async function addMovieToDatabase(result) {
             renderResults();
         }
 
-        function pauseScanning() {
-            if (!bulkScanner) return;
-            const isNowPaused = bulkScanner.togglePause();
-
-            const pauseBtn = document.getElementById('pauseScanBtn');
-            if (isNowPaused) {
-                pauseBtn.innerHTML = '<span class="icon icon-search icon-xl"></span>';
-                pauseBtn.title = 'Resume Scanning';
-            } else {
-                pauseBtn.innerHTML = '<span class="icon icon-close icon-xl"></span>';
-                pauseBtn.title = 'Pause Scanning';
-            }
-        }
-
-        function finishScanning() {
-            if (bulkScanner) {
-                bulkScanner.stopCamera();
-            }
-
-            // Update UI
-            document.getElementById('scannerSection').style.display = 'none';
-            document.getElementById('startScanBtn').style.display = 'inline-flex';
-            document.getElementById('pauseScanBtn').style.display = 'none';
-            document.getElementById('finishScanBtn').style.display = 'none';
-            updateKeyboardHints();
-
-            document.getElementById('finalActions').style.display = 'block';
-            document.getElementById('finalActions').scrollIntoView({ behavior: 'smooth' });
-        }
-
         function skipCurrent() {
-            if (isPaused) {
-                pauseScanning(); // Resume if paused
-            }
             updateScannerStatus('Skipped. Ready for next barcode...', 'info');
         }
 
@@ -660,6 +644,27 @@ async function addAllToLibrary() {
             setTimeout(() => {
                 window.location.href = `index.html?bulk_imported=${successCount}`;
             }, 2000);
+        }
+
+        function finishScanning() {
+            if (bulkScanner) {
+                bulkScanner.stopCamera();
+            }
+        
+            // Update UI
+            document.getElementById('scannerSection').style.display = 'none';
+            document.getElementById('startScanBtn').style.display = 'inline-flex';
+            document.getElementById('finishScanBtn').style.display = 'none';
+            updateKeyboardHints();
+        
+            const finalActions = document.getElementById('finalActions');
+            const foundCount = scanResults.filter(r => r.status === 'found').length;
+        
+            // Only show final actions if there are items to add
+            if (foundCount > 0) {
+                finalActions.style.display = 'block';
+                finalActions.scrollIntoView({ behavior: 'smooth' });
+            }
         }
 
         // Update progress bar during bulk operations
