@@ -697,7 +697,7 @@ const MediaLookupUtils = {
         
         return false;
     },
-    
+
     /**
      * Calculate title similarity using multiple methods
      */
@@ -809,7 +809,7 @@ const MediaLookupUtils = {
             const physicalEdition = this.createPhysicalEditionData(upcData);
 
             // Step 5: Determine confidence and review status
-            const confidence = tmdbData.matchScore || 0; 
+            let confidence = tmdbData.matchScore || 0; 
                 // If no matchScore (likely from cache), calculate a basic confidence
                 if (confidence === 0 && tmdbData && upcData) {
                     // Calculate a basic confidence based on title similarity
