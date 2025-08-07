@@ -454,6 +454,8 @@ const MediaLookupUtils = {
             
             // Cache successful results
             if (result) {
+                // NEW: Make sure we cache the result WITH the matchScore preserved
+                // The matchScore should already be on the result from _searchTMDB()
                 this.sessionCache.set(cacheKey, result);
                 if (this.persistentCache) {
                     this.persistentCache.set('tmdb', cacheKey, result);
@@ -552,6 +554,8 @@ const MediaLookupUtils = {
             // IMPORTANT: Preserve the match score from our analysis
             fullDetails.matchScore = bestResult.matchScore;
             fullDetails.media_type = bestResult.media_type; // Also preserve media type
+
+            console.log(`🔍 Preserved matchScore: ${fullDetails.matchScore} for "${fullDetails.title || fullDetails.name}"`);
 
             return fullDetails;
             
@@ -677,7 +681,7 @@ const MediaLookupUtils = {
         if (!bestMatch) return true;
         
         const score = bestMatch.matchScore || 0;
-        const CONFIDENCE_THRESHOLD = 70; // Adjust this based on testing
+        const CONFIDENCE_THRESHOLD = 55; // Adjust this based on testing
         
         // Always review if score is below threshold
         if (score < CONFIDENCE_THRESHOLD) return true;
@@ -693,6 +697,7 @@ const MediaLookupUtils = {
         
         return false;
     },
+    
     /**
      * Calculate title similarity using multiple methods
      */
@@ -804,11 +809,20 @@ const MediaLookupUtils = {
             const physicalEdition = this.createPhysicalEditionData(upcData);
 
             // Step 5: Determine confidence and review status
-            const confidence = tmdbData.matchScore || 0;  // This should now work
+            const confidence = tmdbData.matchScore || 0; 
+                // If no matchScore (likely from cache), calculate a basic confidence
+                if (confidence === 0 && tmdbData && upcData) {
+                    // Calculate a basic confidence based on title similarity
+                    const titleSimilarity = this.calculateTitleSimilarity(cleanTitle, tmdbData.title || tmdbData.name);
+                    const hasYear = extractedYear && (tmdbData.release_date || tmdbData.first_air_date);
+                    const yearMatch = hasYear ? Math.abs(extractedYear - this.extractYearFromDate(tmdbData.release_date || tmdbData.first_air_date)) <= 1 : false;
+                    
+                    confidence = titleSimilarity + (yearMatch ? 20 : 0) + (tmdbData.popularity ? Math.min(tmdbData.popularity / 10, 15) : 0);
+                    console.log(`📊 Calculated fallback confidence: ${confidence} (title: ${titleSimilarity}, year: ${yearMatch}, pop: ${tmdbData.popularity || 0})`);
+                }
+
             const needsReview = this.needsManualReview(tmdbData, cleanTitle, extractedYear);
-
-            console.log(`📊 Match confidence: ${confidence}, Needs review: ${needsReview}`);
-
+            console.log(`📊 Match confidence: ${confidence}, Needs review: ${needsReview}`);    
 
             return {
                 upcData,
