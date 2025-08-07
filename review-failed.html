@@ -83,7 +83,7 @@
                         <label for="searchTitle" class="section-label">Search Title:</label>
                         <div class="title-input-group">
                             <input type="text" id="searchTitle" class="title-input" placeholder="Edit title for better search results">
-                            <button id="searchBtn" class="btn btn-primary" title="Search TMDB">
+                            <button id="searchBtn" class="btn btn-rectangular" title="Search TMDB">
                                 <span class="icon icon-search"></span>
                             </button>
                         </div>
@@ -104,24 +104,21 @@
             <div class="review-actions">
                 <button id="addSelectedBtn" class="btn btn-xl btn-success" disabled title="Add Selected Movie">
                     <span class="icon icon-confirm icon-xl"></span>
-                    Add Selected
                 </button>
                 <button id="deleteItemBtn" class="btn btn-xl btn-danger" title="Delete This Item">
                     <span class="icon icon-delete icon-xl"></span>
-                    Delete Item
                 </button>
             </div>
 
             <!-- Help Text -->
             <div class="review-help">
-                <p><strong>Instructions:</strong> Edit the search title if needed, then click search. Select a movie from the results and click "Add Selected", or click "Delete Item" if no good match exists.</p>
+                <p><strong>Instructions:</strong> Edit the search title if needed, then click search. Select a movie from the results and click "Add", or click "Delete" if no good match exists.</p>
             </div>
         </section>
 
         <!-- Completion State -->
         <section id="completionState" class="completion-section" style="display: none;">
             <div class="completion-card">
-                <span class="icon icon-confirm icon-4xl completion-icon"></span>
                 <h2>Review Complete!</h2>
                 <div class="completion-stats">
                     <p><strong id="completionAdded">0</strong> items added to your library</p>
@@ -131,11 +128,9 @@
                 <div class="completion-actions">
                     <button id="viewLibraryBtn" class="btn btn-xl btn-success">
                         <span class="icon icon-library icon-xl"></span>
-                        View Library
                     </button>
                     <button id="newBulkScanBtn" class="btn btn-xl btn-primary">
                         <span class="icon icon-bulk icon-xl"></span>
-                        New Bulk Scan
                     </button>
                 </div>
             </div>
