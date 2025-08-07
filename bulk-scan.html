@@ -122,12 +122,10 @@
             <h2>Review and Add to Library</h2>
             <div class="final-stats">
                 <p><strong id="finalFoundCount">0</strong> items found and ready to add</p>
+                <p><strong id="finalNeedsReviewCount">0</strong> items need manual review</p>
                 <p><strong id="finalFailedCount">0</strong> items failed (you can add these manually later)</p>
             </div>
             <div class="final-buttons">
-                <button id="reviewItemsBtn" class="btn btn-xl btn-warning" title="Review Uncertain Items" style="display: none;">
-                    <span class="icon icon-details icon-xl"></span>
-                </button>
                 <button id="addAllBtn" class="btn btn-xl btn-success" title="Add All Found Items">
                     <span class="icon icon-confirm icon-xl"></span>
                 </button>
@@ -193,7 +191,6 @@ async function initializeBulkScanner() {
         onError: (message) => LibraryUtils.ui.showStatusMessage(message, 'error'),
     });
 
-    // NEW: Set up periodic cleanup of stale processing
     setInterval(() => {
         if (bulkScanner) {
             bulkScanner.cleanupStaleProcessing();
@@ -212,8 +209,6 @@ async function initializeBulkScanner() {
             removeResult(resultId);
         }
     });
-
-    document.getElementById('reviewItemsBtn').addEventListener('click', initiateReview);
 
     // Find your event listener for 'manualEntryBtn' and simplify it
     document.getElementById('manualEntryBtn').addEventListener('click', () => {
@@ -234,6 +229,12 @@ async function initializeBulkScanner() {
         document.getElementById('addAllBtn').addEventListener('click', addAllToLibrary);
         document.getElementById('startOverBtn').addEventListener('click', startOver);
 
+        // NEW: Add review button listener with safety check
+        const reviewItemsBtn = document.getElementById('reviewItemsBtn');
+        if (reviewItemsBtn) {
+            reviewItemsBtn.addEventListener('click', initiateReview);
+        }
+
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => setResultFilter(btn.dataset.filter));
         });
@@ -250,6 +251,7 @@ async function initializeBulkScanner() {
             ScannerUI.showManualEntryModal();
         });
     }
+
     function showScanIndicator(status, message) {
             const indicator = document.getElementById('scanResultIndicator');
             const icon = document.getElementById('scanResultIcon');
@@ -540,17 +542,26 @@ async function addMovieToDatabase(result) {
             document.getElementById('foundTabCount').textContent = foundCount;
             document.getElementById('needsReviewTabCount').textContent = needsReviewCount;
             document.getElementById('failedTabCount').textContent = failedCount;
-            
+
+            const needsReviewTabElement = document.getElementById('needsReviewTabCount');
+            if (needsReviewTabElement) {
+                needsReviewTabElement.textContent = needsReviewCount;
+            }
+    
             // Update final stats
             document.getElementById('finalFoundCount').textContent = foundCount;
-            document.getElementById('finalNeedsReviewCount').textContent = needsReviewCount;
             document.getElementById('finalFailedCount').textContent = failedCount;
 
-            // NEW: Show/hide review button
-            const reviewBtn = document.getElementById('reviewItemsBtn');
-                if (reviewBtn) {
-                    reviewBtn.style.display = needsReviewCount > 0 ? 'inline-flex' : 'none';
+            const finalNeedsReviewElement = document.getElementById('finalNeedsReviewCount');
+                if (finalNeedsReviewElement) {
+                    finalNeedsReviewElement.textContent = needsReviewCount;
                 }
+
+            // NEW: Show/hide review button only if it exists
+            const reviewBtn = document.getElementById('reviewItemsBtn');
+            if (reviewBtn) {
+                reviewBtn.style.display = needsReviewCount > 0 ? 'inline-flex' : 'none';
+            }   
         }
 
         function setResultFilter(filter) {

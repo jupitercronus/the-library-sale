@@ -2176,24 +2176,24 @@ input.error {
 
 /* Needs Review highlighting */
 .bulk-result-item.status-needs_review {
-    border-left: 4px solid var(--color-brand-yellow);
-    background-color: rgba(255, 235, 59, 0.1);
+  border-left: 4px solid var(--color-brand-yellow);
+  background-color: rgba(255, 235, 59, 0.1);
 }
 
 .filter-needs-review.active {
-    background-color: var(--color-brand-yellow);
-    color: var(--color-text-primary);
+  background-color: var(--color-brand-yellow);
+  color: var(--color-text-primary);
 }
 
 .bulk-result-warning {
-    color: var(--color-brand-yellow);
-    font-weight: 500;
-    font-size: 0.9em;
+  color: var(--color-brand-yellow);
+  font-weight: 500;
+  font-size: 0.9em;
 }
 
 .bulk-result-confidence {
-    color: var(--color-text-secondary);
-    font-size: 0.85em;
+  color: var(--color-text-secondary);
+  font-size: 0.85em;
 }
 
 .quick-actions {
