@@ -852,6 +852,9 @@ const MediaLookupUtils = {
                     
                     confidence = titleSimilarity + (yearMatch ? 20 : 0) + (tmdbData.popularity ? Math.min(tmdbData.popularity / 10, 15) : 0);
                     console.log(`📊 Calculated fallback confidence: ${confidence} (title: ${titleSimilarity}, year: ${yearMatch}, pop: ${tmdbData.popularity || 0})`);
+
+                    // Update the tmdbData object so needsManualReview can see the calculated score
+                    tmdbData.matchScore = confidence;
                 }
 
             const needsReview = this.needsManualReview(tmdbData, cleanTitle, extractedYear);
