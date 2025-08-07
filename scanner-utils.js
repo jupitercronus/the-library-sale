@@ -539,15 +539,21 @@ const MediaLookupUtils = {
             
             // Get full details for the best match
             console.log(`🏆 Best match selected: "${bestResult.title || bestResult.name}" (score: ${bestScore})`);
-            
+
             const detailsUrl = `${this.TMDB_BASE_URL}/${bestResult.media_type}/${bestResult.id}?append_to_response=credits`;
             const detailsResponse = await fetch(detailsUrl);
-            
+
             if (!detailsResponse.ok) {
                 throw new Error('Failed to load full movie details from TMDB');
             }
-            
-            return await detailsResponse.json();
+
+            const fullDetails = await detailsResponse.json();
+
+            // IMPORTANT: Preserve the match score from our analysis
+            fullDetails.matchScore = bestResult.matchScore;
+            fullDetails.media_type = bestResult.media_type; // Also preserve media type
+
+            return fullDetails;
             
         } catch (error) {
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -797,10 +803,10 @@ const MediaLookupUtils = {
             // Step 4: Create physical edition data
             const physicalEdition = this.createPhysicalEditionData(upcData);
 
-             // NEW: Step 5: Determine confidence and review status
-            const confidence = tmdbData.matchScore || 0;
+            // Step 5: Determine confidence and review status
+            const confidence = tmdbData.matchScore || 0;  // This should now work
             const needsReview = this.needsManualReview(tmdbData, cleanTitle, extractedYear);
-            
+
             console.log(`📊 Match confidence: ${confidence}, Needs review: ${needsReview}`);
 
 

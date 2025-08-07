@@ -442,7 +442,6 @@ async function addMovieToDatabase(result) {
         await bulkScanner.startCamera(video, 'scannerStatus');
         }
     async function processBarcodeResult(barcode) {
-        // Double-check: prevent processing if already in results
         if (scanResults.some(r => r.barcode === barcode)) {
             console.log(`Barcode ${barcode} already in results, skipping`);
             showScanIndicator('warning', 'Already processed');
@@ -467,9 +466,19 @@ async function addMovieToDatabase(result) {
                 timeoutPromise
             ]);
 
+            if (!lookupResult) {
+                throw new Error('Lookup returned no data');
+            }
+
             const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
 
-             // NEW: Determine status based on confidence
+            if (!upcData) {
+                throw new Error('No UPC data found');
+            }
+            if (!tmdbData) {
+                throw new Error('No TMDB data found');
+            }
+
             let status = 'found';
             if (needsReview) {
                 status = 'needs_review';
@@ -478,7 +487,7 @@ async function addMovieToDatabase(result) {
             const scanResult = {
                 id: Date.now() + Math.random(),
                 barcode: barcode,
-                status: status,  // 'found', 'needs_review', or 'failed'
+                status: status, 
                 timestamp: new Date(),
                 upcData,
                 tmdbData,
@@ -486,18 +495,16 @@ async function addMovieToDatabase(result) {
                 year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
                 poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
                 physicalEdition,
-                confidence: confidence || 0  // NEW
+                confidence: confidence || 0
             };
 
 
             scanResults.push(scanResult);
-                if (status === 'needs_review') {
+            if (status === 'needs_review') {
                 showScanIndicator('warning', `Needs Review: ${scanResult.title}`);
-                } else {
-                    showScanIndicator('success', scanResult.title);
+            } else {
+                showScanIndicator('success', scanResult.title);
             }
-
-
 
         } catch (error) {
             console.error('Failed to process barcode:', barcode, error);
