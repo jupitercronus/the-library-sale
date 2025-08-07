@@ -776,20 +776,22 @@ async function initiateReview() {
     }
         function finishScanning() {
             if (bulkScanner) {
-                bulkScanner.stopCamera();
-            }
-        
+                    bulkScanner.stopCamera();
+                }
+
             // Update UI
             document.getElementById('scannerSection').style.display = 'none';
             document.getElementById('startScanBtn').style.display = 'inline-flex';
             document.getElementById('finishScanBtn').style.display = 'none';
             updateKeyboardHints();
-        
+
             const finalActions = document.getElementById('finalActions');
             const foundCount = scanResults.filter(r => r.status === 'found').length;
-        
-            // Only show final actions if there are items to add
-            if (foundCount > 0) {
+            const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
+            const failedCount = scanResults.filter(r => r.status === 'failed').length;
+
+            // Show final actions if there are ANY items to process
+            if (foundCount > 0 || needsReviewCount > 0 || failedCount > 0) {
                 finalActions.style.display = 'block';
                 finalActions.scrollIntoView({ behavior: 'smooth' });
             }
