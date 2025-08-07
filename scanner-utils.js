@@ -694,24 +694,42 @@ const MediaLookupUtils = {
     },
 
     needsManualReview(bestMatch, originalTitle, targetYear) {
-        if (!bestMatch) return true;
-        
-        if (bestMatch.needsManualReview) return true;
+        if (!bestMatch) {
+            console.log('🔍 needsManualReview: No bestMatch');
+            return true;
+        }   
+    
+        if (bestMatch.needsManualReview) {
+            console.log('🔍 needsManualReview: Explicit flag set');
+            return true;
+        }
 
         const score = bestMatch.matchScore || 0;
-        const CONFIDENCE_THRESHOLD = 39; // Adjust this based on testing
+        const CONFIDENCE_THRESHOLD = 35; // Adjust this based on testing
+
+        console.log(`🔍 needsManualReview: Score ${score} vs threshold ${CONFIDENCE_THRESHOLD}`);
         
-        if (score < CONFIDENCE_THRESHOLD) return true;
-        
-        if (targetYear) {
-            const resultYear = this.extractYearFromDate(bestMatch.release_date || bestMatch.first_air_date);
-            if (!resultYear || Math.abs(resultYear - targetYear) > 2) return true;
+        if (score < CONFIDENCE_THRESHOLD) {
+            console.log('🔍 needsManualReview: Below threshold');
+            return true;
         }
         
-        if (bestMatch.popularity && bestMatch.popularity < 0.5) return true;
+        if (targetYear) {
+                const resultYear = this.extractYearFromDate(bestMatch.release_date || bestMatch.first_air_date);
+                if (!resultYear || Math.abs(resultYear - targetYear) > 2) {
+                    console.log(`🔍 needsManualReview: Year mismatch (target: ${targetYear}, result: ${resultYear})`);
+                    return true;
+                }
+        }
         
-        return false;
-    },
+        if (bestMatch.popularity && bestMatch.popularity < 0.5) {
+                console.log(`🔍 needsManualReview: Low popularity (${bestMatch.popularity})`);
+                return true;
+        }        
+
+        console.log('🔍 needsManualReview: Passed all checks - should NOT need review');
+            return false;
+        },
 
     /**
      * Calculate title similarity using multiple methods
