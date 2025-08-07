@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#24143E">
-    <title>Bulk Scan - the library sale</title>
+    <title>bulk scan - the library sale</title>
     
     <!-- Google Fonts Import -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,8 +42,8 @@
     <main class="bulk-scan-container">
         <!-- Hero Section -->
         <section class="hero-section">
-            <h1 id="bulkScanTitle">Bulk Scan Collection</h1>
-            <p class="hero-subtitle">Scan multiple barcodes</p>
+            <h1 id="bulkScanTitle">scan the stacks</h1>
+            <p class="hero-subtitle">scan multiple barcodes</p>
         </section>
 
         <!-- Scanning Controls -->
@@ -51,23 +51,23 @@
             <div class="scan-stats">
                 <div class="stat-card">
                     <span class="stat-number" id="scannedCount">0</span>
-                    <span class="stat-label">Scanned</span>
+                    <span class="stat-label">scanned</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-number" id="foundCount">0</span>
-                    <span class="stat-label">Found</span>
+                    <span class="stat-label">found</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-number" id="failedCount">0</span>
-                    <span class="stat-label">Failed</span>
+                    <span class="stat-label">failed</span>
                 </div>
             </div>
             
             <div class="scan-actions">
-                <button id="startScanBtn" class="btn-rectangular btn-success" title="Start Bulk Scanning">
+                <button id="startScanBtn" class="btn-rectangular btn-success" title="start scanning">
                     <span class="icon icon-bulk icon-xl"></span>
                 </button>
-                <button id="finishScanBtn" class="btn btn-xl btn-success" style="display: none;" title="Finish and Review">
+                <button id="finishScanBtn" class="btn btn-xl btn-success" style="display: none;" title="finish and review">
                     <span class="icon icon-confirm icon-xl"></span>
                 </button>
             </div>
@@ -82,66 +82,66 @@
                     <span id="scanResultIcon" class="icon"></span>
                     <p id="scanResultText"></p>
                 </div>
-                <div class="scanner-status" id="scannerStatus">Position barcode in center</div>
+                <div class="scanner-status" id="scannerStatus">position barcode in center</div>
             </div>
             
             <!-- Quick Action Buttons -->
             <div class="quick-actions">
-                <button id="skipBtn" class="btn btn-rectangular btn-secondary">Skip Current</button>
-                <button id="manualEntryBtn" class="btn btn-rectangular btn-primary">Manual Entry</button>
+                <button id="skipBtn" class="btn btn-rectangular btn-secondary">skip current</button>
+                <button id="manualEntryBtn" class="btn btn-rectangular btn-primary">manual entry</button>
             </div>
         </section>
 
         <!-- Results Section -->
         <section class="results-section">
             <h3 class="section-title">
-                Scan Results
+                scan results
             </h3>
-            <p class="section-subtitle" id="resultsSubtitle">Items will appear here as you scan </p> 
+            <p class="section-subtitle" id="resultsSubtitle">items will appear here as you scan </p> 
             
             <!-- Filter Tabs -->
             <div class="result-filters">
-                <button class="filter-btn active" data-filter="all">All (<span id="allCount">0</span>)</button>
-                <button class="filter-btn" data-filter="found">Found (<span id="foundTabCount">0</span>)</button>
-                <button class="filter-btn filter-needs-review" data-filter="needs_review">Needs Review (<span id="needsReviewTabCount">0</span>)</button>
-                <button class="filter-btn" data-filter="failed">Failed (<span id="failedTabCount">0</span>)</button>
+                <button class="filter-btn active" data-filter="all">all (<span id="allCount">0</span>)</button>
+                <button class="filter-btn" data-filter="found">found (<span id="foundTabCount">0</span>)</button>
+                <button class="filter-btn filter-needs-review" data-filter="needs_review">needs review (<span id="needsReviewTabCount">0</span>)</button>
+                <button class="filter-btn" data-filter="failed">failed (<span id="failedTabCount">0</span>)</button>
             </div>
             
             <!-- Results Grid -->
             <div id="resultsGrid" class="bulk-results-grid">
                 <div class="empty-state">
                     <span class="icon icon-add icon-4xl"></span>
-                    <h3>Ready to scan</h3>
-                    <p>Start scanning barcodes to see here</p>
+                    <h3>ready to scan</h3>
+                    <p>start scanning barcodes to see here</p>
                 </div>
             </div>
         </section>
 
         <!-- Final Actions -->
         <section id="finalActions" class="final-actions" style="display: none;">
-            <h2>Review and Add to Library</h2>
+            <h2>review and save</h2>
             <div class="final-stats">
                 <p><strong id="finalFoundCount">0</strong> items found and ready to add</p>
                 <p><strong id="finalNeedsReviewCount">0</strong> items need manual review</p>
                 <p><strong id="finalFailedCount">0</strong> items failed (you can add these manually later)</p>
             </div>
             <div class="final-buttons">
-                <button id="addAllBtn" class="btn btn-xl btn-success" title="Add All Found">
+                <button id="addAllBtn" class="btn btn-xl btn-success" title="add all found">
                     <span class="icon icon-confirm icon-xl"></span>
                 </button>
-                <button id="reviewItemsBtn" class="btn btn-xl btn-warning" title="Review  Items">
+                <button id="reviewItemsBtn" class="btn btn-xl btn-warning" title="review items">
                      <span class="icon icon-details icon-xl"></span>
                 </button>
-                <button id="startOverBtn" class="btn btn-xl btn-danger" title="Start Over">
+                <button id="startOverBtn" class="btn btn-xl btn-danger" title="start over :&#40">
                     <span class="icon icon-delete icon-xl"></span>
                 </button>
             </div>
 
             <!-- Keyboard Shortcuts Hint -->
             <div id="keyboardHints" class="keyboard-hints hidden">
-                <div><strong>Shortcuts:</strong></div>
-                <div>Esc: Finish Scanning</div>
-                <div>M: Manual Entry</div>
+                <div><strong>shortcuts:</strong></div>
+                <div>esc: finish scanning</div>
+                <div>M: manual entry</div>
             </div>
 
             <!-- Progress Bar -->

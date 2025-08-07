@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#24143E">
-    <meta name="format-detection" content="telephone=no">    <title>Add Media - the library sale</title>
+    <meta name="format-detection" content="telephone=no">    <title>add media - the library sale</title>
     <!-- Google Fonts Import -->
      <link rel="preconnect" href="https://fonts.googleapis.com">
      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,7 +35,7 @@
 
     <main class="add-movie-container">
         <section class="hero-section">
-            <h1 id="formTitle">Add New Media</h1>
+            <h1 id="formTitle">add new media</h1>
         </section>
         <br>
         <!-- Search Section -->
@@ -45,7 +45,7 @@
                 <div class="search-bar">
                     <input type="text" id="movieSearch" placeholder="Type title, actor, director..."> 
                 </div>              
-                <button type="button" id="searchBtn" class="btn btn-rectangular btn-primary" title="Search">
+                <button type="button" id="searchBtn" class="btn btn-rectangular btn-primary" title="search">
                     <span class="icon icon-search icon-lg"></span>
                 </button>
                 </div>
@@ -56,15 +56,18 @@
         <section class="button-section">
             <div>
                 <button type="button" id="cameraBtn" class="btn btn-rectangular btn-primary">
-                    Scan Barcode
+                    scan barcode
                 </button>
                 <button type="button" id="manualBarcodeBtn" class="btn btn-rectangular btn-primary">
-                    Enter Barcode
+                    enter barcode
                 </button>
-                <p class="text-muted">Need to scan many items?</p>
+            </div>
+            <br>
+            <div>
+                <p class="text-muted">do u have too many?</p>
                 <a href="bulk-scan.html" class="btn btn-rectangular btn-primary">
                     <span class="icon icon-bulk icon-md"></span>
-                    Go to Bulk Scanning
+                    take me to bulk scan
                 </a>
             </div>
         </section>
@@ -74,11 +77,11 @@
                 <div class="scanner-viewport">
                     <video id="video" autoplay muted playsinline></video>
                     <div class="scanner-guideline"></div> 
-                    <div class="scanner-status" id="scannerStatus">Position barcode in camera view</div>
+                    <div class="scanner-status" id="scannerStatus">position barcode in camera view</div>
                 </div>
                 <div class="quick-actions">
-                    <p>Position the barcode in the camera view.</p>
-                    <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger" title="Stop Scanner">
+                    <p>position the barcode in the camera view girl cmon</p>
+                    <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger" title="stop scanner">
                         <i class="icon icon-close"></i>
                     </button>
                 </div>
@@ -89,7 +92,7 @@
             
             <div id="searchFooter" class="search-footer" style="display: none;">
                 <span id="resultCount"></span>
-                <button id="loadMoreBtn" class="btn btn-rectangular btn-primary">Load More</button>
+                <button id="loadMoreBtn" class="btn btn-rectangular btn-primary">load more</button>
             </div>
         </section>
         
@@ -99,7 +102,7 @@
         <section>
             <h2 class="heading-with-icon">
                 <span class="icon icon-movie icon-sm"></span> <span class="icon icon-tv icon-sm"></span>
-                Media Details
+                media details
             </h2>
             <div id="form-skeleton" style="display: none;">
                 <div class="details-main-content">
@@ -135,69 +138,69 @@
             <form id="movieForm">
                 <div class="details-main-content">
                     <div class="details-poster">
-                        <img id="movie-poster-img" src="https://placehold.co/300x450/2D194D/DEF0F7?text=Poster" alt="Movie Poster">
+                        <img id="movie-poster-img" src="https://placehold.co/300x450/2D194D/DEF0F7?text=poster.jpeg" alt="Movie Poster">
                     </div>
                     <div class="details-info">
                         <input type="hidden" id="editionDetailsInput">
                             <div class="form-group">
-                                <label for="title">Title *</label>
+                                <label for="title">title *</label>
                                 <input type="text" id="title" required readonly>
                             </div>
                             <div class="form-group">
-                                <label for="year">Year</label>
+                                <label for="year">year</label>
                                 <input type="number" id="year" min="1900" max="2030" readonly>
                             </div>
                             <div class="form-group">
-                                <label for="director">Director</label>
+                                <label for="director">director</label>
                                 <input type="text" id="director" readonly>
                             </div>
                             <div class="form-group">
-                                <label for="genre">Genre</label>
+                                <label for="genre">genre</label>
                                 <input type="text" id="genre" readonly>
                             </div>
                             <div class="form-group">
-                                <label for="cast">Cast</label>
+                                <label for="cast">cast</label>
                                 <input type="text" id="cast" placeholder="e.g., Leonardo DiCaprio, Joseph Gordon-Levitt" readonly>
                             </div>
                             <div class="form-group">
-                                <label for="contentType">Content Type *</label>
+                                <label for="contentType">content type *</label>
                                 <select id="contentType" required>
-                                    <option value="movie">Movie</option>
-                                    <option value="tv">TV Show</option>
+                                    <option value="movie">movie</option>
+                                    <option value="tv">tv show</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="summary">Summary</label>
-                        <textarea id="summary" rows="6" placeholder="Media summary from TMDb" readonly></textarea>
+                        <label for="summary">summary</label>
+                        <textarea id="summary" rows="6" placeholder="media summary from TMDd" readonly></textarea>
                     </div>
                     <!-- Physical Edition Details (shows when barcode data exists) -->
                     <div id="physicalEditionSection" class="form-group" style="display: none;">
-                        <label>Physical Edition Details</label>
+                        <label>physical edition details</label>
                         <div class="physical-edition-info">
                             <div class="edition-row">
-                                <span class="edition-label">Format:</span>
+                                <span class="edition-label">format:</span>
                                 <span id="editionFormat">-</span>
                             </div>
                             <div class="edition-row">
-                                <span class="edition-label">Edition:</span>
+                                <span class="edition-label">edition:</span>
                                 <span id="editionType">-</span>
                             </div>
                             <div class="edition-row">
-                                <span class="edition-label">Region:</span>
+                                <span class="edition-label">region:</span>
                                 <span id="editionRegion">-</span>
                             </div>
                             <div class="edition-row">
-                                <span class="edition-label">Distributor:</span>
+                                <span class="edition-label">distributor:</span>
                                 <span id="editionDistributor">-</span>
                             </div>
                             <div class="edition-row" id="editionFeaturesRow" style="display: none;">
-                                <span class="edition-label">Features:</span>
+                                <span class="edition-label">features:</span>
                                 <span id="editionFeatures">-</span>
                             </div>
                             <div class="edition-row">
-                                <span class="edition-label">Barcode:</span>
+                                <span class="edition-label">barcode:</span>
                                 <span id="editionBarcode">-</span>
                             </div>
                         </div>
@@ -206,7 +209,7 @@
 
                 <!-- SUBMIT BUTTON -->
                 <div class="flex-center" style="margin-top: var(--space-4xl);">
-                    <button type="submit" id="save-btn" class="btn btn-xl btn-success" title="Add Media">
+                    <button type="submit" id="save-btn" class="btn btn-xl btn-success" title="send it">
                             <i class="icon icon-confirm"></i>
                         </button>
                 </div>
@@ -221,8 +224,8 @@
             <button class="btn btn-sm btn-secondary" id="alertModalClose" title="Close" style="position: absolute; top: var(--space-md); right: var(--space-md);">
                 <span class="icon icon-close icon-sm"></span>
             </button>
-            <h3 id="alertModalTitle">Alert</h3>
-            <p id="alertModalMessage">Something happened.</p>
+            <h3 id="alertModalTitle">whomp whomp</h3>
+            <p id="alertModalMessage">something happened :&#40</p>
             <div class="modal-buttons">
                 <button class="btn btn-lg btn-primary" id="alertModalOk" title="OK">
                     <span class="icon icon-confirm icon-lg"></span>

@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#24143E">
     <meta name="format-detection" content="telephone=no">
-    <title>Edit Media - the library sale</title>
+    <title>edit media - the library sale</title>
     <!-- Google Fonts Import -->
      <link rel="preconnect" href="https://fonts.googleapis.com">
      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,7 +62,7 @@
         <div id="mainContent" style="display: none;">
             <!-- Ticket-style header -->
             <section class="details-ticket">
-                <h1 id="movie-title" class="details-title">Loading...</h1>
+                <h1 id="movie-title" class="details-title">loading...</h1>
                 <p id="movie-year" class="details-year">----</p>
             </section>
 
@@ -73,15 +73,15 @@
                 </div>
                 <div class="details-info">
                     <div class="details-info-group">
-                        <h3>Director</h3>
+                        <h3>director</h3>
                         <p id="movie-director">Loading...</p>
                     </div>
                     <div class="details-info-group">
-                        <h3>Top Cast</h3>
+                        <h3>top Cast</h3>
                         <p id="movie-cast">Loading...</p>
                     </div>
                     <div class="details-info-group">
-                        <h3>Genre</h3>
+                        <h3>genre</h3>
                         <p id="movie-genre">Loading...</p>
                     </div>
                 </div>
@@ -91,12 +91,12 @@
             <section class="details-section">
                 <h2 class="details-section-header">
                     <i class="icon icon-details"></i>
-                    <span>Summary</span>
+                    <span>summary</span>
                 </h2>
                 <div class="details-summary" id="summaryGroup">
-                    <p id="movieOverview" class="summary-text">Loading summary...</p>
+                    <p id="movieOverview" class="summary-text">loading summary...</p>
                     <button id="readMoreBtn" class="read-more-btn" style="display: none;">
-                        Read more
+                        read more
                     </button>
                 </div>
             </section>
@@ -105,7 +105,7 @@
             <form id="edit-movie-form" class="details-section">
                 <h2 class="heading-with-icon">
                     <i class="icon icon-comment"></i>
-                    <span>Comments</span>
+                    <span>comments</span>
                 </h2>
                 <!-- Rating and Status Toggles -->
                 <div class="rating-and-status-container">
@@ -132,21 +132,21 @@
                     </div>
                 </div>
                 <div class="form-group" id="watched-date-group" style="display: none;">
-                    <label for="watched-date">Watched Date</label>
+                    <label for="watched-date">watched Date</label>
                     <input type="date" id="watched-date">
                 </div>
                     <br>
                 <div class="form-group">
-                <textarea id="comments" name="comments" rows="4" placeholder="Your notes, thoughts, or review..."></textarea>
+                <textarea id="comments" name="comments" rows="4" placeholder="your notes, thoughts, or review..."></textarea>
                 </div>
                 <br>
             <!-- Enhanced Physical Edition Details -->
             <div class="form-group" id="physical-edition-details" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
-                    <label>Physical Copy Details</label>
+                    <label>physical edition details</label>
                     <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary">
                         <i class="icon icon-search"></i>
-                        <span>Scan Barcode</span>
+                        <span>scan barcode</span>
                     </button>
                 </div>
                 <!-- SCANNER -->
@@ -154,10 +154,10 @@
                 <div class="scanner-viewport">
                     <video id="scanner-video" autoplay muted playsinline></video>
                     <div class="scanner-guideline"></div>
-                    <div class="scanner-status" id="scannerStatus">Position barcode in view</div>
+                    <div class="scanner-status" id="scannerStatus">position barcode in view</div>
                 </div>
                 <div class="quick-actions">
-                    <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger" title="Stop Scanner">
+                    <button type="button" id="stop-scanner-btn" class="btn btn-lg btn-danger" title="stop scanner">
                         <i class="icon icon-close"></i>
                     </button>
                 </div>
@@ -167,76 +167,177 @@
                 <div id="currentPhysicalEdition" style="display: none;">
                     <div class="physical-edition-info">
                         <div class="edition-row">
-                            <span class="edition-label">Format:</span>
+                            <span class="edition-label">format:</span>
                             <span id="currentEditionFormat">-</span>
                         </div>
                         <div class="edition-row">
-                            <span class="edition-label">Edition:</span>
+                            <span class="edition-label">edition:</span>
                             <span id="currentEditionType">-</span>
                         </div>
                         <div class="edition-row">
-                            <span class="edition-label">Region:</span>
+                            <span class="edition-label">region:</span>
                             <span id="currentEditionRegion">-</span>
                         </div>
                         <div class="edition-row">
-                            <span class="edition-label">Distributor:</span>
+                            <span class="edition-label">distributor:</span>
                             <span id="currentEditionDistributor">-</span>
                         </div>
                         <div class="edition-row" id="currentEditionFeaturesRow" style="display: none;">
-                            <span class="edition-label">Features:</span>
+                            <span class="edition-label">features:</span>
                             <span id="currentEditionFeatures">-</span>
                         </div>
                         <div class="edition-row">
-                            <span class="edition-label">Barcode:</span>
+                            <span class="edition-label">barcode:</span>
                             <span id="currentEditionBarcode">-</span>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Editable Form (hidden by default) -->
+            <!-- Enhanced Editable Form -->
                 <div id="editablePhysicalForm" style="display: none;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edition-format">Format</label>
-                            <input type="text" id="edition-format" name="edition-format" placeholder="e.g., 4K, Blu-ray, DVD">
-                        </div>
-                        <div class="form-group">
-                            <label for="edition-type">Edition</label>
-                            <input type="text" id="edition-type" name="edition-type" placeholder="e.g., Special Edition, Director's Cut">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edition-region">Region</label>
-                            <input type="text" id="edition-region" name="edition-region" placeholder="e.g., Region 1, All Regions">
-                        </div>
-                        <div class="form-group">
-                            <label for="edition-distributor">Distributor</label>
-                            <input type="text" id="edition-distributor" name="edition-distributor" placeholder="e.g., Warner Bros, Sony">
-                        </div>
-                    </div>
+                    <!-- Format - Dropdown -->
                     <div class="form-group">
-                        <label for="edition-features">Special Features</label>
-                        <textarea id="edition-features" name="edition-features" rows="3" placeholder="e.g., Director Commentary, Deleted Scenes, Behind the Scenes"></textarea>
+                        <label for="edition-format">format</label>
+                        <select id="edition-format" name="edition-format" class="form-select">
+                            <option value="">select format...</option>
+                            <option value="4K UHD">4K UHD</option>
+                            <option value="Blu-ray">Blu-ray</option>
+                            <option value="DVD">DVD</option>
+                            <option value="VHS">VHS</option>
+                            <option value="Digital">Digital</option>
+                        </select>
                     </div>
-                    <div class="form-group">
-                        <label for="upc-code">UPC/Barcode</label>
-                        <input type="text" id="upc-code" name="upc-code">
+
+            <!-- Edition - Multiple Choice Checkboxes -->
+            <div class="form-group">
+                <label>edition Types</label>
+                <div class="checkbox-grid">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="edition-standard" class="form-checkbox" value="Standard">
+                        <label for="edition-standard" class="checkbox-label">standard</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="edition-special" class="form-checkbox" value="Special Edition">
+                        <label for="edition-special" class="checkbox-label">special edition</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="edition-directors" class="form-checkbox" value="Director's Cut">
+                        <label for="edition-directors" class="checkbox-label">director's cut</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="edition-collectors" class="form-checkbox" value="Collector's Edition">
+                        <label for="edition-collectors" class="checkbox-label">collector's edition</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="edition-extended" class="form-checkbox" value="Extended Edition">
+                        <label for="edition-extended" class="checkbox-label">extended edition</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="edition-anniversary" class="form-checkbox" value="Anniversary Edition">
+                        <label for="edition-anniversary" class="checkbox-label">anniversary</label>
                     </div>
                 </div>
+            </div>
+
+            <!-- Region - Radio Buttons -->
+            <div class="form-group">
+                <label>region</label>
+                <div class="radio-grid">
+                    <div class="radio-item">
+                        <input type="radio" id="region-free" name="region" class="form-radio" value="Region Free">
+                        <label for="region-free" class="radio-label">region free</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="region-1" name="region" class="form-radio" value="Region 1">
+                        <label for="region-1" class="radio-label">region 1</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="region-2" name="region" class="form-radio" value="Region 2">
+                        <label for="region-2" class="radio-label">region 2</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="region-3" name="region" class="form-radio" value="Region 3">
+                        <label for="region-3" class="radio-label">region 3</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="region-a" name="region" class="form-radio" value="Region A">
+                        <label for="region-a" class="radio-label">region 4</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="region-b" name="region" class="form-radio" value="Region B">
+                        <label for="region-b" class="radio-label">Region 5</label>
+                    </div>
+                    <div class="radio-item">
+                        <input type="radio" id="region-c" name="region" class="form-radio" value="Region C">
+                        <label for="region-c" class="radio-label">Region 6</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distributor - Text Input -->
+            <div class="form-group">
+                <label for="edition-distributor">distributor</label>
+                <input type="text" id="edition-distributor" name="edition-distributor" class="form-input" placeholder="enter distributor name...">
+            </div>
+
+            <!-- Features - Multiple Choice Checkboxes -->
+            <div class="form-group">
+                <label>special features</label>
+                <div class="checkbox-grid">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-commentary" class="form-checkbox" value="cast/crew commentary">
+                        <label for="feature-commentary" class="checkbox-label">commentary</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-interview" class="form-checkbox" value="interviews/features">
+                        <label for="feature-interview" class="checkbox-label">interviews</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-making" class="form-checkbox" value="making of/bts">
+                        <label for="feature-making" class="checkbox-label">bts</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-notes" class="form-checkbox" value="production notes">
+                        <label for="feature-notes" class="checkbox-label">production notes</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-deleted" class="form-checkbox" value="deleted scenes">
+                        <label for="feature-deleted" class="checkbox-label">deleted scenes</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-bloopers" class="form-checkbox" value="Bloopers/Outtakes">
+                        <label for="feature-bloopers" class="checkbox-label">bloopers</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-trailers" class="form-checkbox" value="trailers">
+                        <label for="feature-trailers" class="checkbox-label">trailers</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="feature-gallery" class="form-checkbox" value="photo gallery">
+                        <label for="feature-gallery" class="checkbox-label">photo gallery</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barcode - Number Input -->
+            <div class="form-group">
+                <label for="upc-code">barcode</label>
+                <input type="number" id="upc-code" name="upc-code" class="form-input" placeholder="enter barcode..." inputmode="numeric">
+            </div>
+        </div>
             </div>
                 <!-- Action Buttons -->
                 <div class="form-actions">
                     <div class="form-actions-left">
-                        <button type="submit" id="save-btn" class="btn btn-xl btn-success" title="Save Changes">
+                        <button type="submit" id="save-btn" class="btn btn-xl btn-success" title="save">
                             <i class="icon icon-confirm"></i>
                         </button>
-                        <a id="cancel-btn" class="btn btn-xl btn-danger" title="Go Back">
+                        <a onclick="history.back()" class="btn btn-xl btn-danger" title="take me away">
                             <i class="icon icon-back"></i>
                         </a>
                     </div>
                     <div class="form-actions-right">
-                        <button type="button" id="delete-btn" class="btn btn-xl btn-danger" title="Delete from Collection">
+                        <button type="button" id="delete-btn" class="btn btn-xl btn-danger" title="this is garbage">
                             <i class="icon icon-delete"></i>
                         </button>
                     </div>
@@ -450,15 +551,27 @@
                     };
 
                 if (updatedData.owned) {
-                    // Read directly from the form fields
-                    const featuresText = document.getElementById('edition-features').value.trim();
-                    
+                    // Get selected edition types
+                    const editionTypes = [];
+                    document.querySelectorAll('input[id^="edition-"]:checked').forEach(cb => {
+                        editionTypes.push(cb.value);
+                    });
+
+                    // Get selected region
+                    const region = document.querySelector('input[name="region"]:checked')?.value || 'Region 1';
+
+                    // Get selected features
+                    const features = [];
+                    document.querySelectorAll('input[id^="feature-"]:checked').forEach(cb => {
+                        features.push(cb.value);
+                    });
+
                     updatedData.physicalEdition = {
-                        format: document.getElementById('edition-format').value.trim(),
-                        edition: document.getElementById('edition-type').value.trim(),
-                        region: document.getElementById('edition-region').value.trim(),
+                        format: document.getElementById('edition-format').value,
+                        edition: editionTypes.join(', ') || 'Standard',
+                        region: region,
                         distributor: document.getElementById('edition-distributor').value.trim(),
-                        features: featuresText ? featuresText.split(',').map(f => f.trim()) : [],
+                        features: features,
                         barcode: document.getElementById('upc-code').value.trim()
                     };
                     updatedData.upc = updatedData.physicalEdition.barcode;
@@ -578,17 +691,35 @@ async function initializeEditScanner() {
 
             if (userData.owned) {
                 physicalSection.style.display = 'block';
-                editableForm.style.display = 'block'; // Always show the editable form
+                editableForm.style.display = 'block';
 
                 const edition = userData.physicalEdition || {};
 
-                // Populate the input fields directly
+                // Populate dropdown
                 document.getElementById('edition-format').value = edition.format || userData.editionFormat || '';
-                document.getElementById('edition-type').value = edition.edition || userData.editionTitle || '';
-                document.getElementById('edition-region').value = edition.region || '';
+
+                // Populate edition checkboxes
+                const editionTypes = (edition.edition || userData.editionTitle || '').split(',').map(e => e.trim());
+                document.querySelectorAll('input[id^="edition-"]').forEach(cb => {
+                    cb.checked = editionTypes.includes(cb.value);
+                });
+
+                // Populate region radio button
+                const regionValue = edition.region || 'Region 1';
+                const regionRadio = document.querySelector(`input[name="region"][value="${regionValue}"]`);
+                if (regionRadio) regionRadio.checked = true;
+
+                // Populate distributor
                 document.getElementById('edition-distributor').value = edition.distributor || '';
-                const featuresText = Array.isArray(edition.features) ? edition.features.join(', ') : (edition.features || '');
-                document.getElementById('edition-features').value = featuresText;
+
+                // Populate features checkboxes
+                const features = Array.isArray(edition.features) ? edition.features : 
+                                (edition.features || '').split(',').map(f => f.trim());
+                document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
+                    cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
+                });
+
+                // Populate barcode
                 document.getElementById('upc-code').value = userData.upc || '';
             } else {
                 physicalSection.style.display = 'none';

@@ -1870,6 +1870,66 @@ input.error {
   display: flex;
 }
 
+/* Enhanced form styling */
+.form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  border-color: var(--color-brand-primary);
+  outline: none;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
+.form-input:focus {
+  border-color: var(--color-brand-primary);
+  outline: none;
+}
+
+/* Checkbox and radio grid styling */
+.checkbox-grid, .radio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.checkbox-item, .radio-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-checkbox, .form-radio {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--color-brand-primary);
+  cursor: pointer;
+}
+
+.checkbox-label, .radio-label {
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+
 /* Barcode scanner styling */
 .barcode-loading-container {
   display: flex;

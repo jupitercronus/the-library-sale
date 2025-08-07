@@ -230,5 +230,6 @@ Mobile First Approach:
   --icon-star-full: url(../icons/star-full.svg);
   --icon-star-half: url(../icons/star-half.svg);
   --icon-star-empty: url(../icons/star-empty.svg);
-  --icon-bulk: url(../icons/bulk.svg);  
+  --icon-bulk: url(../icons/bulk.svg);
+  --icon-person: url(../icons/person.svg);
 }

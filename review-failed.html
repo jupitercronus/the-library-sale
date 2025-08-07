@@ -39,7 +39,7 @@
     <main class="review-container">
         <!-- Header Section -->
         <section class="review-header">
-            <h1>Review Uncertain Items</h1>
+            <h1>Review  Items</h1>
             <div class="review-progress">
                 <div class="progress-bar">
                     <div id="progressBarFill" class="progress-fill"></div>
@@ -56,9 +56,9 @@
                 <span class="icon icon-confirm icon-4xl"></span>
                 <h3>No Items to Review</h3>
                 <p>All items have been processed or there was no review queue found.</p>
-                <button id="backToBulkScanBtn" class="btn btn-xl btn-primary">
-                    Back to Bulk Scan
-                </button>
+                <a onclick="history.back()" class="btn btn-xl btn-danger" title="take me away">
+                    <i class="icon icon-back"></i>
+                </a>
             </div>
         </section>
 
@@ -83,7 +83,7 @@
                         <label for="searchTitle" class="section-label">Search Title:</label>
                         <div class="title-input-group">
                             <input type="text" id="searchTitle" class="title-input" placeholder="Edit title for better search results">
-                            <button id="searchBtn" class="btn btn-rectangular" title="Search TMDB">
+                            <button id="searchBtn" class="btn-rectangular" title="Search TMDB">
                                 <span class="icon icon-search"></span>
                             </button>
                         </div>
@@ -494,10 +494,6 @@
 
         // Event listeners
         function setupEventListeners() {
-            document.getElementById('backToBulkScanBtn').addEventListener('click', () => {
-                window.location.href = 'bulk-scan.html';
-            });
-
             document.getElementById('searchBtn').addEventListener('click', searchTMDB);
             
             document.getElementById('searchTitle').addEventListener('keypress', (e) => {

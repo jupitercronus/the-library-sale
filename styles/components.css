@@ -176,6 +176,51 @@
   transition: var( --transition-all)
 }
 
+/* ===== PAGINATION CONTROLS ===== */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center; 
+  gap: var(--space-lg);
+  margin: var(--space-xl) 0;
+  padding: var(--space-md) 0;
+}
+
+.pagination-info {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap; /* Prevent text wrapping */
+  display: flex;
+  align-items: center;
+  height: var(--btn-size-md); /* Match button height */
+}
+
+/* Make sure pagination buttons align properly */
+.pagination-controls .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0; /* Prevent buttons from shrinking */
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .pagination-controls {
+    justify-content: center; /* Center on mobile for better UX */
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+  
+  .pagination-info {
+    order: -1; /* Move info text above buttons on mobile */
+    width: 100%;
+    text-align: center;
+    margin-bottom: var(--space-sm);
+  }
+}
+
+
 /* Button Loading State */
 .btn.loading {
   background-color: var(--color-brand-yellow);
@@ -208,6 +253,7 @@
 .icon-tv { -webkit-mask-image: var(--icon-tv); mask-image: var(--icon-tv); }
 .icon-list { -webkit-mask-image: var(--icon-list); mask-image: var(--icon-list); }
 .icon-bulk { -webkit-mask-image: var(--icon-bulk); mask-image: var(--icon-bulk); }
+.icon-person { -webkit-mask-image: var(--icon-person); mask-image: var(--icon-person); }
 
 /* ===== STAR RATING SYSTEM ===== */
 /* Your star rating components */
@@ -285,8 +331,8 @@
 /* Your watched/owned toggle buttons */
 
 .toggle-btn {
-  width: var(--btn-size-xl);
-  height: var(--btn-size-xl);
+  width: var(--btn-size-lg);
+  height: var(--btn-size-lg);
   border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
