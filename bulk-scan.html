@@ -442,11 +442,13 @@ async function addMovieToDatabase(result) {
         await bulkScanner.startCamera(video, 'scannerStatus');
         }
     async function processBarcodeResult(barcode) {
+        // Double-check: prevent processing if already in results
         if (scanResults.some(r => r.barcode === barcode)) {
             console.log(`Barcode ${barcode} already in results, skipping`);
             showScanIndicator('warning', 'Already processed');
             return;
         }
+
         // Add to processed set immediately to prevent UI race conditions
         processedBarcodes.add(barcode);
         updateStats();
@@ -455,23 +457,40 @@ async function addMovieToDatabase(result) {
             // Add visual feedback that processing started
             showScanIndicator('processing', 'Looking up...');
             
-            // Use the centralized lookup with timeout
-            const lookupPromise =  MediaLookupUtils.completeMovieLookup(barcode);
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('API timeout after 15 seconds')), 15000);
-            });
+            console.log(`🔍 DEBUG: Starting lookup for ${barcode}`);
+            
+            // STEP 1: Test UPC lookup directly
+            try {
+                console.log(`🔍 DEBUG: Testing UPC lookup...`);
+                const upcTest = await MediaLookupUtils.lookupUPCData(barcode);
+                console.log(`🔍 DEBUG: UPC result:`, upcTest);
+            } catch (upcError) {
+                console.error(`🔍 DEBUG: UPC lookup failed:`, upcError);
+                throw new Error(`UPC lookup failed: ${upcError.message}`);
+            }
+            
+            // STEP 2: Test complete lookup
+            console.log(`🔍 DEBUG: Testing complete lookup...`);
+            const lookupResult = await MediaLookupUtils.completeMovieLookup(barcode);
+            
+            console.log(`🔍 DEBUG: Complete lookup result:`, lookupResult);
 
-            const { lookupResult } = await Promise.race([
-                lookupPromise,
-                timeoutPromise
-            ]);
-
+            // NEW: Add safety check for undefined result
             if (!lookupResult) {
                 throw new Error('Lookup returned no data');
             }
 
             const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
+            
+            console.log(`🔍 DEBUG: Destructured data:`, {
+                upcData: !!upcData,
+                tmdbData: !!tmdbData,
+                physicalEdition: !!physicalEdition,
+                confidence,
+                needsReview
+            });
 
+            // NEW: Add safety checks for required data
             if (!upcData) {
                 throw new Error('No UPC data found');
             }
@@ -479,6 +498,7 @@ async function addMovieToDatabase(result) {
                 throw new Error('No TMDB data found');
             }
 
+            // NEW: Determine status based on confidence
             let status = 'found';
             if (needsReview) {
                 status = 'needs_review';
@@ -487,7 +507,7 @@ async function addMovieToDatabase(result) {
             const scanResult = {
                 id: Date.now() + Math.random(),
                 barcode: barcode,
-                status: status, 
+                status: status,  // 'found', 'needs_review', or 'failed'
                 timestamp: new Date(),
                 upcData,
                 tmdbData,
@@ -495,11 +515,12 @@ async function addMovieToDatabase(result) {
                 year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
                 poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
                 physicalEdition,
-                confidence: confidence || 0
+                confidence: confidence || 0  // NEW
             };
 
-
             scanResults.push(scanResult);
+            
+            // NEW: Different feedback based on status
             if (status === 'needs_review') {
                 showScanIndicator('warning', `Needs Review: ${scanResult.title}`);
             } else {
@@ -508,6 +529,7 @@ async function addMovieToDatabase(result) {
 
         } catch (error) {
             console.error('Failed to process barcode:', barcode, error);
+            console.error('Full error stack:', error.stack);
             
             const failedResult = {
                 id: Date.now() + Math.random(),
