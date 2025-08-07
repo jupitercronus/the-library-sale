@@ -536,7 +536,23 @@ const MediaLookupUtils = {
             }
             
             if (!bestResult) {
-                throw new Error(`No TMDB results found for "${title}"`);
+                console.warn(`No TMDB results found for "${title}" - will need manual review`);
+                
+                return {
+                    id: `upc_${Date.now()}`, // Temporary ID
+                    title: title,
+                    name: title,
+                    overview: 'No results found - needs manual review',
+                    poster_path: null,
+                    release_date: null,
+                    first_air_date: null,
+                    media_type: 'movie',
+                    matchScore: 0,  // This will trigger needs_review
+                    popularity: 0,
+                    vote_average: 0,
+                    vote_count: 0,
+                    needsManualReview: true  // Explicit flag
+                };
             }
             
             // Get full details for the best match
@@ -680,19 +696,18 @@ const MediaLookupUtils = {
     needsManualReview(bestMatch, originalTitle, targetYear) {
         if (!bestMatch) return true;
         
+        if (bestMatch.needsManualReview) return true;
+
         const score = bestMatch.matchScore || 0;
-        const CONFIDENCE_THRESHOLD = 55; // Adjust this based on testing
+        const CONFIDENCE_THRESHOLD = 39; // Adjust this based on testing
         
-        // Always review if score is below threshold
         if (score < CONFIDENCE_THRESHOLD) return true;
         
-        // Always review if no year match when year was expected
         if (targetYear) {
             const resultYear = this.extractYearFromDate(bestMatch.release_date || bestMatch.first_air_date);
             if (!resultYear || Math.abs(resultYear - targetYear) > 2) return true;
         }
         
-        // Review if popularity is suspiciously low
         if (bestMatch.popularity && bestMatch.popularity < 0.5) return true;
         
         return false;
@@ -850,7 +865,7 @@ const MediaLookupUtils = {
             const studioNames = [
                 'warner home video', 'sony pictures', 'alpha video', 'universal studios',
                 'paramount pictures', 'disney', 'mgm', 'columbia pictures', 'fox',
-                'lionsgate', 'criterion collection', 'anchor bay'
+                'lionsgate', 'criterion collection', 'anchor bay', 'searchlight'
             ];
 
             studioNames.forEach(studio => {
@@ -881,7 +896,7 @@ const MediaLookupUtils = {
     
             // Step 6: Remove disc indicators and region codes
             cleaned = cleaned
-                .replace(/\b(Disc \d+|Side [AB]|Region \d+|All Regions|Region Free)\b/gi, '')
+                .replace(/\b(Disc \d+|Side [AB]|Region \d+|All Regions|Region Free|Region 1|Region 2|UK|US)\b/gi, '')
                 .replace(/\b(Full Frame|Anamorphic|Pan & Scan)\b/gi, '');
             
             // Step 7: Clean up whitespace and punctuation
