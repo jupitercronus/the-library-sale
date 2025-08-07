@@ -2361,9 +2361,10 @@ input.error {
 
 .final-buttons {
   display: flex;
-  gap: var(--space-xl);
+  gap: var(--space-lg);
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 /* REVIEW PAGE STYLES */
@@ -2443,17 +2444,18 @@ input.error {
 
 .title-input-group {
     display: flex;
-    gap: 0.5rem;
+    gap: 1.5rem;
 }
 
 .title-input {
-    flex: 1;
-    padding: 0.75rem;
-    border: 2px solid var(--color-border);
-    border-radius: 0.5rem;
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-size: 1rem;
+  flex: none;
+  max-width: 75%;
+  padding: 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: 1rem;
 }
 
 .title-input:focus {
@@ -2762,10 +2764,6 @@ input.error {
     align-items: flex-start;
 }
 
-.final-buttons {
-    flex-direction: column;
-    align-items: center;
-}
 
 @media (max-width: 480px) {
   .scan-stats {

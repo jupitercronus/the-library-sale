@@ -103,6 +103,16 @@
   color: var(--color-primary-bg);
 }
 
+.btn-warning {
+  background: var(--color-brand-yellow);
+  color: var(--color-text-primary);
+}
+
+.btn-warning:hover {
+  background: var(--color-success-bg);
+  color: var(--color-text-primary);
+}
+
 .btn-secondary {
   background: transparent;
   color: var(--color-text-primary);
