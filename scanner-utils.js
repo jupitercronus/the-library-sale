@@ -577,7 +577,13 @@ const MediaLookupUtils = {
             if (resultYear === parseInt(targetYear)) score += 20;
         }
         
-        return score;
+        // NEW: Penalize if popularity is very low (likely wrong match)
+        if (result.popularity && result.popularity < 1) score -= 10;
+        
+        // NEW: Bonus for higher vote counts (more established movies)
+        if (result.vote_count && result.vote_count > 100) score += 5;
+
+        return Math.max(0, score);
     },
     
     /* Find the best TMDB match using multiple criteria */
@@ -661,6 +667,26 @@ const MediaLookupUtils = {
         return winner;
     },
 
+    needsManualReview(bestMatch, originalTitle, targetYear) {
+        if (!bestMatch) return true;
+        
+        const score = bestMatch.matchScore || 0;
+        const CONFIDENCE_THRESHOLD = 70; // Adjust this based on testing
+        
+        // Always review if score is below threshold
+        if (score < CONFIDENCE_THRESHOLD) return true;
+        
+        // Always review if no year match when year was expected
+        if (targetYear) {
+            const resultYear = this.extractYearFromDate(bestMatch.release_date || bestMatch.first_air_date);
+            if (!resultYear || Math.abs(resultYear - targetYear) > 2) return true;
+        }
+        
+        // Review if popularity is suspiciously low
+        if (bestMatch.popularity && bestMatch.popularity < 0.5) return true;
+        
+        return false;
+    },
     /**
      * Calculate title similarity using multiple methods
      */
@@ -770,13 +796,22 @@ const MediaLookupUtils = {
             
             // Step 4: Create physical edition data
             const physicalEdition = this.createPhysicalEditionData(upcData);
+
+             // NEW: Step 5: Determine confidence and review status
+            const confidence = tmdbData.matchScore || 0;
+            const needsReview = this.needsManualReview(tmdbData, cleanTitle, extractedYear);
             
+            console.log(`📊 Match confidence: ${confidence}, Needs review: ${needsReview}`);
+
+
             return {
                 upcData,
                 tmdbData,
                 physicalEdition,
                 cleanTitle,
-                extractedYear
+                extractedYear,
+                confidence, 
+                needsReview    
             };
             
         } catch (error) {
@@ -791,28 +826,62 @@ const MediaLookupUtils = {
     cleanMovieTitle(title) {
         if (!title) return '';
         
-        let cleaned = title
-            // Remove format indicators
+        let cleaned = title;
+            const studioNames = [
+                'warner home video', 'sony pictures', 'alpha video', 'universal studios',
+                'paramount pictures', 'disney', 'mgm', 'columbia pictures', 'fox',
+                'lionsgate', 'criterion collection', 'anchor bay'
+            ];
+
+            studioNames.forEach(studio => {
+                const regex = new RegExp(`\\b${studio}\\b`, 'gi');
+                cleaned = cleaned.replace(regex, '');
+            });
+            
+            cleaned = cleaned
             .replace(/\b(DVD|Blu-ray|Blu Ray|BD|4K|UHD|Ultra HD|HD)\b/gi, '')
-            // Remove edition types  
-            .replace(/\b(Widescreen|Full Screen|Director's Cut|Extended Edition|Special Edition|Collector's Edition|Limited Edition|Anniversary Edition|Unrated|Theatrical|Ultimate Edition|Criterion Collection)\b/gi, '')
-            // Remove years in parentheses or brackets first
-            .replace(/[\(\[]?\b(19|20)\d{2}\b[\)\]]?/g, '')
-            // Remove other common disc indicators
-            .replace(/\b(Disc \d+|Side [AB]|Region \d)\b/gi, '')
-            // Clean up whitespace and punctuation
-            .replace(/\s+/g, ' ')
-            .replace(/[^\w\s&'-]/g, '') // Keep only word chars, spaces, ampersands, apostrophes, hyphens
-            .trim();
-        
-        // If cleaning resulted in empty or very short string, return original
-        if (cleaned.length < 2) {
-            return title.trim();
-        }
-        
-        console.log(`Title cleaning: "${title}" → "${cleaned}"`);
-        return cleaned;
-    },
+            .replace(/\b(Widescreen|Full Screen|Fullscreen)\b/gi, '')
+            .replace(/\b(Director's Cut|Extended Edition|Special Edition|Collector's Edition|Limited Edition|Anniversary Edition|Unrated|Theatrical|Ultimate Edition)\b/gi, '');
+
+            // Step 3: Remove genre tags and marketing phrases
+            cleaned = cleaned
+                .replace(/\b(comedy|drama|action|thriller|horror|romance|sci-fi|fantasy|adventure|documentary)\b/gi, '')
+                .replace(/\b(Version You've Never Seen|Special Features|Bonus Material|Behind the Scenes)\b/gi, '')
+                .replace(/\b(used|new|sealed)\b/gi, '');
+            
+            // Step 4: Fix common punctuation issues
+            cleaned = cleaned
+                .replace(/\bs\b/g, "'s")  // Fix missing apostrophes
+                .replace(/\bt\b/g, "'t")  // Fix "don t" -> "don't"
+                .replace(/\bre\b/g, "'re") // Fix "you re" -> "you're"
+                .replace(/\bve\b/g, "'ve") // Fix "I ve" -> "I've"
+                .replace(/\bll\b/g, "'ll"); // Fix "I ll" -> "I'll"
+
+            cleaned = cleaned.replace(/[\(\[]?\b(19|20)\d{2}\b[\)\]]?/g, '');
+    
+            // Step 6: Remove disc indicators and region codes
+            cleaned = cleaned
+                .replace(/\b(Disc \d+|Side [AB]|Region \d+|All Regions|Region Free)\b/gi, '')
+                .replace(/\b(Full Frame|Anamorphic|Pan & Scan)\b/gi, '');
+            
+            // Step 7: Clean up whitespace and punctuation
+            cleaned = cleaned
+                .replace(/\s+/g, ' ')  // Multiple spaces to single
+                .replace(/[^\w\s&'-]/g, '') // Keep only word chars, spaces, &, ', -
+                .replace(/^[^\w]+|[^\w]+$/g, '') // Remove leading/trailing non-word chars
+                .trim();
+            
+            // Step 8: Proper case the result
+            cleaned = cleaned.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+            
+            // If cleaning resulted in empty or very short string, return original
+            if (cleaned.length < 2) {
+                return title.trim();
+            }
+            
+            console.log(`Title cleaning: "${title}" → "${cleaned}"`);
+            return cleaned;
+        },
 
     /**
      * Extract year from title string

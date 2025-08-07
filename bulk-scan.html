@@ -103,6 +103,7 @@
             <div class="result-filters">
                 <button class="filter-btn active" data-filter="all">All (<span id="allCount">0</span>)</button>
                 <button class="filter-btn" data-filter="found">Found (<span id="foundTabCount">0</span>)</button>
+                <button class="filter-btn filter-needs-review" data-filter="needs_review">Needs Review (<span id="needsReviewTabCount">0</span>)</button>
                 <button class="filter-btn" data-filter="failed">Failed (<span id="failedTabCount">0</span>)</button>
             </div>
             
@@ -118,12 +119,15 @@
 
         <!-- Final Actions -->
         <section id="finalActions" class="final-actions" style="display: none;">
-            <h2>Review & Add to Library</h2>
+            <h2>Review and Add to Library</h2>
             <div class="final-stats">
                 <p><strong id="finalFoundCount">0</strong> items found and ready to add</p>
                 <p><strong id="finalFailedCount">0</strong> items failed (you can add these manually later)</p>
             </div>
             <div class="final-buttons">
+                <button id="reviewItemsBtn" class="btn btn-xl btn-warning" title="Review Uncertain Items" style="display: none;">
+                    <span class="icon icon-details icon-xl"></span>
+                </button>
                 <button id="addAllBtn" class="btn btn-xl btn-success" title="Add All Found Items">
                     <span class="icon icon-confirm icon-xl"></span>
                 </button>
@@ -209,6 +213,8 @@ async function initializeBulkScanner() {
         }
     });
 
+    document.getElementById('reviewItemsBtn').addEventListener('click', initiateReview);
+
     // Find your event listener for 'manualEntryBtn' and simplify it
     document.getElementById('manualEntryBtn').addEventListener('click', () => {
         ScannerUI.showManualEntryModal();
@@ -263,8 +269,6 @@ async function initializeBulkScanner() {
                 indicator.className = 'scan-result-indicator';
             }, 2800); // Slightly less than the 3000ms pause
     }
-
-
 async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
@@ -318,7 +322,6 @@ async function addMovieToDatabase(result) {
 
     await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
 }
-
         function startOver() {
             if (confirm('Are you sure you want to start over? All scanned results will be lost.')) {
                 // Clear everything
@@ -340,7 +343,6 @@ async function addMovieToDatabase(result) {
                 LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
             }
         }
-
         // Enhanced keyboard shortcuts with hints
         document.addEventListener('keydown', (e) => {
             // Check the scanner's state directly from the manager object
@@ -357,7 +359,6 @@ async function addMovieToDatabase(result) {
                 ScannerUI.showManualEntryModal();
             }
         });
-
         // Show/hide keyboard hints based on scanning state
         function updateKeyboardHints() {
             const hints = document.getElementById('keyboardHints');
@@ -368,7 +369,6 @@ async function addMovieToDatabase(result) {
                 hints.classList.add('hidden');
             }
         }
-
         // Update progress bar during bulk operations
         function updateProgressBar(current, total) {
             const progressContainer = document.getElementById('scanProgress');
@@ -382,7 +382,6 @@ async function addMovieToDatabase(result) {
                 progressContainer.style.display = 'none';
             }
         }
-
         // Auto-save progress to localStorage
         function saveProgress() {
             if (scanResults.length > 0) {
@@ -393,15 +392,12 @@ async function addMovieToDatabase(result) {
                 }));
             }
         }
-
         // Auto-save every 5 seconds
         setInterval(saveProgress, 5000);
-
         // Also save on major actions
         function saveProgressOnAction() {
             setTimeout(saveProgress, 100);
         }
-
         // Restore progress on page load
         function restoreProgress() {
             const saved = localStorage.getItem('bulkScanProgress');
@@ -428,8 +424,6 @@ async function addMovieToDatabase(result) {
                 }
             }
         }
-
-
     async function startBulkScanning() {
         if (!bulkScanner || !bulkScanner.getStats().hasCamera) {
             LibraryUtils.ui.showStatusMessage('Camera not available', 'error');
@@ -445,7 +439,6 @@ async function addMovieToDatabase(result) {
         const video = document.getElementById('scanner-video');
         await bulkScanner.startCamera(video, 'scannerStatus');
         }
-
     async function processBarcodeResult(barcode) {
         // Double-check: prevent processing if already in results
         if (scanResults.some(r => r.barcode === barcode)) {
@@ -453,7 +446,6 @@ async function addMovieToDatabase(result) {
             showScanIndicator('warning', 'Already processed');
             return;
         }
-
         // Add to processed set immediately to prevent UI race conditions
         processedBarcodes.add(barcode);
         updateStats();
@@ -463,31 +455,47 @@ async function addMovieToDatabase(result) {
             showScanIndicator('processing', 'Looking up...');
             
             // Use the centralized lookup with timeout
-            const lookupPromise = mediaLookupUtils.completeMovieLookup(barcode);
+            const lookupPromise =  MediaLookupUtils.completeMovieLookup(barcode);
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('API timeout after 15 seconds')), 15000);
             });
 
-            const { upcData, tmdbData, physicalEdition } = await Promise.race([
+            const { lookupResult } = await Promise.race([
                 lookupPromise,
                 timeoutPromise
             ]);
 
+            const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
+
+             // NEW: Determine status based on confidence
+            let status = 'found';
+            if (needsReview) {
+                status = 'needs_review';
+            }
+
             const scanResult = {
                 id: Date.now() + Math.random(),
                 barcode: barcode,
-                status: 'found',
+                status: status,  // 'found', 'needs_review', or 'failed'
                 timestamp: new Date(),
                 upcData,
                 tmdbData,
                 title: tmdbData.title || tmdbData.name,
                 year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
-                poster: tmdbData.poster_path ? mediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
-                physicalEdition
+                poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+                physicalEdition,
+                confidence: confidence || 0  // NEW
             };
 
+
             scanResults.push(scanResult);
-            showScanIndicator('success', scanResult.title);
+                if (status === 'needs_review') {
+                showScanIndicator('warning', `Needs Review: ${scanResult.title}`);
+                } else {
+                    showScanIndicator('success', scanResult.title);
+            }
+
+
 
         } catch (error) {
             console.error('Failed to process barcode:', barcode, error);
@@ -511,7 +519,6 @@ async function addMovieToDatabase(result) {
         renderResults();
         saveProgressOnAction();
     }
-
         function updateScannerStatus(message, type = 'info') {
             const statusEl = document.getElementById('scannerStatus');
             statusEl.textContent = message;
@@ -521,6 +528,7 @@ async function addMovieToDatabase(result) {
         function updateStats() {
             const scannedCount = scanResults.length;
             const foundCount = scanResults.filter(r => r.status === 'found').length;
+            const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
             const failedCount = scanResults.filter(r => r.status === 'failed').length;
             
             document.getElementById('scannedCount').textContent = scannedCount;
@@ -530,11 +538,19 @@ async function addMovieToDatabase(result) {
             // Update filter tabs
             document.getElementById('allCount').textContent = scannedCount;
             document.getElementById('foundTabCount').textContent = foundCount;
+            document.getElementById('needsReviewTabCount').textContent = needsReviewCount;
             document.getElementById('failedTabCount').textContent = failedCount;
             
             // Update final stats
             document.getElementById('finalFoundCount').textContent = foundCount;
+            document.getElementById('finalNeedsReviewCount').textContent = needsReviewCount;
             document.getElementById('finalFailedCount').textContent = failedCount;
+
+            // NEW: Show/hide review button
+            const reviewBtn = document.getElementById('reviewItemsBtn');
+                if (reviewBtn) {
+                    reviewBtn.style.display = needsReviewCount > 0 ? 'inline-flex' : 'none';
+                }
         }
 
         function setResultFilter(filter) {
@@ -551,9 +567,7 @@ async function addMovieToDatabase(result) {
         function renderResults() {
             const grid = document.getElementById('resultsGrid');
             
-            // ▼▼▼ THIS IS THE ONLY PART THAT CHANGED ▼▼▼
             if (scanResults.length === 0) {
-                // We replaced the incorrect button code with this simple "empty state" message.
                 grid.innerHTML = `
                 <div class="empty-state">
                     <span class="icon icon-add icon-4xl"></span>
@@ -563,30 +577,34 @@ async function addMovieToDatabase(result) {
                 `;
                 return;
             }
-            // ▲▲▲ THE REST OF THE FUNCTION IS THE SAME ▲▲▲
             
             // Filter results
             let filteredResults = scanResults;
-            if (currentFilter !== 'all') {
-                filteredResults = scanResults.filter(r => r.status === currentFilter);
-            }
-            
-            if (filteredResults.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <span class="icon icon-details icon-3xl"></span>
-                        <h3>No results for "${currentFilter}"</h3>
-                        <p>Try scanning more items or switch to another tab.</p>
-                    </div>
-                `;
-                return;
-            }
+                if (currentFilter !== 'all') {
+                    filteredResults = scanResults.filter(r => r.status === currentFilter);
+                }
+                
+                if (filteredResults.length === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state">
+                            <span class="icon icon-details icon-3xl"></span>
+                            <h3>No results for "${currentFilter}"</h3>
+                            <p>Try scanning more items or switch to another tab.</p>
+                        </div>
+                    `;
+                    return;
+                }
             
             // Sort by timestamp (most recent first)
             filteredResults.sort((a, b) => b.timestamp - a.timestamp);
             
             grid.innerHTML = filteredResults.map(result => {
                 const posterSrc = result.poster || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
+                
+                // NEW: Add confidence indicator for needs_review items
+                const confidenceIndicator = result.status === 'needs_review' 
+                    ? `<p class="bulk-result-confidence">Confidence: ${Math.round(result.confidence || 0)}%</p>` 
+                    : '';
                 
                 return `
                     <div class="bulk-result-item status-${result.status}">
@@ -596,6 +614,8 @@ async function addMovieToDatabase(result) {
                             <p class="bulk-result-year">${result.year || 'Unknown'}</p>
                             <p class="bulk-result-barcode">UPC: ${result.barcode}</p>
                             ${result.status === 'failed' ? `<p class="bulk-result-error">${result.error}</p>` : ''}
+                            ${result.status === 'needs_review' ? `<p class="bulk-result-warning">Needs manual review</p>` : ''}
+                            ${confidenceIndicator}
                             ${result.physicalEdition ? `<p class="bulk-result-format">${result.physicalEdition.format} • ${result.physicalEdition.edition}</p>` : ''}
                         </div>
                         <div class="bulk-result-actions">
@@ -673,7 +693,43 @@ async function addAllToLibrary() {
                 window.location.href = `index.html?bulk_imported=${successCount}`;
             }, 2000);
         }
-
+// NEW: Review transition function
+async function initiateReview() {
+        const foundItems = scanResults.filter(r => r.status === 'found');
+        const reviewItems = scanResults.filter(r => r.status === 'needs_review');
+        
+        if (reviewItems.length === 0) {
+            LibraryUtils.ui.showStatusMessage('No items need review', 'info');
+            return;
+        }
+        
+        try {
+            // Step 1: Save all found items immediately
+            if (foundItems.length > 0) {
+                LibraryUtils.ui.showStatusMessage(`Saving ${foundItems.length} found items...`, 'info');
+                
+                for (const item of foundItems) {
+                    await addMovieToDatabase(item);
+                }
+                
+                LibraryUtils.ui.showStatusMessage(`Saved ${foundItems.length} items to library`, 'success');
+            }
+            
+            // Step 2: Store review items in sessionStorage
+            sessionStorage.setItem('reviewQueue', JSON.stringify({
+                items: reviewItems,
+                timestamp: Date.now(),
+                totalFound: foundItems.length
+            }));
+            
+            // Step 3: Navigate to review page
+            window.location.href = 'review-failed.html';
+            
+        } catch (error) {
+            console.error('Failed to initiate review:', error);
+            LibraryUtils.ui.showStatusMessage('Failed to save items. Please try again.', 'error');
+        }
+    }
         function finishScanning() {
             if (bulkScanner) {
                 bulkScanner.stopCamera();

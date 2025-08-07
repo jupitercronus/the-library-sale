@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#24143E">
+    <title>Review Items - the library sale</title>
+    
+    <!-- Google Fonts Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    
+    <!-- App Utilities -->
+    <script src="utils.js"></script>
+    <script src="cache.js"></script>
+    <script src="scanner-utils.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
+    
+    <!-- Main Script -->
+    <script src="main.js" defer></script>
+</head>
+<body>
+    <header id="navbar-placeholder"></header>
+
+    <main class="review-container">
+        <!-- Header Section -->
+        <section class="review-header">
+            <h1>Review Uncertain Items</h1>
+            <div class="review-progress">
+                <div class="progress-bar">
+                    <div id="progressBarFill" class="progress-fill"></div>
+                </div>
+                <p class="progress-text">
+                    Processing item <span id="currentItemNum">1</span> of <span id="totalItemsNum">0</span>
+                </p>
+            </div>
+        </section>
+
+        <!-- No Items State -->
+        <section id="noItemsState" class="empty-state-section" style="display: none;">
+            <div class="empty-state">
+                <span class="icon icon-confirm icon-4xl"></span>
+                <h3>No Items to Review</h3>
+                <p>All items have been processed or there was no review queue found.</p>
+                <button id="backToBulkScanBtn" class="btn btn-xl btn-primary">
+                    Back to Bulk Scan
+                </button>
+            </div>
+        </section>
+
+        <!-- Review Interface -->
+        <section id="reviewInterface" class="review-interface" style="display: none;">
+            <!-- Current Item Display -->
+            <div class="current-item-card">
+                <div class="item-header">
+                    <h3>Current Item</h3>
+                    <div class="item-barcode">
+                        UPC: <span id="currentBarcode">000000000000</span>
+                    </div>
+                </div>
+                
+                <div class="item-details">
+                    <div class="original-title-section">
+                        <label class="section-label">Original UPC Title:</label>
+                        <p id="originalTitle" class="original-title">Loading...</p>
+                    </div>
+                    
+                    <div class="cleaned-title-section">
+                        <label for="searchTitle" class="section-label">Search Title:</label>
+                        <div class="title-input-group">
+                            <input type="text" id="searchTitle" class="title-input" placeholder="Edit title for better search results">
+                            <button id="searchBtn" class="btn btn-primary" title="Search TMDB">
+                                <span class="icon icon-search"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div class="search-results-section">
+                <h4 class="search-results-title">Search Results</h4>
+                <div id="searchStatus" class="search-status">Edit the title above and click search</div>
+                <div id="searchResults" class="search-results-grid">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="review-actions">
+                <button id="addSelectedBtn" class="btn btn-xl btn-success" disabled title="Add Selected Movie">
+                    <span class="icon icon-confirm icon-xl"></span>
+                    Add Selected
+                </button>
+                <button id="deleteItemBtn" class="btn btn-xl btn-danger" title="Delete This Item">
+                    <span class="icon icon-delete icon-xl"></span>
+                    Delete Item
+                </button>
+            </div>
+
+            <!-- Help Text -->
+            <div class="review-help">
+                <p><strong>Instructions:</strong> Edit the search title if needed, then click search. Select a movie from the results and click "Add Selected", or click "Delete Item" if no good match exists.</p>
+            </div>
+        </section>
+
+        <!-- Completion State -->
+        <section id="completionState" class="completion-section" style="display: none;">
+            <div class="completion-card">
+                <span class="icon icon-confirm icon-4xl completion-icon"></span>
+                <h2>Review Complete!</h2>
+                <div class="completion-stats">
+                    <p><strong id="completionAdded">0</strong> items added to your library</p>
+                    <p><strong id="completionDeleted">0</strong> items deleted</p>
+                    <p><strong id="completionPrevious">0</strong> items were automatically added earlier</p>
+                </div>
+                <div class="completion-actions">
+                    <button id="viewLibraryBtn" class="btn btn-xl btn-success">
+                        <span class="icon icon-library icon-xl"></span>
+                        View Library
+                    </button>
+                    <button id="newBulkScanBtn" class="btn btn-xl btn-primary">
+                        <span class="icon icon-bulk icon-xl"></span>
+                        New Bulk Scan
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+            authDomain: "tiny-lizard.firebaseapp.com",
+            projectId: "tiny-lizard",
+            storageBucket: "tiny-lizard.firebasestorage.app",
+            messagingSenderId: "250872474692",
+            appId: "1:250872474692:web:969e0b1302ae3cb4666011",
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        // Global variables
+        let currentUser = null;
+        let reviewQueue = [];
+        let currentItemIndex = 0;
+        let selectedResult = null;
+        let completionStats = {
+            added: 0,
+            deleted: 0,
+            previouslyAdded: 0
+        };
+
+        // Initialize the review page
+        async function initializeReviewPage() {
+            try {
+                // Load review queue from sessionStorage
+                const savedQueue = sessionStorage.getItem('reviewQueue');
+                if (!savedQueue) {
+                    showNoItemsState();
+                    return;
+                }
+
+                const queueData = JSON.parse(savedQueue);
+                reviewQueue = queueData.items || [];
+                completionStats.previouslyAdded = queueData.totalFound || 0;
+
+                if (reviewQueue.length === 0) {
+                    showNoItemsState();
+                    return;
+                }
+
+                // Initialize the review interface
+                showReviewInterface();
+                updateProgress();
+                loadCurrentItem();
+
+                console.log(`📋 Review queue loaded: ${reviewQueue.length} items`);
+
+            } catch (error) {
+                console.error('Failed to initialize review page:', error);
+                showNoItemsState();
+            }
+        }
+
+        function showNoItemsState() {
+            document.getElementById('noItemsState').style.display = 'block';
+            document.getElementById('reviewInterface').style.display = 'none';
+            document.getElementById('completionState').style.display = 'none';
+        }
+
+        function showReviewInterface() {
+            document.getElementById('noItemsState').style.display = 'none';
+            document.getElementById('reviewInterface').style.display = 'block';
+            document.getElementById('completionState').style.display = 'none';
+        }
+
+        function showCompletionState() {
+            document.getElementById('noItemsState').style.display = 'none';
+            document.getElementById('reviewInterface').style.display = 'none';
+            document.getElementById('completionState').style.display = 'block';
+
+            // Update completion stats
+            document.getElementById('completionAdded').textContent = completionStats.added;
+            document.getElementById('completionDeleted').textContent = completionStats.deleted;
+            document.getElementById('completionPrevious').textContent = completionStats.previouslyAdded;
+        }
+
+        function updateProgress() {
+            const current = currentItemIndex + 1;
+            const total = reviewQueue.length;
+            
+            document.getElementById('currentItemNum').textContent = current;
+            document.getElementById('totalItemsNum').textContent = total;
+            
+            const progressPercent = (currentItemIndex / total) * 100;
+            document.getElementById('progressBarFill').style.width = `${progressPercent}%`;
+        }
+
+        function loadCurrentItem() {
+            if (currentItemIndex >= reviewQueue.length) {
+                completeReview();
+                return;
+            }
+
+            const currentItem = reviewQueue[currentItemIndex];
+            
+            // Update UI with current item data
+            document.getElementById('currentBarcode').textContent = currentItem.barcode;
+            document.getElementById('originalTitle').textContent = currentItem.upcData?.originalTitle || 'Unknown title';
+            document.getElementById('searchTitle').value = currentItem.tmdbData?.title || currentItem.tmdbData?.name || '';
+
+            // Clear previous search results
+            clearSearchResults();
+            selectedResult = null;
+            updateActionButtons();
+
+            console.log(`📋 Loaded item ${currentItemIndex + 1}: ${currentItem.barcode}`);
+        }
+
+        function clearSearchResults() {
+            const resultsGrid = document.getElementById('searchResults');
+            const statusDiv = document.getElementById('searchStatus');
+            
+            resultsGrid.innerHTML = '';
+            statusDiv.textContent = 'Edit the title above and click search';
+            statusDiv.className = 'search-status';
+        }
+
+        async function searchTMDB() {
+            const searchTitle = document.getElementById('searchTitle').value.trim();
+            if (!searchTitle) {
+                LibraryUtils.ui.showStatusMessage('Please enter a title to search', 'warning');
+                return;
+            }
+
+            const statusDiv = document.getElementById('searchStatus');
+            const resultsGrid = document.getElementById('searchResults');
+            
+            statusDiv.textContent = 'Searching TMDB...';
+            statusDiv.className = 'search-status searching';
+            resultsGrid.innerHTML = '';
+
+            try {
+                const searchResults = await MediaLookupUtils.searchTMDBForTitle(searchTitle, null, false);
+                
+                if (!searchResults) {
+                    statusDiv.textContent = 'No results found. Try editing the title or click "Delete Item".';
+                    statusDiv.className = 'search-status no-results';
+                    return;
+                }
+
+                // For search, we want to show multiple options, so we need to call the search API directly
+                const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(searchTitle)}`;
+                const response = await fetch(searchUrl);
+                const searchData = await response.json();
+
+                if (!searchData.results || searchData.results.length === 0) {
+                    statusDiv.textContent = 'No results found. Try editing the title or click "Delete Item".';
+                    statusDiv.className = 'search-status no-results';
+                    return;
+                }
+
+                // Filter to movies and TV shows only
+                const mediaResults = searchData.results.filter(item => 
+                    item.media_type === 'movie' || item.media_type === 'tv'
+                ).slice(0, 8); // Limit to top 8 results
+
+                displaySearchResults(mediaResults);
+                statusDiv.textContent = `Found ${mediaResults.length} results. Click one to select it.`;
+                statusDiv.className = 'search-status success';
+
+            } catch (error) {
+                console.error('TMDB search failed:', error);
+                statusDiv.textContent = 'Search failed. Please try again or click "Delete Item".';
+                statusDiv.className = 'search-status error';
+            }
+        }
+
+        function displaySearchResults(results) {
+            const resultsGrid = document.getElementById('searchResults');
+            
+            resultsGrid.innerHTML = results.map((result, index) => {
+                const title = result.title || result.name;
+                const year = result.release_date ? result.release_date.substring(0, 4) : 
+                           (result.first_air_date ? result.first_air_date.substring(0, 4) : '');
+                const poster = result.poster_path ? 
+                             `${MediaLookupUtils.TMDB_IMAGE_BASE}${result.poster_path}` : 
+                             'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
+                const overview = result.overview || 'No description available.';
+
+                return `
+                    <div class="search-result-item" data-result-index="${index}">
+                        <img src="${poster}" alt="${title}" class="search-result-poster" loading="lazy">
+                        <div class="search-result-info">
+                            <h5 class="search-result-title">${title}</h5>
+                            <p class="search-result-year">${year || 'Unknown year'} • ${result.media_type === 'tv' ? 'TV Series' : 'Movie'}</p>
+                            <p class="search-result-overview">${overview}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers to select results
+            document.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('click', () => selectSearchResult(item));
+            });
+        }
+
+        function selectSearchResult(element) {
+            // Clear previous selections
+            document.querySelectorAll('.search-result-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // Select the clicked item
+            element.classList.add('selected');
+            
+            const resultIndex = parseInt(element.dataset.resultIndex);
+            const statusDiv = document.getElementById('searchStatus');
+            const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(document.getElementById('searchTitle').value)}`;
+            
+            // We need to get the full result data again
+            fetch(searchUrl)
+                .then(response => response.json())
+                .then(searchData => {
+                    const mediaResults = searchData.results.filter(item => 
+                        item.media_type === 'movie' || item.media_type === 'tv'
+                    );
+                    selectedResult = mediaResults[resultIndex];
+                    updateActionButtons();
+                    
+                    const title = selectedResult.title || selectedResult.name;
+                    statusDiv.textContent = `Selected: "${title}". Click "Add Selected" to save to your library.`;
+                    statusDiv.className = 'search-status selected';
+                })
+                .catch(error => {
+                    console.error('Failed to load selected result:', error);
+                    selectedResult = null;
+                    updateActionButtons();
+                });
+        }
+
+        function updateActionButtons() {
+            const addBtn = document.getElementById('addSelectedBtn');
+            addBtn.disabled = !selectedResult;
+        }
+
+        async function addSelectedItem() {
+            if (!selectedResult) {
+                LibraryUtils.ui.showStatusMessage('Please select a movie first', 'warning');
+                return;
+            }
+
+            try {
+                const currentItem = reviewQueue[currentItemIndex];
+                
+                // Get full TMDB details for the selected result
+                const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${selectedResult.media_type}/${selectedResult.id}?append_to_response=credits`;
+                const detailsResponse = await fetch(detailsUrl);
+                const fullTmdbData = await detailsResponse.json();
+
+                // Create a complete result object similar to bulk scan
+                const reviewedResult = {
+                    upcData: currentItem.upcData,
+                    tmdbData: fullTmdbData,
+                    physicalEdition: currentItem.physicalEdition
+                };
+
+                // Add to database using the same function as bulk scan
+                await addMovieToDatabase(reviewedResult);
+                
+                completionStats.added++;
+                LibraryUtils.ui.showStatusMessage(`Added "${fullTmdbData.title || fullTmdbData.name}" to library`, 'success');
+                
+                moveToNextItem();
+
+            } catch (error) {
+                console.error('Failed to add selected item:', error);
+                LibraryUtils.ui.showStatusMessage('Failed to add item. Please try again.', 'error');
+            }
+        }
+
+        function deleteCurrentItem() {
+            if (confirm('Are you sure you want to delete this item? You can add it manually later if needed.')) {
+                completionStats.deleted++;
+                const currentItem = reviewQueue[currentItemIndex];
+                LibraryUtils.ui.showStatusMessage(`Deleted item ${currentItem.barcode}`, 'info');
+                moveToNextItem();
+            }
+        }
+
+        function moveToNextItem() {
+            currentItemIndex++;
+            updateProgress();
+            
+            if (currentItemIndex >= reviewQueue.length) {
+                completeReview();
+            } else {
+                loadCurrentItem();
+            }
+        }
+
+        async function completeReview() {
+            // Clear the review queue
+            sessionStorage.removeItem('reviewQueue');
+            
+            console.log('📋 Review completed:', completionStats);
+            showCompletionState();
+        }
+
+        // Database function (same as bulk scan)
+        async function addMovieToDatabase(result) {
+            const { tmdbData, upcData, physicalEdition } = result;
+            
+            // Check if movie already exists
+            let movieDocRef;
+            if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
+                const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbData.id)).limit(1).get();
+                if (!existingQuery.empty) {
+                    movieDocRef = existingQuery.docs[0].ref;
+                }
+            }
+
+            // Create new movie if doesn't exist
+            if (!movieDocRef) {
+                const movieData = {
+                    title: tmdbData.title || tmdbData.name,
+                    year: tmdbData.release_date ? parseInt(tmdbData.release_date.substring(0, 4)) : (tmdbData.first_air_date ? parseInt(tmdbData.first_air_date.substring(0, 4)) : null),
+                    director: tmdbData.credits?.crew?.find(c => c.job === 'Director')?.name || '',
+                    genre: tmdbData.genres?.map(g => g.name).join(', ') || '',
+                    posterUrl: tmdbData.poster_path ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${tmdbData.poster_path}` : null,
+                    runtime: tmdbData.runtime || (tmdbData.episode_run_time ? tmdbData.episode_run_time[0] : null),
+                    tmdbId: tmdbData.id && !`${tmdbData.id}`.startsWith('upc_') ? parseInt(tmdbData.id) : null,
+                    overview: tmdbData.overview || '',
+                    cast: tmdbData.credits?.cast?.slice(0, 5).map(c => c.name) || [],
+                    contentType: tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie'),
+                    dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
+                    originalUploaderId: currentUser.uid,
+                    originalUploaderDisplayName: currentUser.displayName || currentUser.email,
+                    isManualEntry: false,
+                };
+                
+                movieDocRef = await db.collection('movies').add(movieData);
+            }
+            
+            // Add user interaction
+            const userInteractionData = {
+                movieId: movieDocRef.id,
+                rating: 0,
+                review: "",
+                watched: false,
+                watchedDate: null,
+                owned: true,
+                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                physicalEdition: physicalEdition || {},
+                upc: upcData?.barcode || '',
+                editionTitle: physicalEdition?.edition || '',
+                editionFormat: physicalEdition?.format || ''
+            };
+
+            await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            document.getElementById('backToBulkScanBtn').addEventListener('click', () => {
+                window.location.href = 'bulk-scan.html';
+            });
+
+            document.getElementById('searchBtn').addEventListener('click', searchTMDB);
+            
+            document.getElementById('searchTitle').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchTMDB();
+                }
+            });
+
+            document.getElementById('addSelectedBtn').addEventListener('click', addSelectedItem);
+            document.getElementById('deleteItemBtn').addEventListener('click', deleteCurrentItem);
+
+            document.getElementById('viewLibraryBtn').addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+
+            document.getElementById('newBulkScanBtn').addEventListener('click', () => {
+                window.location.href = 'bulk-scan.html';
+            });
+        }
+
+        // Initialize when auth is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    setupEventListeners();
+                    initializeReviewPage();
+                } else {
+                    window.location.href = 'auth.html'; 
+                }
+            });
+        });
+    </script>
+</body>
+</html>
