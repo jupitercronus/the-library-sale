@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Details - The Library Sale</title>
+    <!-- Google Fonts & Styles -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>   
+    <!-- App Utilities & Main Script -->
+    <script src="utils.js" defer></script>
+    <script src="main.js" defer></script>
+</head>
+<body>
+    <div>    
+        <header id="navbar-placeholder"></header>
+    </div>
+
+    <main id="detailsContainer" class="details-page-container" style="display: none;">
+        
+        <!-- Centered Title, Year, and Ratings (Ticket Style) -->
+        <div class="details-ticket">
+            <h1 id="movieTitle" class="details-title"></h1>
+            <p id="movieYear" class="details-year"></p>
+            
+            <div class="details-ratings">
+                <div class="rating-box">
+                    <h3>Average Rating</h3>
+                    <div id="averageRating" class="star-rating star-rating-md"></div>
+                </div>
+                <div class="rating-box">
+                    <h3>My Rating</h3>
+                    <div id="myRating" class="star-rating star-rating-md"></div>
+                </div>
+            </div>
+            <div class="details-actions-centered">
+                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="edit my rating and comments" style="display: none;">
+                    <span class="icon icon-person icon-xl"></span>
+                </a>
+                <a id="editDetailsBtn" href="#" class="btn btn-xl btn-primary" title="edit movie details" style="display: none;">
+                    <span class="icon icon-edit icon-xl"></span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content Grid (Poster + Info) -->
+        <div class="details-main-content">
+            <div class="details-poster">
+                <img id="moviePoster" src="" alt="Movie Poster">
+            </div>
+            <div class="details-info">
+                <div class="details-info-group">
+                    <h3>Director</h3>
+                    <p id="movieDirector"></p>
+                </div>
+                <div class="details-info-group">
+                    <h3>Top Cast</h3>
+                    <p id="movieCast"></p>
+                </div>
+                <div class="details-info-group">
+                    <h3>Genre</h3>
+                    <p id="movieGenre"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="details-section">
+            <h2 class="details-section-header">
+                <i class="icon icon-details"></i>
+                <span>Summary</span>
+            </h2>
+            <div class="details-summary" id="summaryGroup">
+                <p id="movieOverview" class="summary-text"></p>
+                <button id="readMoreBtn" class="read-more-btn" style="display: none;">Read more</button>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="details-section">
+            <div class="comments-header">
+                <h2 class="details-section-header">
+                    <i class="icon icon-comment"></i>
+                    <span>Comments</span>
+                </h2>
+            </div>
+            
+            <div id="commentsContainer" class="comments-list">
+                <!-- Comments will be injected by JS -->
+            </div>
+        </div>
+
+        <!-- Enhanced Physical Copies Section -->
+        <div class="details-section">
+            <h2 class="details-section-header">
+                <i class="icon icon-dvds"></i>
+                <span>Physical Copies</span>
+            </h2>
+            <div id="physicalCopiesContainer" class="physical-copies-list">
+                <!-- Physical copies will be injected by JS -->
+            </div>
+        </div>
+    </main>
+    
+    <footer class="site-footer">
+        <div class="footer-container" style="text-align: center;">
+             <button id="smartBackBtn" onclick="goBack()" class="btn btn-lg btn-danger" title="take me away">
+                <i class="icon icon-back"></i>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Skeleton Loading State -->
+    <div id="loadingState" class="library-loading-skeleton" style="display: block;">
+        <div class="skeleton-details-ticket">
+            <div class="skeleton" style="width: 300px; height: 32px; margin: 0 auto 8px;"></div>
+            <div class="skeleton" style="width: 100px; height: 20px; margin: 0 auto 15px;"></div>
+            <div style="display: flex; justify-content: center; gap: 30px;">
+                <div style="min-width: 120px;"><div class="skeleton" style="width: 100px; height: 12px; margin: 0 auto 10px;"></div><div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div></div>
+                <div style="min-width: 120px;"><div class="skeleton" style="width: 60px; height: 12px; margin: 0 auto 10px;"></div><div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div></div>
+            </div>
+        </div>
+        <div class="skeleton-details-main">
+            <div class="skeleton skeleton-details-poster"></div>
+            <div class="skeleton-details-info">
+                <div class="skeleton-info-group"><div class="skeleton skeleton-info-title"></div><div class="skeleton skeleton-info-text"></div></div>
+                <div class="skeleton-info-group"><div class="skeleton skeleton-info-title"></div><div class="skeleton skeleton-info-text"></div></div>
+                <div class="skeleton-info-group"><div class="skeleton skeleton-info-title"></div><div class="skeleton skeleton-info-text"></div></div>
+            </div>
+        </div>
+        <div class="skeleton skeleton-section">
+            <div class="skeleton skeleton-section-header"></div>
+            <div class="skeleton-section-content"><div class="skeleton skeleton-text-line long"></div><div class="skeleton skeleton-text-line medium"></div><div class="skeleton skeleton-text-line short"></div></div>
+        </div>
+        <div class="skeleton skeleton-section">
+            <div class="skeleton skeleton-section-header"></div>
+            <div class="skeleton-section-content"><div class="skeleton skeleton-text-line long"></div><div class="skeleton skeleton-text-line medium"></div></div>
+        </div>
+    </div>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+        authDomain: "tiny-lizard.firebaseapp.com",
+        projectId: "tiny-lizard",
+        storageBucket: "tiny-lizard.firebasestorage.app",
+        messagingSenderId: "250872474692",
+        appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore(); 
+    const auth = firebase.auth();
+
+    async function loadMoviePage(user, movieId) {
+        document.getElementById('loadingState').style.display = 'block';
+        document.getElementById('detailsContainer').style.display = 'none';
+
+        try {
+            const movieDocRef = db.collection('movies').doc(movieId);
+            const movieDoc = await movieDocRef.get();
+            if (!movieDoc.exists) 
+                throw new Error("This movie could not be found in the main library.");
+            
+            const movieData = { id: movieDoc.id, ...movieDoc.data() };
+            const interactionsSnapshot = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).get();
+            
+            const allInteractions = interactionsSnapshot.docs.map(doc => ({
+                userId: doc.ref.path.split('/')[1],
+                ...doc.data()
+            }));
+            
+            const myInteraction = allInteractions.find(interaction => user && interaction.userId === user.uid);
+
+            populateMovieDetails(movieData, myInteraction, allInteractions);
+            await loadCommentsWithUserData(allInteractions);
+            await loadPhysicalCopies(allInteractions);
+            setupCommentForm(user, movieId, myInteraction);
+            setupEditButton(user, movieId);
+
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('detailsContainer').style.display = 'flex'; // Use flex for proper layout
+
+        } catch (error) {
+            console.error("Error loading movie page:", error);
+            const container = document.getElementById('detailsContainer');
+            container.innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p></div>`;
+            container.style.display = 'block';
+            document.getElementById('loadingState').style.display = 'none';
+        }
+    }
+
+    function populateMovieDetails(movieData, myInteraction, allInteractions) {
+        document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
+        document.getElementById('movieYear').textContent = movieData.year || 'N/A';
+        document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
+        document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
+        document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
+        document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
+        document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
+        
+        const overviewElement = document.getElementById('movieOverview');
+        const readMoreBtn = document.getElementById('readMoreBtn');
+        const summaryGroup = document.getElementById('summaryGroup');
+        const overview = movieData.overview || 'No description available.';
+        
+        overviewElement.textContent = overview;
+        
+        if (overview.length > 250) { // Adjusted threshold
+            summaryGroup.classList.add('collapsed');
+            readMoreBtn.style.display = 'inline-flex';
+            readMoreBtn.onclick = () => {
+                summaryGroup.classList.toggle('collapsed');
+                readMoreBtn.textContent = summaryGroup.classList.contains('collapsed') ? 'Read more' : 'Read less';
+            };
+        } else {
+             readMoreBtn.style.display = 'none';
+        }
+
+        const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
+        const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+
+        renderStars(document.getElementById('averageRating'), avgRating); 
+        renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
+    }
+
+    async function loadCommentsWithUserData(interactions) {
+        const commentsContainer = document.getElementById('commentsContainer');
+        commentsContainer.innerHTML = '';
+
+        const commentsWithReviews = interactions.filter(i => i.review && i.review.trim() !== '');
+        
+        if (commentsWithReviews.length === 0) {
+            commentsContainer.innerHTML = `<p class="review-text-empty">No comments yet. Be the first to leave one!</p>`;
+            return;
+        }
+
+        const userIds = [...new Set(commentsWithReviews.map(c => c.userId))];
+        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
+        const userDocs = await Promise.all(userPromises);
+        
+        const userMap = new Map();
+        userDocs.forEach(doc => {
+            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
+        });
+
+        commentsWithReviews.forEach(comment => {
+            const username = userMap.get(comment.userId) || 'Anonymous';
+            const commentEl = document.createElement('div');
+            commentEl.className = 'comment-item';
+            commentEl.innerHTML = `
+                <p class="review-text">${comment.review}</p>
+                <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
+            `;
+            commentsContainer.appendChild(commentEl);
+        });
+    }
+
+    async function loadPhysicalCopies(interactions) {
+        const container = document.getElementById('physicalCopiesContainer');
+        container.innerHTML = '';
+
+        const physicalCopies = interactions.filter(i => i.owned === true);
+
+        if (physicalCopies.length === 0) {
+            container.innerHTML = `<p class="no-physical-copies">No physical copies have been tracked by users yet.</p>`;
+            return;
+        }
+
+        const userIds = [...new Set(physicalCopies.map(c => c.userId))];
+        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
+        const userDocs = await Promise.all(userPromises);
+        
+        const userMap = new Map();
+        userDocs.forEach(doc => {
+            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
+        });
+
+        physicalCopies.forEach(copy => {
+            const username = userMap.get(copy.userId) || 'Anonymous';
+            const copyEl = document.createElement('div');
+            copyEl.className = 'physical-copy-item';
+            
+            // Enhanced physical copy display
+            let copyInfo = '';
+            
+            if (copy.physicalEdition) {
+                const edition = copy.physicalEdition;
+                const details = [];
+                
+                if (edition.format && edition.format !== 'Unknown') {
+                    details.push(`<span class="copy-format">${edition.format}</span>`);
+                }
+                if (edition.edition && edition.edition !== 'Standard') {
+                    details.push(`<span class="copy-edition">${edition.edition}</span>`);
+                }
+                if (edition.region && edition.region !== 'Unknown') {
+                    details.push(`<span class="copy-region">${edition.region}</span>`);
+                }
+                if (edition.distributor && edition.distributor !== 'Unknown') {
+                    details.push(`<span class="copy-distributor">${edition.distributor}</span>`);
+                }
+                
+                copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
+                
+                // Add special features if available
+                if (edition.features && edition.features.length > 0) {
+                    const featuresText = Array.isArray(edition.features) 
+                        ? edition.features.join(', ') 
+                        : edition.features;
+                    copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
+                }
+                
+                // Add barcode if available
+                if (copy.upc || edition.barcode) {
+                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc || edition.barcode}</small></div>`;
+                }
+            } else {
+                // Legacy format support
+                let legacyDetails = [];
+                if (copy.editionFormat) legacyDetails.push(copy.editionFormat);
+                if (copy.editionTitle && copy.editionTitle !== copy.editionFormat) {
+                    legacyDetails.push(copy.editionTitle);
+                }
+                copyInfo = legacyDetails.length > 0 ? legacyDetails.join(' ') : 'Physical Copy';
+                
+                if (copy.upc) {
+                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc}</small></div>`;
+                }
+            }
+            
+            copyEl.innerHTML = `
+                <div class="copy-edition-details">${copyInfo}</div>
+                <div class="copy-owner">by <a href="profile.html?id=${copy.userId}">${username}</a></div>
+            `;
+            container.appendChild(copyEl);
+        });
+    }
+    function renderStars(container, rating) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (typeof rating !== 'number' || rating <= 0) {
+            container.innerHTML = `<span class="not-rated">Not Rated</span>`;
+            return;
+        }
+        let starsHTML = '';
+        for (let i = 1; i <= 5; i++) {
+            if (i <= rating) starsHTML += `<span class="star star-full"></span>`;
+            else if (i - 0.5 <= rating) starsHTML += `<span class="star star-half"></span>`;
+            else starsHTML += `<span class="star star-empty"></span>`;
+        }
+        container.innerHTML = starsHTML;
+    }
+
+    function setupCommentForm(user, movieId, myInteraction) {
+        const editMovieBtn = document.getElementById('editMovieBtn');
+
+        if (!user) {
+            editMovieBtn.style.display = 'none';
+            return;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Update back button text based on context
+        updateBackButton();
+
+        auth.onAuthStateChanged(user => {
+            const movieId = new URLSearchParams(window.location.search).get('id');
+            if (movieId) {
+                loadMoviePage(user, movieId);
+            } else {
+                const container = document.getElementById('detailsContainer');
+                container.innerHTML = `<div class="error-state"><h3>Error</h3><p>No movie ID was provided.</p></div>`;
+                container.style.display = 'block';
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        });
+    });
+
+    function setupEditButton(user, movieId) {
+        const editBtn = document.getElementById('editMovieBtn');
+        const detailsBtn = document.getElementById('editDetailsBtn');
+        
+        if (!user) {
+            editBtn.style.display = 'none';
+            detailsBtn.style.display = 'none';
+            return;
+        }
+        
+        // Set the personal collection edit URL
+        const currentUrl = new URLSearchParams(window.location.search);
+        const fromParam = currentUrl.get('from') || 'details';
+        
+        editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
+        editBtn.style.display = 'inline-flex';
+        
+        // Check if user can edit movie details (original uploader or admin)
+        checkMovieEditPermissions(user, movieId).then(canEdit => {
+            if (canEdit) {
+                detailsBtn.href = `edit-movie-details.html?id=${movieId}&from=${fromParam}`;
+                detailsBtn.style.display = 'inline-flex';
+            }
+        });
+    }
+    async function checkMovieEditPermissions(user, movieId) {
+        try {
+            const [movieDoc, adminDoc] = await Promise.all([
+                db.collection('movies').doc(movieId).get(),
+                db.collection('admins').doc(user.uid).get()
+            ]);
+            
+            if (!movieDoc.exists) return false;
+            
+            const movieData = movieDoc.data();
+            const isOriginalUploader = movieData.originalUploaderId === user.uid;
+            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
+            
+            return isOriginalUploader || isAdmin;
+        } catch (error) {
+            console.error('Error checking permissions:', error);
+            return false;
+        }
+    }
+
+    function goBack() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromParam = urlParams.get('from');
+        
+        switch(fromParam) {
+            case 'library':
+            case 'home':
+                window.location.href = 'index.html';
+                break;
+            case 'profile':
+                const profileId = urlParams.get('profileId');
+                window.location.href = profileId ? `profile.html?id=${profileId}` : 'profile.html';
+                break;
+            case 'review':
+                window.location.href = 'review-failed.html';
+                break;
+            case 'bulk':
+                window.location.href = 'bulk-scan.html';
+                break;
+            case 'search':
+                // Try browser back first for search results
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.location.href = 'index.html';
+                }
+                break;
+            default:
+                // Default fallback to library
+                window.location.href = 'index.html';
+        }
+    }
+
+    function updateBackButton() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromParam = urlParams.get('from');
+        const backBtnText = document.getElementById('backBtnText');
+        const backBtn = document.getElementById('smartBackBtn');
+        
+        if (!backBtnText || !backBtn) return;
+        
+        switch(fromParam) {
+            case 'library':
+            case 'home':
+                backBtnText.textContent = 'Back to Library';
+                backBtn.title = 'Back to Library';
+                break;
+            case 'profile':
+                backBtnText.textContent = 'Back to Profile';
+                backBtn.title = 'Back to Profile';
+                break;
+            case 'review':
+                backBtnText.textContent = 'Back to Review';
+                backBtn.title = 'Back to Review';
+                break;
+            case 'bulk':
+                backBtnText.textContent = 'Back to Bulk Scan';
+                backBtn.title = 'Back to Bulk Scan';
+                break;
+            case 'search':
+                backBtnText.textContent = 'Back to Results';
+                backBtn.title = 'Back to Search Results';
+                break;
+            default:
+                backBtnText.textContent = 'Back to Library';
+                backBtn.title = 'Back to Library';
+        }
+    }
+</script>
+</div>
+<div id="footer-placeholder"></div>
+</body>
+</html>

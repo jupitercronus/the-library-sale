@@ -3,503 +3,644 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Details - The Library Sale</title>
-    <!-- Google Fonts & Styles -->
+    <title>the library sale</title>
+    <!-- Google Fonts Import -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles/variables.css">
-    <link rel="stylesheet" href="styles/base.css">  
-    <link rel="stylesheet" href="styles/components.css">
-    <link rel="stylesheet" href="styles/pages.css">    
+    
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>   
-    <!-- App Utilities & Main Script -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    
+    <!-- App Scripts & Styles -->
     <script src="utils.js" defer></script>
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
 </head>
-<body>
-    <div>    
+<body class="index-page">
+    <div>
         <header id="navbar-placeholder"></header>
     </div>
-
-    <main id="detailsContainer" class="details-page-container" style="display: none;">
-        
-        <!-- Centered Title, Year, and Ratings (Ticket Style) -->
-        <div class="details-ticket">
-            <h1 id="movieTitle" class="details-title"></h1>
-            <p id="movieYear" class="details-year"></p>
-            
-            <div class="details-ratings">
-                <div class="rating-box">
-                    <h3>Average Rating</h3>
-                    <div id="averageRating" class="star-rating star-rating-md"></div>
-                </div>
-                <div class="rating-box">
-                    <h3>My Rating</h3>
-                    <div id="myRating" class="star-rating star-rating-md"></div>
-                </div>
+<main>
+    <div class="main-container">
+        <div class="controls-section">
+        <div id="bulkImportSuccess" class="status-message status-success" style="display: none; margin-bottom: var(--space-xl);">
+            <span class="icon icon-confirm icon-md"></span>
+            <span id="bulkImportMessage">bulk import happened!</span>
+        </div>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="search by title, director, cast, genre...">
             </div>
-            <div class="details-actions-centered">
-                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="edit my rating and comments" style="display: none;">
-                    <span class="icon icon-person icon-xl"></span>
-                </a>
-                <a id="editDetailsBtn" href="#" class="btn btn-xl btn-primary" title="edit movie details" style="display: none;">
-                    <span class="icon icon-edit icon-xl"></span>
-                </a>
+            <div class="filter-controls">
+            <button id="myMediaToggle" class="btn btn-lg toggle-btn" title="show my media only" data-active="false">
+                    <i class="icon icon-person"></i>
+                </button>
+                <div id="statusToggles" style="display: none; gap: var(--space-md);" class="flex">
+                    <button id="watchedToggle" class="btn btn-md toggle-btn" title="watched only" data-active="false">
+                        <i class="icon icon-watched"></i>
+                    </button>
+                    <button id="ownedToggle" class="btn btn-md toggle-btn" title="owned only" data-active="false">
+                        <i class="icon icon-dvds"></i>
+                    </button>
+                </div>
+                <select id="sortDropdown" class="filter-dropdown">
+                    <option value="dateAdded">recently added</option>
+                    <option value="titleAsc">title (A-Z)</option>
+                    <option value="titleDesc">title (Z-A)</option>
+                    <option value="ratingDesc">my rating (high to low)</option>
+                    <option value="ratingAsc">my rating (low to high)</option>
+                </select>
             </div>
         </div>
 
-        <!-- Main Content Grid (Poster + Info) -->
-        <div class="details-main-content">
-            <div class="details-poster">
-                <img id="moviePoster" src="" alt="Movie Poster">
-            </div>
-            <div class="details-info">
-                <div class="details-info-group">
-                    <h3>Director</h3>
-                    <p id="movieDirector"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Top Cast</h3>
-                    <p id="movieCast"></p>
-                </div>
-                <div class="details-info-group">
-                    <h3>Genre</h3>
-                    <p id="movieGenre"></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Summary Section -->
-        <div class="details-section">
-            <h2 class="details-section-header">
-                <i class="icon icon-details"></i>
-                <span>Summary</span>
-            </h2>
-            <div class="details-summary" id="summaryGroup">
-                <p id="movieOverview" class="summary-text"></p>
-                <button id="readMoreBtn" class="read-more-btn" style="display: none;">Read more</button>
-            </div>
-        </div>
-
-        <!-- Comments Section -->
-        <div class="details-section">
-            <div class="comments-header">
-                <h2 class="details-section-header">
-                    <i class="icon icon-comment"></i>
-                    <span>Comments</span>
-                </h2>
-            </div>
-            
-            <div id="commentsContainer" class="comments-list">
-                <!-- Comments will be injected by JS -->
-            </div>
-        </div>
-
-        <!-- Enhanced Physical Copies Section -->
-        <div class="details-section">
-            <h2 class="details-section-header">
-                <i class="icon icon-dvds"></i>
-                <span>Physical Copies</span>
-            </h2>
-            <div id="physicalCopiesContainer" class="physical-copies-list">
-                <!-- Physical copies will be injected by JS -->
-            </div>
-        </div>
-    </main>
-    
-    <footer class="site-footer">
-        <div class="footer-container" style="text-align: center;">
-             <button id="smartBackBtn" onclick="goBack()" class="btn btn-lg btn-danger" title="take me away">
+        <div id="paginationControls" class="pagination-controls" style="display: none;">
+            <button id="prevPageBtn" class="btn btn-md btn-secondary" title="previous page">
                 <i class="icon icon-back"></i>
             </button>
+            <span id="paginationInfo" class="pagination-info">1 of 1 (0 items)</span>
+            <button id="nextPageBtn" class="btn btn-md btn-secondary" title="next page">
+                <i class="icon icon-back" style="transform: rotate(180deg);"></i>
+            </button>
         </div>
-    </footer>
 
-    <!-- Skeleton Loading State -->
-    <div id="loadingState" class="library-loading-skeleton" style="display: block;">
-        <div class="skeleton-details-ticket">
-            <div class="skeleton" style="width: 300px; height: 32px; margin: 0 auto 8px;"></div>
-            <div class="skeleton" style="width: 100px; height: 20px; margin: 0 auto 15px;"></div>
-            <div style="display: flex; justify-content: center; gap: 30px;">
-                <div style="min-width: 120px;"><div class="skeleton" style="width: 100px; height: 12px; margin: 0 auto 10px;"></div><div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div></div>
-                <div style="min-width: 120px;"><div class="skeleton" style="width: 60px; height: 12px; margin: 0 auto 10px;"></div><div class="skeleton" style="width: 80px; height: 16px; margin: 0 auto;"></div></div>
-            </div>
+        <div id="mediaContainer" class="media-grid">
+            <!-- Media cards will be injected here by JavaScript -->
         </div>
-        <div class="skeleton-details-main">
-            <div class="skeleton skeleton-details-poster"></div>
-            <div class="skeleton-details-info">
-                <div class="skeleton-info-group"><div class="skeleton skeleton-info-title"></div><div class="skeleton skeleton-info-text"></div></div>
-                <div class="skeleton-info-group"><div class="skeleton skeleton-info-title"></div><div class="skeleton skeleton-info-text"></div></div>
-                <div class="skeleton-info-group"><div class="skeleton skeleton-info-title"></div><div class="skeleton skeleton-info-text"></div></div>
-            </div>
-        </div>
-        <div class="skeleton skeleton-section">
-            <div class="skeleton skeleton-section-header"></div>
-            <div class="skeleton-section-content"><div class="skeleton skeleton-text-line long"></div><div class="skeleton skeleton-text-line medium"></div><div class="skeleton skeleton-text-line short"></div></div>
-        </div>
-        <div class="skeleton skeleton-section">
-            <div class="skeleton skeleton-section-header"></div>
-            <div class="skeleton-section-content"><div class="skeleton skeleton-text-line long"></div><div class="skeleton skeleton-text-line medium"></div></div>
+
+        <div id="paginationControlsBottom" class="pagination-controls" style="display: none;">
+            <button id="prevPageBtnBottom" class="btn btn-md btn-secondary" title="previous page">
+                <i class="icon icon-back"></i>
+            </button>
+            <span id="paginationInfoBottom" class="pagination-info">1 of 1 (0 items)</span>
+            <button id="nextPageBtnBottom" class="btn btn-md btn-secondary" title="next page">
+                <i class="icon icon-back" style="transform: rotate(180deg);"></i>
+            </button>
         </div>
     </div>
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
-        authDomain: "tiny-lizard.firebaseapp.com",
-        projectId: "tiny-lizard",
-        storageBucket: "tiny-lizard.firebasestorage.app",
-        messagingSenderId: "250872474692",
-        appId: "1:250872474692:web:969e0b1302ae3cb4666011"
-    };
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore(); 
-    const auth = firebase.auth();
+    
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h3 id="confirmationModalTitle">ummmmm</h3>
+            <p id="confirmationModalMessage">are you sure about that?</p>
+            <div class="modal-buttons">
+                <button class="btn btn-lg btn-success" id="confirmModalYes" title="Yes"><i class="icon icon-confirm"></i></button>
+                <button class="btn btn-lg btn-danger" id="confirmModalNo" title="No"><i class="icon icon-close"></i></button>
+            </div>
+        </div>
+    </div>
 
-    async function loadMoviePage(user, movieId) {
-        document.getElementById('loadingState').style.display = 'block';
-        document.getElementById('detailsContainer').style.display = 'none';
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+          authDomain: "tiny-lizard.firebaseapp.com",
+          projectId: "tiny-lizard",
+          storageBucket: "tiny-lizard.firebasestorage.app",
+          messagingSenderId: "250872474692",
+          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
 
-        try {
-            const movieDocRef = db.collection('movies').doc(movieId);
-            const movieDoc = await movieDocRef.get();
-            if (!movieDoc.exists) 
-                throw new Error("This movie could not be found in the main library.");
-            
-            const movieData = { id: movieDoc.id, ...movieDoc.data() };
-            const interactionsSnapshot = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).get();
-            
-            const allInteractions = interactionsSnapshot.docs.map(doc => ({
-                userId: doc.ref.path.split('/')[1],
-                ...doc.data()
-            }));
-            
-            const myInteraction = allInteractions.find(interaction => user && interaction.userId === user.uid);
-
-            populateMovieDetails(movieData, myInteraction, allInteractions);
-            await loadCommentsWithUserData(allInteractions);
-            await loadPhysicalCopies(allInteractions);
-            setupCommentForm(user, movieId, myInteraction);
-            setupEditButton(user, movieId);
-
-            document.getElementById('loadingState').style.display = 'none';
-            document.getElementById('detailsContainer').style.display = 'flex'; // Use flex for proper layout
-
-        } catch (error) {
-            console.error("Error loading movie page:", error);
-            const container = document.getElementById('detailsContainer');
-            container.innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p></div>`;
-            container.style.display = 'block';
-            document.getElementById('loadingState').style.display = 'none';
-        }
-    }
-
-    function populateMovieDetails(movieData, myInteraction, allInteractions) {
-        document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
-        document.getElementById('movieYear').textContent = movieData.year || 'N/A';
-        document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
-        document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
-        document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
-        document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
-        document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
+        let currentPage = 1;
+        const itemsPerPage = 25; 
+        let totalPages = 1;
+        let filteredMedia = []; 
+        let currentUser = null;
+        let allMedia = [];
+        let myInteractions = {};
+        let debouncedRender = null;
         
-        const overviewElement = document.getElementById('movieOverview');
-        const readMoreBtn = document.getElementById('readMoreBtn');
-        const summaryGroup = document.getElementById('summaryGroup');
-        const overview = movieData.overview || 'No description available.';
-        
-        overviewElement.textContent = overview;
-        
-        if (overview.length > 250) { // Adjusted threshold
-            summaryGroup.classList.add('collapsed');
-            readMoreBtn.style.display = 'inline-flex';
-            readMoreBtn.onclick = () => {
-                summaryGroup.classList.toggle('collapsed');
-                readMoreBtn.textContent = summaryGroup.classList.contains('collapsed') ? 'Read more' : 'Read less';
-            };
-        } else {
-             readMoreBtn.style.display = 'none';
-        }
+        function setupAuthButton() {
+            const authBtn = document.getElementById('authBtn');
+            if (!authBtn) return; // Exit if the button isn't loaded yet
 
-        const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
-        const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
-
-        renderStars(document.getElementById('averageRating'), avgRating); 
-        renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
-    }
-
-    async function loadCommentsWithUserData(interactions) {
-        const commentsContainer = document.getElementById('commentsContainer');
-        commentsContainer.innerHTML = '';
-
-        const commentsWithReviews = interactions.filter(i => i.review && i.review.trim() !== '');
-        
-        if (commentsWithReviews.length === 0) {
-            commentsContainer.innerHTML = `<p class="review-text-empty">No comments yet. Be the first to leave one!</p>`;
-            return;
-        }
-
-        const userIds = [...new Set(commentsWithReviews.map(c => c.userId))];
-        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-        const userDocs = await Promise.all(userPromises);
-        
-        const userMap = new Map();
-        userDocs.forEach(doc => {
-            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-        });
-
-        commentsWithReviews.forEach(comment => {
-            const username = userMap.get(comment.userId) || 'Anonymous';
-            const commentEl = document.createElement('div');
-            commentEl.className = 'comment-item';
-            commentEl.innerHTML = `
-                <p class="review-text">${comment.review}</p>
-                <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
-            `;
-            commentsContainer.appendChild(commentEl);
-        });
-    }
-
-    async function loadPhysicalCopies(interactions) {
-        const container = document.getElementById('physicalCopiesContainer');
-        container.innerHTML = '';
-
-        const physicalCopies = interactions.filter(i => i.owned === true);
-
-        if (physicalCopies.length === 0) {
-            container.innerHTML = `<p class="no-physical-copies">No physical copies have been tracked by users yet.</p>`;
-            return;
-        }
-
-        const userIds = [...new Set(physicalCopies.map(c => c.userId))];
-        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-        const userDocs = await Promise.all(userPromises);
-        
-        const userMap = new Map();
-        userDocs.forEach(doc => {
-            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-        });
-
-        physicalCopies.forEach(copy => {
-            const username = userMap.get(copy.userId) || 'Anonymous';
-            const copyEl = document.createElement('div');
-            copyEl.className = 'physical-copy-item';
-            
-            // Enhanced physical copy display
-            let copyInfo = '';
-            
-            if (copy.physicalEdition) {
-                const edition = copy.physicalEdition;
-                const details = [];
-                
-                if (edition.format && edition.format !== 'Unknown') {
-                    details.push(`<span class="copy-format">${edition.format}</span>`);
-                }
-                if (edition.edition && edition.edition !== 'Standard') {
-                    details.push(`<span class="copy-edition">${edition.edition}</span>`);
-                }
-                if (edition.region && edition.region !== 'Unknown') {
-                    details.push(`<span class="copy-region">${edition.region}</span>`);
-                }
-                if (edition.distributor && edition.distributor !== 'Unknown') {
-                    details.push(`<span class="copy-distributor">${edition.distributor}</span>`);
-                }
-                
-                copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
-                
-                // Add special features if available
-                if (edition.features && edition.features.length > 0) {
-                    const featuresText = Array.isArray(edition.features) 
-                        ? edition.features.join(', ') 
-                        : edition.features;
-                    copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
-                }
-                
-                // Add barcode if available
-                if (copy.upc || edition.barcode) {
-                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc || edition.barcode}</small></div>`;
-                }
+            if (currentUser) {
+                authBtn.textContent = 'Logout';
+                authBtn.title = 'Logout';
+                authBtn.onclick = () => {
+                    auth.signOut().then(() => {
+                        window.location.reload(); // Reload the page to clear user data
+                    });
+                };
             } else {
-                // Legacy format support
-                let legacyDetails = [];
-                if (copy.editionFormat) legacyDetails.push(copy.editionFormat);
-                if (copy.editionTitle && copy.editionTitle !== copy.editionFormat) {
-                    legacyDetails.push(copy.editionTitle);
-                }
-                copyInfo = legacyDetails.length > 0 ? legacyDetails.join(' ') : 'Physical Copy';
+                authBtn.textContent = 'Login';
+                authBtn.title = 'Login';
+                authBtn.onclick = () => {
+                    window.location.href = 'auth.html';
+                };
+            }
+        }
+        
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+        loadAllMedia();
+            setupAuthButton();
+            });
+        document.addEventListener('navbarLoaded', () => {
+            setupAuthButton();
+        });
+
+        // === SKELETON UI UTILITIES ===
+        const SkeletonUI = {
+            showMediaGridSkeleton: (containerId, count = 12) => {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                const skeletonHTML = Array(count).fill(0).map(() => `
+                    <div class="skeleton-media-card">
+                        <div class="skeleton media-poster"></div>
+                        <div class="skeleton skeleton-title"></div>
+                        <div class="skeleton skeleton-year"></div>
+                        <div class="skeleton-rating">
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                            <div class="skeleton skeleton-star"></div>
+                        </div>
+                    </div>
+                `).join('');
+                container.innerHTML = skeletonHTML;
+            },
+
+            showEmptyState: (containerId, searchTerm = '') => {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                const message = searchTerm 
+                    ? 'No media found. Try adjusting your search terms.'
+                    : 'Your collection is empty. Add some media to get started!';
+                const actionButton = !searchTerm 
+                    ? '<a href="add-movie.html" class="btn btn-lg btn-primary" title="Add Your First Movie"><i class="icon icon-add"></i></a>' 
+                    : '';
                 
-                if (copy.upc) {
-                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc}</small></div>`;
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No media found</h3>
+                        <p>${message}</p>
+                        ${actionButton}
+                    </div>
+                `;
+            }
+        };
+
+        async function loadAllMedia() {
+            try {
+                SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
+
+                const mediaSnapshot = await db.collection('movies').get();
+                allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                myInteractions = {};
+                if (currentUser) {
+                    const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
+                    interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                setTimeout(() => renderMedia(), 100);
+
+            } catch (error) {
+                console.error("Error loading media:", error);
+                const container = document.getElementById('mediaContainer');
+                if(container) {
+                    container.innerHTML = `
+                        <div class="error-state">
+                            <h3>Oops! Something went wrong</h3>
+                            <p>Unable to load your media collection. Please try again.</p>
+                            <button class="btn btn-rectangular btn-primary" onclick="loadAllMedia()">Try Again</button>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        function getSortableTitle(title) {
+            if (!title) return '';
+
+            const lowerTitle = title.toLowerCase();
+            const articlesToIgnore = ['the ', 'a ', 'an '];
+
+            for (const article of articlesToIgnore) {
+                if (lowerTitle.startsWith(article)) {
+                    // If the title starts with an article, return the rest of the string
+                    return title.substring(article.length);
                 }
             }
             
-            copyEl.innerHTML = `
-                <div class="copy-edition-details">${copyInfo}</div>
-                <div class="copy-owner">by <a href="profile.html?id=${copy.userId}">${username}</a></div>
-            `;
-            container.appendChild(copyEl);
+            // Otherwise, return the original title
+            return title;
+        }
+
+        function generateStarDisplay(rating) {
+            if (!rating || rating <= 0) return '<div class="star-rating"></div>'; 
+            const totalStars = 5;
+            let starsHTML = '';
+            for (let i = 1; i <= totalStars; i++) {
+                if (i <= rating) {
+                    starsHTML += `<span class="star star-full"></span>`;
+                } else if (i - 0.5 <= rating) {
+                    starsHTML += `<span class="star star-half"></span>`;
+                } else {
+                    starsHTML += `<span class="star star-empty"></span>`;
+                }
+            }
+            return `<div class="star-rating">${starsHTML}</div>`;
+        }
+
+        function viewMediaDetails(mediaId) { 
+            window.location.href = `movie-details.html?id=${mediaId}`; 
+        }
+        
+        function editMovie(mediaId) { 
+            window.location.href = `edit-movie.html?id=${mediaId}`; 
+        }
+        
+        function addToList(mediaId) {
+            // Placeholder for now - you can implement the list functionality later
+            console.log('Add to list:', mediaId);
+            // You could show a modal here, redirect to a lists page, etc.
+            alert('Add to list functionality - to be implemented!');
+        }
+        function addExistingMovieToMyCollection(mediaId) { 
+            window.location.href = `add-movie.html?edit=${mediaId}`; 
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
+
+            auth.onAuthStateChanged(user => {
+                currentUser = user;
+                loadAllMedia();
+            });
+
+            const debounce = (func, delay) => {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), delay);
+                };
+            };
+            
+            debouncedRender = debounce(() => renderMedia(), 300);
+
+
+            document.getElementById('searchInput')?.addEventListener('input', debouncedRender);
+                currentPage = 1; 
+            document.getElementById('myMediaToggle')?.addEventListener('click', () => {
+                currentPage = 1; 
+                const toggle = document.getElementById('myMediaToggle');
+                const statusToggles = document.getElementById('statusToggles');
+                const isActive = toggle.getAttribute('data-active') === 'true';
+                            
+                toggle.setAttribute('data-active', !isActive);
+                toggle.classList.toggle('btn-primary', !isActive);
+                toggle.classList.toggle('toggle-btn', isActive);  
+
+                statusToggles.style.display = !isActive ? 'flex' : 'none';
+
+            // Reset sub-toggles when hiding
+                if (isActive) {
+                    document.getElementById('watchedToggle').setAttribute('data-active', 'false');
+                    document.getElementById('ownedToggle').setAttribute('data-active', 'false');
+                    document.getElementById('watchedToggle').className = 'btn btn-md toggle-btn';  // Changed from btn-secondary
+                    document.getElementById('ownedToggle').className = 'btn btn-md toggle-btn';    // Changed from btn-secondary
+                }
+                
+                renderMedia();
+            });
+
+
+            // Add event listeners for the new toggles
+            document.getElementById('watchedToggle')?.addEventListener('click', () => {
+                currentPage = 1; 
+                const toggle = document.getElementById('watchedToggle');
+                const isActive = toggle.getAttribute('data-active') === 'true';
+                
+                toggle.setAttribute('data-active', !isActive);
+                toggle.classList.toggle('btn-primary', !isActive);
+                toggle.classList.toggle('toggle-btn', isActive);
+                
+                renderMedia();
+            });
+
+            document.getElementById('ownedToggle')?.addEventListener('click', () => {
+                currentPage = 1; 
+                const toggle = document.getElementById('ownedToggle');
+                const isActive = toggle.getAttribute('data-active') === 'true';
+                
+                toggle.setAttribute('data-active', !isActive);
+                toggle.classList.toggle('btn-primary', !isActive);
+                toggle.classList.toggle('toggle-btn', isActive);
+                
+                renderMedia();
+            });
+
+            document.getElementById('sortDropdown')?.addEventListener('change', () => {
+                currentPage = 1; 
+                
+                renderMedia();
+            });
+
+            document.getElementById('prevPageBtn')?.addEventListener('click', () => goToPage(currentPage - 1));
+            document.getElementById('nextPageBtn')?.addEventListener('click', () => goToPage(currentPage + 1));
+
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const bulkImported = urlParams.get('bulk_imported');
+            
+            if (bulkImported) {
+                const successDiv = document.getElementById('bulkImportSuccess');
+                const messageSpan = document.getElementById('bulkImportMessage');
+                
+                if (successDiv && messageSpan) {
+                    messageSpan.textContent = `Successfully imported ${bulkImported} items from bulk scan!`;
+                    successDiv.style.display = 'block';
+                    
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    
+                    // Hide after 5 seconds
+                    setTimeout(() => {
+                        successDiv.style.display = 'none';
+                    }, 5000);
+                }
+            }
+        });
+
+
+        // Mobile-friendly interaction improvements
+        function addMobileInteractionHandlers() {
+            // Detect if user is on mobile
+            const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+            
+            if (isMobile) {
+                // Add visual feedback for button presses
+                document.addEventListener('touchstart', (e) => {
+                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
+                        e.target.style.transform = 'scale(0.95)';
+                    }
+                });
+                
+                document.addEventListener('touchend', (e) => {
+                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
+                        setTimeout(() => {
+                            e.target.style.transform = '';
+                        }, 150);
+                    }
+                });
+                
+                // Prevent accidental card navigation when tapping buttons
+                document.addEventListener('click', (e) => {
+                    if (e.target.closest('.media-actions')) {
+                        e.stopPropagation();
+                    }
+                });
+            }
+        }
+
+        function renderMedia() {
+            const container = document.getElementById('mediaContainer');
+            if(!container) return;
+
+            const searchTerm = (document.getElementById('searchInput').value || '').trim();
+            const isMyMediaActive = document.getElementById('myMediaToggle').getAttribute('data-active') === 'true';
+            const isWatchedActive = document.getElementById('watchedToggle').getAttribute('data-active') === 'true';
+            const isOwnedActive = document.getElementById('ownedToggle').getAttribute('data-active') === 'true';
+            const sort = document.getElementById('sortDropdown').value;
+            const isMobile = window.innerWidth <= 768;
+
+            let mediaToDisplay = [...allMedia];  // DECLARE THIS FIRST!
+
+            // Filter by "my media" if toggle is active
+            if (isMyMediaActive && currentUser) {
+                mediaToDisplay = mediaToDisplay.filter(media => {
+                    const interaction = myInteractions[media.id];
+                    if (!interaction) return false;
+                    
+                    // If both toggles are active, show items that are both watched AND owned
+                    if (isWatchedActive && isOwnedActive) {
+                        return interaction.watched && interaction.owned;
+                    }
+                    // If only watched is active, show only watched
+                    else if (isWatchedActive) {
+                        return interaction.watched;
+                    }
+                    // If only owned is active, show only owned
+                    else if (isOwnedActive) {
+                        return interaction.owned;
+                    }
+                    // If neither sub-toggle is active, show any interaction
+                    else {
+                        return true;
+                    }
+                });
+            }
+
+            // Filter by search term
+            if (searchTerm) {
+                const lowerCaseSearchTerm = searchTerm.toLowerCase();
+                mediaToDisplay = mediaToDisplay.filter(media => {
+                    const title = (media.title || '').toLowerCase();
+                    const director = (media.director || '').toLowerCase();
+                    const genre = (media.genre || '').toLowerCase();
+                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+                    return title.includes(lowerCaseSearchTerm) || 
+                        director.includes(lowerCaseSearchTerm) ||
+                        genre.includes(lowerCaseSearchTerm) ||
+                        cast.includes(lowerCaseSearchTerm);
+                });
+            }
+
+            // Sort the results
+            mediaToDisplay.sort((a, b) => {
+                const interactionA = myInteractions[a.id] || { rating: 0 };
+                const interactionB = myInteractions[b.id] || { rating: 0 };
+                switch (sort) {
+                    case 'titleAsc': return getSortableTitle(a.title).localeCompare(getSortableTitle(b.title));
+                    case 'titleDesc': return getSortableTitle(b.title).localeCompare(getSortableTitle(a.title));
+                    case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
+                    case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
+                    default:
+                        const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
+                        const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
+                        return timeB - timeA;
+                }
+            });
+
+            // Store filtered results and calculate pagination
+            filteredMedia = mediaToDisplay;
+            totalPages = Math.ceil(filteredMedia.length / itemsPerPage);
+
+            // Reset to page 1 if current page is beyond available pages
+            if (currentPage > totalPages) {
+                currentPage = 1;
+            }
+
+            // Update pagination controls
+            updatePaginationControls();
+
+            // Get items for current page
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedMedia = filteredMedia.slice(startIndex, endIndex);
+
+            if (paginatedMedia.length === 0) {
+                SkeletonUI.showEmptyState('mediaContainer', searchTerm);
+                return;
+            }
+
+            // Render the current page of media
+            container.innerHTML = paginatedMedia.map(media => {
+                const title = media.title || 'Untitled';
+                const interaction = myInteractions[media.id];
+
+                const posterImg = media.posterUrl 
+                    ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
+                    : '<div class="no-poster">No Poster</div>';
+                
+                let actionsHTML = '';
+                if (currentUser) {
+                    let statusBadges = [];
+                    let actionButtons = [];
+                    
+                    if (interaction) {
+                        // User has this media, show action buttons
+                        actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
+                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-edit"></i></button>`);
+                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); addToList('${media.id}')" title="Add to List" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-list"></i></button>`);
+
+                    } else {
+                        actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
+                        actionButtons.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-add"></i></button>`);
+                    }
+                    
+                    actionsHTML = `<div class="media-actions">${actionButtons.join('')}</div>`;
+
+                } else {
+                    actionsHTML = `<div class="media-actions"><a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a></div>`;
+                }
+
+                return `
+                    <div class="media-card fade-in" ${isMobile ? 'data-mobile="true"' : ''}>
+                        <div class="media-poster" onclick="${isMobile ? '' : `viewMediaDetails('${media.id}')`}" ${isMobile ? `data-media-id="${media.id}"` : ''}>
+                            ${posterImg}
+                            ${actionsHTML}
+                        </div>
+                        <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
+                        <p class="media-year">${media.year || ''}</p>
+                        ${generateStarDisplay(interaction ? interaction.rating : 0)}
+                    </div>
+                `;
+            }).join('');
+
+            // Add mobile-specific event handlers after rendering
+            if (isMobile) {
+                addMobileClickHandlers();
+            }
+
+            setTimeout(() => {
+                container.querySelectorAll('.media-card').forEach((card, index) => {
+                    setTimeout(() => {
+                        card.classList.add('visible');
+                    }, index * 30);
+                });
+            }, 50);
+        }
+
+    // Mobile-specific click handlers
+    function addMobileClickHandlers() {
+        const mediaPosters = document.querySelectorAll('.media-poster[data-media-id]');
+        
+        mediaPosters.forEach(poster => {
+            poster.addEventListener('click', (e) => {
+                // On mobile, poster click should go to details unless clicking a button
+                if (!e.target.closest('.media-actions')) {
+                    const mediaId = poster.getAttribute('data-media-id');
+                    viewMediaDetails(mediaId);
+                }
+            });
         });
     }
-    function renderStars(container, rating) {
-        if (!container) return;
-        container.innerHTML = '';
-        if (typeof rating !== 'number' || rating <= 0) {
-            container.innerHTML = `<span class="not-rated">Not Rated</span>`;
+
+    function updatePaginationControls() {
+        const paginationControls = document.getElementById('paginationControls');
+        const paginationControlsBottom = document.getElementById('paginationControlsBottom');
+        const paginationInfo = document.getElementById('paginationInfo');
+        const paginationInfoBottom = document.getElementById('paginationInfoBottom');
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+        const prevBtnBottom = document.getElementById('prevPageBtnBottom');
+        const nextBtnBottom = document.getElementById('nextPageBtnBottom');
+
+        if (totalPages <= 1) {
+            paginationControls.style.display = 'none';
+            paginationControlsBottom.style.display = 'none';
             return;
         }
-        let starsHTML = '';
-        for (let i = 1; i <= 5; i++) {
-            if (i <= rating) starsHTML += `<span class="star star-full"></span>`;
-            else if (i - 0.5 <= rating) starsHTML += `<span class="star star-half"></span>`;
-            else starsHTML += `<span class="star star-empty"></span>`;
-        }
-        container.innerHTML = starsHTML;
+
+        paginationControls.style.display = 'flex';
+        paginationControlsBottom.style.display = 'flex';
+        
+        const startItem = (currentPage - 1) * itemsPerPage + 1;
+        const endItem = Math.min(currentPage * itemsPerPage, filteredMedia.length);
+        const infoText = `Page ${currentPage} of ${totalPages} (${startItem}-${endItem} of ${filteredMedia.length} items)`;
+        
+        // Update both info displays
+        paginationInfo.textContent = infoText;
+        paginationInfoBottom.textContent = infoText;
+        
+        // Update all buttons
+        const isFirstPage = currentPage === 1;
+        const isLastPage = currentPage === totalPages;
+        
+        [prevBtn, prevBtnBottom].forEach(btn => {
+            btn.disabled = isFirstPage;
+            btn.classList.toggle('disabled', isFirstPage);
+        });
+        
+        [nextBtn, nextBtnBottom].forEach(btn => {
+            btn.disabled = isLastPage;
+            btn.classList.toggle('disabled', isLastPage);
+        });
     }
 
-    function setupCommentForm(user, movieId, myInteraction) {
-        const editMovieBtn = document.getElementById('editMovieBtn');
-
-        if (!user) {
-            editMovieBtn.style.display = 'none';
-            return;
+    function goToPage(page) {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            renderMedia();
+        }
+    }
+    
+    // Add haptic feedback for mobile interactions
+    function addHapticFeedback(element) {
+        if (navigator.vibrate && window.innerWidth <= 768) {
+            element.addEventListener('touchstart', () => {
+                navigator.vibrate(50); // Short vibration
+            });
         }
     }
 
+    // Initialize mobile improvements when page loads
     document.addEventListener('DOMContentLoaded', () => {
-        // Update back button text based on context
-        updateBackButton();
-
-        auth.onAuthStateChanged(user => {
-            const movieId = new URLSearchParams(window.location.search).get('id');
-            if (movieId) {
-                loadMoviePage(user, movieId);
-            } else {
-                const container = document.getElementById('detailsContainer');
-                container.innerHTML = `<div class="error-state"><h3>Error</h3><p>No movie ID was provided.</p></div>`;
-                container.style.display = 'block';
-                document.getElementById('loadingState').style.display = 'none';
+        addMobileInteractionHandlers();
+        
+        // Add haptic feedback to interactive elements
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.btn') && navigator.vibrate && window.innerWidth <= 768) {
+                navigator.vibrate(50);
             }
         });
     });
-
-    function setupEditButton(user, movieId) {
-        const editBtn = document.getElementById('editMovieBtn');
-        const detailsBtn = document.getElementById('editDetailsBtn');
-        
-        if (!user) {
-            editBtn.style.display = 'none';
-            detailsBtn.style.display = 'none';
-            return;
-        }
-        
-        // Set the personal collection edit URL
-        const currentUrl = new URLSearchParams(window.location.search);
-        const fromParam = currentUrl.get('from') || 'details';
-        
-        editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
-        editBtn.style.display = 'inline-flex';
-        
-        // Check if user can edit movie details (original uploader or admin)
-        checkMovieEditPermissions(user, movieId).then(canEdit => {
-            if (canEdit) {
-                detailsBtn.href = `edit-movie-details.html?id=${movieId}&from=${fromParam}`;
-                detailsBtn.style.display = 'inline-flex';
-            }
-        });
-    }
-    async function checkMovieEditPermissions(user, movieId) {
-        try {
-            const [movieDoc, adminDoc] = await Promise.all([
-                db.collection('movies').doc(movieId).get(),
-                db.collection('admins').doc(user.uid).get()
-            ]);
-            
-            if (!movieDoc.exists) return false;
-            
-            const movieData = movieDoc.data();
-            const isOriginalUploader = movieData.originalUploaderId === user.uid;
-            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
-            
-            return isOriginalUploader || isAdmin;
-        } catch (error) {
-            console.error('Error checking permissions:', error);
-            return false;
-        }
-    }
-
-    function goBack() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const fromParam = urlParams.get('from');
-        
-        switch(fromParam) {
-            case 'library':
-            case 'home':
-                window.location.href = 'index.html';
-                break;
-            case 'profile':
-                const profileId = urlParams.get('profileId');
-                window.location.href = profileId ? `profile.html?id=${profileId}` : 'profile.html';
-                break;
-            case 'review':
-                window.location.href = 'review-failed.html';
-                break;
-            case 'bulk':
-                window.location.href = 'bulk-scan.html';
-                break;
-            case 'search':
-                // Try browser back first for search results
-                if (window.history.length > 1) {
-                    window.history.back();
-                } else {
-                    window.location.href = 'index.html';
-                }
-                break;
-            default:
-                // Default fallback to library
-                window.location.href = 'index.html';
-        }
-    }
-
-    function updateBackButton() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const fromParam = urlParams.get('from');
-        const backBtnText = document.getElementById('backBtnText');
-        const backBtn = document.getElementById('smartBackBtn');
-        
-        if (!backBtnText || !backBtn) return;
-        
-        switch(fromParam) {
-            case 'library':
-            case 'home':
-                backBtnText.textContent = 'Back to Library';
-                backBtn.title = 'Back to Library';
-                break;
-            case 'profile':
-                backBtnText.textContent = 'Back to Profile';
-                backBtn.title = 'Back to Profile';
-                break;
-            case 'review':
-                backBtnText.textContent = 'Back to Review';
-                backBtn.title = 'Back to Review';
-                break;
-            case 'bulk':
-                backBtnText.textContent = 'Back to Bulk Scan';
-                backBtn.title = 'Back to Bulk Scan';
-                break;
-            case 'search':
-                backBtnText.textContent = 'Back to Results';
-                backBtn.title = 'Back to Search Results';
-                break;
-            default:
-                backBtnText.textContent = 'Back to Library';
-                backBtn.title = 'Back to Library';
-        }
-    }
-</script>
-</div>
-<div id="footer-placeholder"></div>
+    </script>
+    <div id="footer-placeholder"></div>
 </body>
 </html>

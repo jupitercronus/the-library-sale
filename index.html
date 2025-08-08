@@ -4,17 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>the library sale</title>
-    <!-- Google Fonts Import -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
     
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     
-    <!-- App Scripts & Styles -->
     <script src="utils.js" defer></script>
     <link rel="stylesheet" href="styles/variables.css">
     <link rel="stylesheet" href="styles/base.css">  
@@ -22,625 +19,362 @@
     <link rel="stylesheet" href="styles/pages.css">
     <script src="main.js" defer></script>
 </head>
-<body class="index-page">
-    <div>
-        <header id="navbar-placeholder"></header>
-    </div>
-<main>
-    <div class="main-container">
-        <div class="controls-section">
-        <div id="bulkImportSuccess" class="status-message status-success" style="display: none; margin-bottom: var(--space-xl);">
-            <span class="icon icon-confirm icon-md"></span>
-            <span id="bulkImportMessage">bulk import happened!</span>
-        </div>
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="search by title, director, cast, genre...">
-            </div>
-            <div class="filter-controls">
-            <button id="myMediaToggle" class="btn btn-lg toggle-btn" title="show my media only" data-active="false">
-                    <i class="icon icon-person"></i>
-                </button>
-                <div id="statusToggles" style="display: none; gap: var(--space-md);" class="flex">
-                    <button id="watchedToggle" class="btn btn-md toggle-btn" title="watched only" data-active="false">
-                        <i class="icon icon-watched"></i>
-                    </button>
-                    <button id="ownedToggle" class="btn btn-md toggle-btn" title="owned only" data-active="false">
-                        <i class="icon icon-dvds"></i>
-                    </button>
-                </div>
-                <select id="sortDropdown" class="filter-dropdown">
-                    <option value="dateAdded">recently added</option>
-                    <option value="titleAsc">title (A-Z)</option>
-                    <option value="titleDesc">title (Z-A)</option>
-                    <option value="ratingDesc">my rating (high to low)</option>
-                    <option value="ratingAsc">my rating (low to high)</option>
-                </select>
-            </div>
-        </div>
-
-        <div id="paginationControls" class="pagination-controls" style="display: none;">
-            <button id="prevPageBtn" class="btn btn-md btn-secondary" title="previous page">
-                <i class="icon icon-back"></i>
-            </button>
-            <span id="paginationInfo" class="pagination-info">1 of 1 (0 items)</span>
-            <button id="nextPageBtn" class="btn btn-md btn-secondary" title="next page">
-                <i class="icon icon-back" style="transform: rotate(180deg);"></i>
-            </button>
-        </div>
-
-        <div id="mediaContainer" class="media-grid">
-            <!-- Media cards will be injected here by JavaScript -->
-        </div>
-
-        <div id="paginationControlsBottom" class="pagination-controls" style="display: none;">
-            <button id="prevPageBtnBottom" class="btn btn-md btn-secondary" title="previous page">
-                <i class="icon icon-back"></i>
-            </button>
-            <span id="paginationInfoBottom" class="pagination-info">1 of 1 (0 items)</span>
-            <button id="nextPageBtnBottom" class="btn btn-md btn-secondary" title="next page">
-                <i class="icon icon-back" style="transform: rotate(180deg);"></i>
-            </button>
-        </div>
-    </div>
+<body class="home-page">
+    <header id="navbar-placeholder"></header>
+    <main class="container">
+        <section class="hero-section" style="text-align: center; margin-bottom: var(--space-4xl);">
+            <h1>activity feed</h1>
+        </section>
     
-    <div id="confirmationModal" class="modal">
-        <div class="modal-content">
-            <h3 id="confirmationModalTitle">ummmmm</h3>
-            <p id="confirmationModalMessage">are you sure about that?</p>
-            <div class="modal-buttons">
-                <button class="btn btn-lg btn-success" id="confirmModalYes" title="Yes"><i class="icon icon-confirm"></i></button>
-                <button class="btn btn-lg btn-danger" id="confirmModalNo" title="No"><i class="icon icon-close"></i></button>
+        <div class="home-layout">
+            <div id="activityFeedContainer">
+                <div class="activity-item-skeleton">
+                    <div class="skeleton activity-skeleton-header"></div>
+                    <div class="activity-skeleton-body">
+                        <div class="skeleton activity-skeleton-poster"></div>
+                        <div class="activity-skeleton-content">
+                            <div class="skeleton skeleton-text-line"></div>
+                            <div class="skeleton skeleton-text-line short"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="activity-item-skeleton">
+                    <div class="skeleton activity-skeleton-header"></div>
+                    <div class="activity-skeleton-body">
+                        <div class="skeleton activity-skeleton-poster"></div>
+                        <div class="activity-skeleton-content">
+                            <div class="skeleton skeleton-text-line"></div>
+                            <div class="skeleton skeleton-text-line short"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
+    
+            <aside class="sidebar-feed">
+                <section class="latest-comments-section">
+                    <h2>latest comments</h2>
+                    <div id="latestCommentsContainer">
+                        <div class="comment-item-skeleton">
+                            <div class="skeleton" style="height: 14px; width: 70%; margin-bottom: 8px;"></div>
+                            <div class="skeleton" style="height: 12px; width: 40%;"></div>
+                        </div>
+                        <div class="comment-item-skeleton">
+                            <div class="skeleton" style="height: 14px; width: 80%; margin-bottom: 8px;"></div>
+                            <div class="skeleton" style="height: 12px; width: 50%;"></div>
+                        </div>
+                    </div>
+                </section>
+    
+                <section class="latest-ratings-section">
+                    <h2>latest ratings</h2>
+                    <div id="latestRatingsContainer">
+                        <div class="rating-item-skeleton">
+                            <div class="skeleton" style="height: 12px; width: 60%; margin-bottom: 10px;"></div>
+                            <div class="skeleton" style="height: 16px; width: 50%;"></div>
+                        </div>
+                        <div class="rating-item-skeleton">
+                            <div class="skeleton" style="height: 12px; width: 70%; margin-bottom: 10px;"></div>
+                            <div class="skeleton" style="height: 16px; width: 40%;"></div>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+    
+        </div> 
+    </main>
+
+    <footer id="footer-placeholder"></footer>
 
     <script>
+        // --- Firebase & Globals ---
         const firebaseConfig = {
-          apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
-          authDomain: "tiny-lizard.firebaseapp.com",
-          projectId: "tiny-lizard",
-          storageBucket: "tiny-lizard.firebasestorage.app",
-          messagingSenderId: "250872474692",
-          appId: "1:250872474692:web:969e0b1302ae3cb4666011"
+            apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+            authDomain: "tiny-lizard.firebaseapp.com",
+            projectId: "tiny-lizard",
+            storageBucket: "tiny-lizard.firebasestorage.app",
+            messagingSenderId: "250872474692",
+            appId: "1:250872474692:web:969e0b1302ae3cb4666011",
         };
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore(); 
         const auth = firebase.auth();
-
-        let currentPage = 1;
-        const itemsPerPage = 25; 
-        let totalPages = 1;
-        let filteredMedia = []; 
         let currentUser = null;
-        let allMedia = [];
-        let myInteractions = {};
-        let debouncedRender = null;
-        
-        function setupAuthButton() {
-            const authBtn = document.getElementById('authBtn');
-            if (!authBtn) return; // Exit if the button isn't loaded yet
 
-            if (currentUser) {
-                authBtn.textContent = 'Logout';
-                authBtn.title = 'Logout';
-                authBtn.onclick = () => {
-                    auth.signOut().then(() => {
-                        window.location.reload(); // Reload the page to clear user data
-                    });
-                };
-            } else {
-                authBtn.textContent = 'Login';
-                authBtn.title = 'Login';
-                authBtn.onclick = () => {
-                    window.location.href = 'auth.html';
-                };
-            }
-        }
-        
-        auth.onAuthStateChanged(user => {
-            currentUser = user;
-        loadAllMedia();
-            setupAuthButton();
-            });
-        document.addEventListener('navbarLoaded', () => {
-            setupAuthButton();
-        });
-
-        // === SKELETON UI UTILITIES ===
-        const SkeletonUI = {
-            showMediaGridSkeleton: (containerId, count = 12) => {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                const skeletonHTML = Array(count).fill(0).map(() => `
-                    <div class="skeleton-media-card">
-                        <div class="skeleton media-poster"></div>
-                        <div class="skeleton skeleton-title"></div>
-                        <div class="skeleton skeleton-year"></div>
-                        <div class="skeleton-rating">
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                        </div>
-                    </div>
-                `).join('');
-                container.innerHTML = skeletonHTML;
-            },
-
-            showEmptyState: (containerId, searchTerm = '') => {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                const message = searchTerm 
-                    ? 'No media found. Try adjusting your search terms.'
-                    : 'Your collection is empty. Add some media to get started!';
-                const actionButton = !searchTerm 
-                    ? '<a href="add-movie.html" class="btn btn-lg btn-primary" title="Add Your First Movie"><i class="icon icon-add"></i></a>' 
-                    : '';
-                
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No media found</h3>
-                        <p>${message}</p>
-                        ${actionButton}
-                    </div>
-                `;
-            }
-        };
-
-        async function loadAllMedia() {
-            try {
-                SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
-
-                const mediaSnapshot = await db.collection('movies').get();
-                allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                myInteractions = {};
-                if (currentUser) {
-                    const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
-                    interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
-                }
-                
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                setTimeout(() => renderMedia(), 100);
-
-            } catch (error) {
-                console.error("Error loading media:", error);
-                const container = document.getElementById('mediaContainer');
-                if(container) {
-                    container.innerHTML = `
-                        <div class="error-state">
-                            <h3>Oops! Something went wrong</h3>
-                            <p>Unable to load your media collection. Please try again.</p>
-                            <button class="btn btn-rectangular btn-primary" onclick="loadAllMedia()">Try Again</button>
-                        </div>
-                    `;
-                }
-            }
-        }
-        
-        function getSortableTitle(title) {
-            if (!title) return '';
-
-            const lowerTitle = title.toLowerCase();
-            const articlesToIgnore = ['the ', 'a ', 'an '];
-
-            for (const article of articlesToIgnore) {
-                if (lowerTitle.startsWith(article)) {
-                    // If the title starts with an article, return the rest of the string
-                    return title.substring(article.length);
-                }
-            }
-            
-            // Otherwise, return the original title
-            return title;
-        }
-
-        function generateStarDisplay(rating) {
-            if (!rating || rating <= 0) return '<div class="star-rating"></div>'; 
-            const totalStars = 5;
-            let starsHTML = '';
-            for (let i = 1; i <= totalStars; i++) {
-                if (i <= rating) {
-                    starsHTML += `<span class="star star-full"></span>`;
-                } else if (i - 0.5 <= rating) {
-                    starsHTML += `<span class="star star-half"></span>`;
-                } else {
-                    starsHTML += `<span class="star star-empty"></span>`;
-                }
-            }
-            return `<div class="star-rating">${starsHTML}</div>`;
-        }
-
-        function viewMediaDetails(mediaId) { 
-            window.location.href = `library.html?id=${mediaId}`; 
-        }
-        
-        function editMovie(mediaId) { 
-            window.location.href = `edit-movie.html?id=${mediaId}`; 
-        }
-        
-        function addToList(mediaId) {
-            // Placeholder for now - you can implement the list functionality later
-            console.log('Add to list:', mediaId);
-            // You could show a modal here, redirect to a lists page, etc.
-            alert('Add to list functionality - to be implemented!');
-        }
-        function addExistingMovieToMyCollection(mediaId) { 
-            window.location.href = `add-movie.html?edit=${mediaId}`; 
-        }
-
+        // --- Main Logic ---
         document.addEventListener('DOMContentLoaded', () => {
-            SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
-
             auth.onAuthStateChanged(user => {
                 currentUser = user;
-                loadAllMedia();
+                loadActivityFeed();
+                loadLatestComments(); 
+                loadLatestRatings();
             });
-
-            const debounce = (func, delay) => {
-                let timeout;
-                return function(...args) {
-                    const context = this;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(context, args), delay);
-                };
-            };
-            
-            debouncedRender = debounce(() => renderMedia(), 300);
-
-
-            document.getElementById('searchInput')?.addEventListener('input', debouncedRender);
-                currentPage = 1; 
-            document.getElementById('myMediaToggle')?.addEventListener('click', () => {
-                currentPage = 1; 
-                const toggle = document.getElementById('myMediaToggle');
-                const statusToggles = document.getElementById('statusToggles');
-                const isActive = toggle.getAttribute('data-active') === 'true';
-                            
-                toggle.setAttribute('data-active', !isActive);
-                toggle.classList.toggle('btn-primary', !isActive);
-                toggle.classList.toggle('toggle-btn', isActive);  
-
-                statusToggles.style.display = !isActive ? 'flex' : 'none';
-
-            // Reset sub-toggles when hiding
-                if (isActive) {
-                    document.getElementById('watchedToggle').setAttribute('data-active', 'false');
-                    document.getElementById('ownedToggle').setAttribute('data-active', 'false');
-                    document.getElementById('watchedToggle').className = 'btn btn-md toggle-btn';  // Changed from btn-secondary
-                    document.getElementById('ownedToggle').className = 'btn btn-md toggle-btn';    // Changed from btn-secondary
-                }
-                
-                renderMedia();
-            });
-
-
-            // Add event listeners for the new toggles
-            document.getElementById('watchedToggle')?.addEventListener('click', () => {
-                currentPage = 1; 
-                const toggle = document.getElementById('watchedToggle');
-                const isActive = toggle.getAttribute('data-active') === 'true';
-                
-                toggle.setAttribute('data-active', !isActive);
-                toggle.classList.toggle('btn-primary', !isActive);
-                toggle.classList.toggle('toggle-btn', isActive);
-                
-                renderMedia();
-            });
-
-            document.getElementById('ownedToggle')?.addEventListener('click', () => {
-                currentPage = 1; 
-                const toggle = document.getElementById('ownedToggle');
-                const isActive = toggle.getAttribute('data-active') === 'true';
-                
-                toggle.setAttribute('data-active', !isActive);
-                toggle.classList.toggle('btn-primary', !isActive);
-                toggle.classList.toggle('toggle-btn', isActive);
-                
-                renderMedia();
-            });
-
-            document.getElementById('sortDropdown')?.addEventListener('change', () => {
-                currentPage = 1; 
-                
-                renderMedia();
-            });
-
-            document.getElementById('prevPageBtn')?.addEventListener('click', () => goToPage(currentPage - 1));
-            document.getElementById('nextPageBtn')?.addEventListener('click', () => goToPage(currentPage + 1));
-
         });
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const bulkImported = urlParams.get('bulk_imported');
+        async function loadActivityFeed() {
+            const feedContainer = document.getElementById('activityFeedContainer');
             
-            if (bulkImported) {
-                const successDiv = document.getElementById('bulkImportSuccess');
-                const messageSpan = document.getElementById('bulkImportMessage');
-                
-                if (successDiv && messageSpan) {
-                    messageSpan.textContent = `Successfully imported ${bulkImported} items from bulk scan!`;
-                    successDiv.style.display = 'block';
-                    
-                    // Clean up URL
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    
-                    // Hide after 5 seconds
-                    setTimeout(() => {
-                        successDiv.style.display = 'none';
-                    }, 5000);
+            try {
+                // 1. Fetch the most recent interactions using a collectionGroup query
+                const interactionsSnapshot = await db.collectionGroup('movieInteractions')
+                    .orderBy('interactionDate', 'desc')
+                    .limit(20)
+                    .get();
+
+                if (interactionsSnapshot.empty) {
+                    feedContainer.innerHTML = '<div class="empty-state"><h3>No recent activity</h3><p>Add or rate a movie to get started!</p></div>';
+                    return;
                 }
-            }
-        });
 
+                const interactions = interactionsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    userId: doc.ref.path.split('/')[1], // Extract userId from path
+                    ...doc.data()
+                }));
 
-        // Mobile-friendly interaction improvements
-        function addMobileInteractionHandlers() {
-            // Detect if user is on mobile
-            const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
-            
-            if (isMobile) {
-                // Add visual feedback for button presses
-                document.addEventListener('touchstart', (e) => {
-                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
-                        e.target.style.transform = 'scale(0.95)';
-                    }
-                });
-                
-                document.addEventListener('touchend', (e) => {
-                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
-                        setTimeout(() => {
-                            e.target.style.transform = '';
-                        }, 150);
-                    }
-                });
-                
-                // Prevent accidental card navigation when tapping buttons
-                document.addEventListener('click', (e) => {
-                    if (e.target.closest('.media-actions')) {
-                        e.stopPropagation();
-                    }
-                });
+                // 2. Gather all unique user and movie IDs to fetch their data efficiently
+                const userIds = [...new Set(interactions.map(i => i.userId))];
+                const movieIds = [...new Set(interactions.map(i => i.movieId))];
+
+                // 3. Fetch all required user and movie data in parallel
+                const [userDocs, movieDocs] = await Promise.all([
+                    db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', userIds).get(),
+                    db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', movieIds).get()
+                ]);
+
+                // 4. Create Maps for easy data lookup
+                const userMap = new Map(userDocs.docs.map(doc => [doc.id, doc.data()]));
+                const movieMap = new Map(movieDocs.docs.map(doc => [doc.id, doc.data()]));
+
+                // 5. Render the feed
+                renderActivityFeed(interactions, userMap, movieMap);
+
+            } catch (error) {
+                console.error("Error loading activity feed:", error);
+                feedContainer.innerHTML = '<div class="error-state"><h3>Could not load activity</h3><p>Please try refreshing the page.</p></div>';
             }
         }
 
-        function renderMedia() {
-            const container = document.getElementById('mediaContainer');
-            if(!container) return;
+        function renderActivityFeed(interactions, userMap, movieMap) {
+        const feedContainer = document.getElementById('activityFeedContainer');
+        feedContainer.innerHTML = ''; // Clear skeleton
 
-            const searchTerm = (document.getElementById('searchInput').value || '').trim();
-            const isMyMediaActive = document.getElementById('myMediaToggle').getAttribute('data-active') === 'true';
-            const isWatchedActive = document.getElementById('watchedToggle').getAttribute('data-active') === 'true';
-            const isOwnedActive = document.getElementById('ownedToggle').getAttribute('data-active') === 'true';
-            const sort = document.getElementById('sortDropdown').value;
-            const isMobile = window.innerWidth <= 768;
+        for (const interaction of interactions) {
+            const user = userMap.get(interaction.userId);
+            const movie = movieMap.get(interaction.movieId);
 
-            let mediaToDisplay = [...allMedia];  // DECLARE THIS FIRST!
+            if (!user || !movie) continue; 
 
-            // Filter by "my media" if toggle is active
-            if (isMyMediaActive && currentUser) {
-                mediaToDisplay = mediaToDisplay.filter(media => {
-                    const interaction = myInteractions[media.id];
-                    if (!interaction) return false;
-                    
-                    // If both toggles are active, show items that are both watched AND owned
-                    if (isWatchedActive && isOwnedActive) {
-                        return interaction.watched && interaction.owned;
-                    }
-                    // If only watched is active, show only watched
-                    else if (isWatchedActive) {
-                        return interaction.watched;
-                    }
-                    // If only owned is active, show only owned
-                    else if (isOwnedActive) {
-                        return interaction.owned;
-                    }
-                    // If neither sub-toggle is active, show any interaction
-                    else {
-                        return true;
-                    }
-                });
+            const activityItem = document.createElement('div');
+            activityItem.className = 'activity-item';
+
+            // --- THIS IS THE MODIFIED PART ---
+            // Create a reusable link for the movie title
+            const movieLink = `<a href="movie-details.html?id=${interaction.movieId}" class="activity-movie-link">${movie.title}</a>`;
+
+            let actionText = '';
+            let reviewHTML = '';
+
+            if (interaction.review && interaction.review.trim() !== '') {
+                // Use the movieLink variable here
+                actionText = `wrote a review for <strong>${movieLink}</strong>`;
+                reviewHTML = `<div class="activity-review"><p>"${interaction.review}"</p></div>`;
+            } else if (interaction.rating > 0) {
+                // And here
+                actionText = `rated <strong>${movieLink}</strong>`;
+            } else if (interaction.watched) {
+                // And here
+                actionText = `watched <strong>${movieLink}</strong>`;
+            } else {
+                // And here
+                actionText = `added <strong>${movieLink}</strong> to their library`;
             }
+            // --- END OF MODIFICATION ---
 
-            // Filter by search term
-            if (searchTerm) {
-                const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                mediaToDisplay = mediaToDisplay.filter(media => {
-                    const title = (media.title || '').toLowerCase();
-                    const director = (media.director || '').toLowerCase();
-                    const genre = (media.genre || '').toLowerCase();
-                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
-                    return title.includes(lowerCaseSearchTerm) || 
-                        director.includes(lowerCaseSearchTerm) ||
-                        genre.includes(lowerCaseSearchTerm) ||
-                        cast.includes(lowerCaseSearchTerm);
-                });
-            }
+            const starRating = interaction.rating > 0 
+                ? `<div class="star-rating">${generateStarDisplay(interaction.rating)}</div>` 
+                : '';
 
-            // Sort the results
-            mediaToDisplay.sort((a, b) => {
-                const interactionA = myInteractions[a.id] || { rating: 0 };
-                const interactionB = myInteractions[b.id] || { rating: 0 };
-                switch (sort) {
-                    case 'titleAsc': return getSortableTitle(a.title).localeCompare(getSortableTitle(b.title));
-                    case 'titleDesc': return getSortableTitle(b.title).localeCompare(getSortableTitle(a.title));
-                    case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
-                    case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
-                    default:
-                        const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
-                        const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
-                        return timeB - timeA;
-                }
-            });
-
-            // Store filtered results and calculate pagination
-            filteredMedia = mediaToDisplay;
-            totalPages = Math.ceil(filteredMedia.length / itemsPerPage);
-
-            // Reset to page 1 if current page is beyond available pages
-            if (currentPage > totalPages) {
-                currentPage = 1;
-            }
-
-            // Update pagination controls
-            updatePaginationControls();
-
-            // Get items for current page
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            const paginatedMedia = filteredMedia.slice(startIndex, endIndex);
-
-            if (paginatedMedia.length === 0) {
-                SkeletonUI.showEmptyState('mediaContainer', searchTerm);
-                return;
-            }
-
-            // Render the current page of media
-            container.innerHTML = paginatedMedia.map(media => {
-                const title = media.title || 'Untitled';
-                const interaction = myInteractions[media.id];
-
-                const posterImg = media.posterUrl 
-                    ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
-                    : '<div class="no-poster">No Poster</div>';
-                
-                let actionsHTML = '';
-                if (currentUser) {
-                    let statusBadges = [];
-                    let actionButtons = [];
-                    
-                    if (interaction) {
-                        // User has this media, show action buttons
-                        actionButtons.push(`<a href="library.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-edit"></i></button>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); addToList('${media.id}')" title="Add to List" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-list"></i></button>`);
-
-                    } else {
-                        actionButtons.push(`<a href="library.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-add"></i></button>`);
-                    }
-                    
-                    actionsHTML = `<div class="media-actions">${actionButtons.join('')}</div>`;
-
-                } else {
-                    actionsHTML = `<div class="media-actions"><a href="library.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a></div>`;
-                }
-
-                return `
-                    <div class="media-card fade-in" ${isMobile ? 'data-mobile="true"' : ''}>
-                        <div class="media-poster" onclick="${isMobile ? '' : `viewMediaDetails('${media.id}')`}" ${isMobile ? `data-media-id="${media.id}"` : ''}>
-                            ${posterImg}
-                            ${actionsHTML}
-                        </div>
-                        <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
-                        <p class="media-year">${media.year || ''}</p>
-                        ${generateStarDisplay(interaction ? interaction.rating : 0)}
+            activityItem.innerHTML = `
+                <div class="activity-header">
+                    <div class="activity-user-info">
+                        <a href="profile.html?id=${interaction.userId}" class="username">${user.displayName || 'Anonymous'}</a>
+                        <span class="action-text">${actionText}</span>
                     </div>
-                `;
-            }).join('');
-
-            // Add mobile-specific event handlers after rendering
-            if (isMobile) {
-                addMobileClickHandlers();
-            }
-
-            setTimeout(() => {
-                container.querySelectorAll('.media-card').forEach((card, index) => {
-                    setTimeout(() => {
-                        card.classList.add('visible');
-                    }, index * 30);
-                });
-            }, 50);
+                    <span class="activity-timestamp">${formatTimestamp(interaction.interactionDate)}</span>
+                </div>
+                <div class="activity-body">
+                    <a href="movie-details.html?id=${interaction.movieId}" class="activity-poster-link">
+                        <img src="${movie.posterUrl || 'https://placehold.co/150x225/2D194D/DEF0F7?text=N/A'}" class="activity-poster" loading="lazy">
+                    </a>
+                    <div class="activity-content">
+                        ${starRating}
+                        ${reviewHTML}
+                    </div>
+                </div>
+            `;
+            feedContainer.appendChild(activityItem);
         }
-
-    // Mobile-specific click handlers
-    function addMobileClickHandlers() {
-        const mediaPosters = document.querySelectorAll('.media-poster[data-media-id]');
+    }
         
-        mediaPosters.forEach(poster => {
-            poster.addEventListener('click', (e) => {
-                // On mobile, poster click should go to details unless clicking a button
-                if (!e.target.closest('.media-actions')) {
-                    const mediaId = poster.getAttribute('data-media-id');
-                    viewMediaDetails(mediaId);
+        async function loadLatestComments() {
+            const commentsContainer = document.getElementById('latestCommentsContainer');
+            try {
+                // This query specifically gets interactions that have a non-empty review
+                const commentsSnapshot = await db.collectionGroup('movieInteractions')
+                    .where('review', '>', '')
+                    .orderBy('review') // Firestore requires ordering by the inequality field first
+                    .orderBy('interactionDate', 'desc')
+                    .limit(5)
+                    .get();
+
+                if (commentsSnapshot.empty) {
+                    commentsContainer.innerHTML = '<p>No comments to display yet.</p>';
+                    return;
                 }
-            });
-        });
-    }
 
-    function updatePaginationControls() {
-        const paginationControls = document.getElementById('paginationControls');
-        const paginationControlsBottom = document.getElementById('paginationControlsBottom');
-        const paginationInfo = document.getElementById('paginationInfo');
-        const paginationInfoBottom = document.getElementById('paginationInfoBottom');
-        const prevBtn = document.getElementById('prevPageBtn');
-        const nextBtn = document.getElementById('nextPageBtn');
-        const prevBtnBottom = document.getElementById('prevPageBtnBottom');
-        const nextBtnBottom = document.getElementById('nextPageBtnBottom');
+                const comments = commentsSnapshot.docs.map(doc => ({
+                    userId: doc.ref.path.split('/')[1],
+                    ...doc.data()
+                }));
 
-        if (totalPages <= 1) {
-            paginationControls.style.display = 'none';
-            paginationControlsBottom.style.display = 'none';
-            return;
-        }
+                const userIds = [...new Set(comments.map(c => c.userId))];
+                const movieIds = [...new Set(comments.map(c => c.movieId))];
 
-        paginationControls.style.display = 'flex';
-        paginationControlsBottom.style.display = 'flex';
-        
-        const startItem = (currentPage - 1) * itemsPerPage + 1;
-        const endItem = Math.min(currentPage * itemsPerPage, filteredMedia.length);
-        const infoText = `Page ${currentPage} of ${totalPages} (${startItem}-${endItem} of ${filteredMedia.length} items)`;
-        
-        // Update both info displays
-        paginationInfo.textContent = infoText;
-        paginationInfoBottom.textContent = infoText;
-        
-        // Update all buttons
-        const isFirstPage = currentPage === 1;
-        const isLastPage = currentPage === totalPages;
-        
-        [prevBtn, prevBtnBottom].forEach(btn => {
-            btn.disabled = isFirstPage;
-            btn.classList.toggle('disabled', isFirstPage);
-        });
-        
-        [nextBtn, nextBtnBottom].forEach(btn => {
-            btn.disabled = isLastPage;
-            btn.classList.toggle('disabled', isLastPage);
-        });
-    }
+                const [userDocs, movieDocs] = await Promise.all([
+                    db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', userIds).get(),
+                    db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', movieIds).get()
+                ]);
 
-    function goToPage(page) {
-        if (page >= 1 && page <= totalPages) {
-            currentPage = page;
-            renderMedia();
-        }
-    }
-    
-    // Add haptic feedback for mobile interactions
-    function addHapticFeedback(element) {
-        if (navigator.vibrate && window.innerWidth <= 768) {
-            element.addEventListener('touchstart', () => {
-                navigator.vibrate(50); // Short vibration
-            });
-        }
-    }
+                const userMap = new Map(userDocs.docs.map(doc => [doc.id, doc.data()]));
+                const movieMap = new Map(movieDocs.docs.map(doc => [doc.id, doc.data()]));
 
-    // Initialize mobile improvements when page loads
-    document.addEventListener('DOMContentLoaded', () => {
-        addMobileInteractionHandlers();
-        
-        // Add haptic feedback to interactive elements
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn') && navigator.vibrate && window.innerWidth <= 768) {
-                navigator.vibrate(50);
+                renderLatestComments(comments, userMap, movieMap);
+
+            } catch (error) {
+                console.error("Error loading latest comments:", error);
+                // We will add a warning about the needed index later.
             }
-        });
-    });
+        }
+
+        function renderLatestComments(comments, userMap, movieMap) {
+            const commentsContainer = document.getElementById('latestCommentsContainer');
+            commentsContainer.innerHTML = ''; // Clear skeleton
+
+            for (const comment of comments) {
+                const user = userMap.get(comment.userId);
+                const movie = movieMap.get(comment.movieId);
+
+                if (!user || !movie) continue;
+
+                const commentItem = document.createElement('div');
+                commentItem.className = 'latest-comment-item';
+                commentItem.innerHTML = `
+                    <p class="comment-text">"${comment.review}"</p>
+                    <p class="comment-meta">
+                        — <a href="profile.html?id=${comment.userId}" class="username">${user.displayName || 'Anonymous'}</a> 
+                        on 
+                        <a href="movie-details.html?id=${comment.movieId}" class="movie-title">${movie.title}</a>
+                    </p>
+                `;
+                commentsContainer.appendChild(commentItem);
+            }
+        }
+        
+        async function loadLatestRatings() {
+            const ratingsContainer = document.getElementById('latestRatingsContainer');
+            try {
+                // This query gets interactions where a rating has been given (rating > 0)
+                const ratingsSnapshot = await db.collectionGroup('movieInteractions')
+                    .where('rating', '>', 0)
+                    .orderBy('rating') // Firestore requires ordering by the inequality field first
+                    .orderBy('interactionDate', 'desc')
+                    .limit(5)
+                    .get();
+
+                if (ratingsSnapshot.empty) {
+                    ratingsContainer.innerHTML = '<p>No ratings to display yet.</p>';
+                    return;
+                }
+
+                const ratings = ratingsSnapshot.docs.map(doc => ({
+                    userId: doc.ref.path.split('/')[1],
+                    ...doc.data()
+                }));
+
+                const userIds = [...new Set(ratings.map(r => r.userId))];
+                const movieIds = [...new Set(ratings.map(r => r.movieId))];
+
+                const [userDocs, movieDocs] = await Promise.all([
+                    db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', userIds).get(),
+                    db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', movieIds).get()
+                ]);
+
+                const userMap = new Map(userDocs.docs.map(doc => [doc.id, doc.data()]));
+                const movieMap = new Map(movieDocs.docs.map(doc => [doc.id, doc.data()]));
+
+                renderLatestRatings(ratings, userMap, movieMap);
+
+            } catch (error) {
+                console.error("Error loading latest ratings:", error);
+            }
+        }
+
+        function renderLatestRatings(ratings, userMap, movieMap) {
+            const ratingsContainer = document.getElementById('latestRatingsContainer');
+            ratingsContainer.innerHTML = ''; // Clear skeleton
+
+            for (const rating of ratings) {
+                const user = userMap.get(rating.userId);
+                const movie = movieMap.get(rating.movieId);
+
+                if (!user || !movie) continue;
+
+                const ratingItem = document.createElement('div');
+                ratingItem.className = 'latest-rating-item';
+                
+                // We reuse the generateStarDisplay function that already exists in your script
+                const starsHTML = generateStarDisplay(rating.rating);
+
+                ratingItem.innerHTML = `
+                    <p class="rating-meta">
+                        <a href="profile.html?id=${rating.userId}" class="username">${user.displayName || 'Anonymous'}</a> 
+                        rated 
+                        <a href="movie-details.html?id=${rating.movieId}" class="movie-title">${movie.title}</a>
+                    </p>
+                    <div class="star-rating">${starsHTML}</div>
+                `;
+                ratingsContainer.appendChild(ratingItem);
+            }
+        }
+        
+        
+        // Helper function to generate star HTML
+        function generateStarDisplay(rating) {
+            let starsHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) starsHTML += '<span class="star star-full"></span>';
+                else if (i - 0.5 <= rating) starsHTML += '<span class="star star-half"></span>';
+                else starsHTML += '<span class="star star-empty"></span>';
+            }
+            return starsHTML;
+        }
+
+        // Helper function to format timestamps
+        function formatTimestamp(timestamp) {
+            if (!timestamp || !timestamp.toDate) return '';
+            const date = timestamp.toDate();
+            const now = new Date();
+            const diffSeconds = Math.round((now - date) / 1000);
+            
+            if (diffSeconds < 60) return `${diffSeconds}s ago`;
+            const diffMinutes = Math.round(diffSeconds / 60);
+            if (diffMinutes < 60) return `${diffMinutes}m ago`;
+            const diffHours = Math.round(diffMinutes / 60);
+            if (diffHours < 24) return `${diffHours}h ago`;
+            const diffDays = Math.round(diffHours / 24);
+            return `${diffDays}d ago`;
+        }
+
     </script>
-    <div id="footer-placeholder"></div>
 </body>
 </html>

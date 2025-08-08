@@ -1,0 +1,10 @@
+async function makeUserAdmin(userEmail) {
+    try {
+        const setAdminClaim = firebase.functions().httpsCallable('setAdminClaim');
+        // You'd need to get the uid from the email first
+        const result = await setAdminClaim({ uid: userUid });
+        console.log('Admin claim set:', result.data);
+    } catch (error) {
+        console.error('Error setting admin claim:', error);
+    }
+}

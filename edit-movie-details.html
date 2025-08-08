@@ -244,11 +244,11 @@
                 case 'home':
                     return 'index.html';
                 case 'details':
-                    return `library.html?id=${movieId}&from=details`;
+                    return `movie-details.html?id=${movieId}&from=details`;
                 case 'review':
                     return 'review-failed.html';
                 default:
-                    return `library.html?id=${movieId}`;
+                    return `movie-details.html?id=${movieId}`;
             }
         }
         async function checkAdminStatus(user) {

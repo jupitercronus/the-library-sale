@@ -603,7 +603,7 @@
                 try {
                     await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(updatedData, { merge: true });
                     LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');
-                    setTimeout(() => window.location.href = `library.html?id=${movieId}`, 1500);
+                    setTimeout(() => window.location.href = `movie-details.html?id=${movieId}`, 1500);
                 } catch (error) {
                     console.error("Error updating movie:", error);
                     LibraryUtils.ui.showStatusMessage('Error saving changes.', 'error');
