@@ -42,6 +42,14 @@
                     <div id="myRating" class="star-rating star-rating-md"></div>
                 </div>
             </div>
+            <div class="details-actions-centered">
+                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="edit my rating and comments" style="display: none;">
+                    <span class="icon icon-person icon-xl"></span>
+                </a>
+                <a id="editDetailsBtn" href="#" class="btn btn-xl btn-primary" title="edit movie details" style="display: none;">
+                    <span class="icon icon-edit icon-xl"></span>
+                </a>
+            </div>
         </div>
 
         <!-- Main Content Grid (Poster + Info) -->
@@ -83,14 +91,6 @@
                 <h2 class="details-section-header">
                     <i class="icon icon-comment"></i>
                     <span>Comments</span>
-                    <div class="btn-right-align">
-                        <button id="addCommentBtn" class="btn btn-rectangular btn-success btn-md" title="Add">
-                            <i class="icon icon-add"></i>
-                        </button>
-                        <button id="editCommentBtn" class="btn btn-rectangular btn-primary" title="Edit" style="display: none;">
-                            <i class="icon icon-edit"></i>
-                        </button>
-                    </div>
                 </h2>
             </div>
             
@@ -108,15 +108,6 @@
             <div id="physicalCopiesContainer" class="physical-copies-list">
                 <!-- Physical copies will be injected by JS -->
             </div>
-        </div>
-        <div class="details-actions-centered">
-            <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="Edit My Rating and Comments" style="display: none;">
-                <span class="icon icon-person icon-xl"></span>
-            </a>
-            
-            <a id="editDetailsBtn" href="#" class="btn btn-xl btn-secondary" title="Edit Movie Details" style="display: none;">
-                <span class="icon icon-edit icon-xl"></span>
-            </a>
         </div>
     </main>
     
@@ -369,25 +360,11 @@
     }
 
     function setupCommentForm(user, movieId, myInteraction) {
-        const addCommentBtn = document.getElementById('addCommentBtn');
-        const editCommentBtn = document.getElementById('editCommentBtn');
+        const editMovieBtn = document.getElementById('editMovieBtn');
 
         if (!user) {
-            addCommentBtn.style.display = 'none';
-            editCommentBtn.style.display = 'none';
+            editMovieBtn.style.display = 'none';
             return;
-        }
-        
-        const hasComment = myInteraction && myInteraction.review && myInteraction.review.trim() !== '';
-
-        if (hasComment) {
-            editCommentBtn.style.display = 'inline-flex';
-            addCommentBtn.style.display = 'none';
-            editCommentBtn.onclick = () => window.location.href = `edit-movie.html?id=${movieId}`;
-        } else {
-            addCommentBtn.style.display = 'inline-flex';
-            editCommentBtn.style.display = 'none';
-            addCommentBtn.onclick = () => window.location.href = `edit-movie.html?id=${movieId}`;
         }
     }
 
