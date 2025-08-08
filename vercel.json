@@ -8,6 +8,10 @@
       {
         "source": "/api/tmdb/(.*)",
         "destination": "/api/tmdb"
+      },
+      {
+        "source": "/",
+        "destination": "/home.html"
       }
-    ]
-  }
+      ]
+    }
