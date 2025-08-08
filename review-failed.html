@@ -319,6 +319,11 @@
                              'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
                 const overview = result.overview || 'No description available.';
 
+                // Add badge HTML like add-movie
+                const badgeHTML = result.media_type === 'tv' 
+                    ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>`
+                    : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
+
                 return `
                     <div class="search-result-item" data-result-index="${index}">
                         <img src="${poster}" alt="${title}" class="search-result-poster" loading="lazy">
@@ -369,7 +374,15 @@
                     selectedResult = null;
                     updateActionButtons();
                 });
+
+            // Clear search results after selection (like add-movie)
+            setTimeout(() => {
+                document.getElementById('searchResults').innerHTML = '';
+                document.getElementById('searchStatus').textContent = 'Movie selected! Click "Add Selected" to save.';
+                document.getElementById('searchStatus').className = 'search-status selected';
+            }, 500);
         }
+        
 
         function updateActionButtons() {
             const addBtn = document.getElementById('addSelectedBtn');

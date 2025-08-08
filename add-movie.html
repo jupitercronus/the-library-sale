@@ -773,6 +773,13 @@ async function initializeMovieScanner() {
         
         document.getElementById('contentType').value = tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie');
         
+        const confidence = tmdbData.matchScore || 0;
+            const needsReview = MediaLookupUtils.needsManualReview(tmdbData, upcData.originalTitle, null);
+            
+            if (needsReview || confidence < 40) {
+                showNeedsReviewMessage(tmdbData.title || tmdbData.name, upcData.originalTitle);
+            }
+
         // Use TMDB poster
         const posterUrl = tmdbData.poster_path ? 
             TMDB_IMAGE_BASE + tmdbData.poster_path : 
@@ -835,6 +842,27 @@ async function initializeMovieScanner() {
         } else {
             featuresRow.style.display = 'none';
         }
+    }
+
+    function showNeedsReviewMessage(suggestedTitle, originalTitle) {
+        // Populate search with the suggested title
+        document.getElementById('movieSearch').value = suggestedTitle;
+        
+        // Show helpful message
+        showStatusMessage(
+            `⚠️ Auto-match found "${suggestedTitle}" but confidence is low for "${originalTitle}". please verify this is correct using the search bar above, or search for the right movie.`, 
+            'warning'
+        );
+        
+        // Scroll to search section
+        document.querySelector('.search-section').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+        });
+        
+        // Make fields editable again so user can manually select
+        togglePublicFieldsReadonly(false);
+        isPublicFieldsEditable = true;
     }
     function createBasicUPCEntry(cleanTitle, upcData) {
         const mockTmdbData = {
@@ -908,7 +936,6 @@ async function initializeMovieScanner() {
             const badgeHTML = item.media_type === 'tv' 
                 ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>`
                 : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
-            
             return `
                 <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')">
                     <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A'}" 

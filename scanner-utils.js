@@ -422,6 +422,8 @@ const MediaLookupUtils = {
         // Create more specific cache keys based on search strategy
         const searchStrategy = exactMatch ? 'exact' : 'fuzzy';
         const cacheKey = `tmdb_${searchStrategy}_${title.toLowerCase().replace(/\s+/g, '_')}_${year || 'no_year'}`;
+
+
         
         // Check session cache
         if (this.sessionCache.has(cacheKey)) {
@@ -487,9 +489,24 @@ const MediaLookupUtils = {
                 { query: `"${title}"`, priority: 'medium' },
                 
                 // Strategy 4: Title without quotes (fallback)
-                ...(exactMatch ? [] : [{ query: title, priority: 'low' }])
-            ];
-            
+                ...(exactMatch ? [] : [{ query: title, priority: 'low' }]),
+
+                // Strategy 5: Search by cast member names (extract from title if possible)
+                ...(this.extractActorNames(title).length > 0 ? 
+                    this.extractActorNames(title).map(actor => ({ 
+                        query: `${actor} ${title.replace(actor, '').trim()}`, 
+                        priority: 'medium' 
+                    })) : []
+                ),
+
+                // Strategy 6: Search by director (if extractable)
+                ...(this.extractDirectorHints(title).length > 0 ? 
+                    this.extractDirectorHints(title).map(director => ({ 
+                        query: `${title} ${director}`, 
+                        priority: 'medium' 
+                    })) : []
+                )
+            ]
             let bestResult = null;
             let bestScore = 0;
             
@@ -731,9 +748,7 @@ const MediaLookupUtils = {
             return false;
         },
 
-    /**
-     * Calculate title similarity using multiple methods
-     */
+    /* Calculate title similarity using multiple methods */
     calculateTitleSimilarity(original, candidate) {
         if (!original || !candidate) return 0;
 
@@ -768,9 +783,7 @@ const MediaLookupUtils = {
         return Math.max(0, combinedScore);
     },
 
-    /**
-     * Normalize title for comparison
-     */
+    /* Normalize title for comparison */
     normalizeTitle(title) {
         return title
             .toLowerCase()
@@ -780,9 +793,7 @@ const MediaLookupUtils = {
             .trim();
     },
 
-    /**
-     * Calculate Levenshtein distance between two strings
-     */
+    /* Calculate Levenshtein distance between two strings */
     levenshteinDistance(str1, str2) {
         const matrix = [];
         
@@ -811,9 +822,7 @@ const MediaLookupUtils = {
         return matrix[str2.length][str1.length];
     },
 
-    /**
-     * Extract year from TMDB date string
-     */
+    /* Extract year from TMDB date string */
     extractYearFromDate(dateString) {
         if (!dateString) return null;
         const year = parseInt(dateString.substring(0, 4));
@@ -825,37 +834,37 @@ const MediaLookupUtils = {
         try {
             console.log(`🚀 Starting complete lookup for barcode: ${barcode}`);
             
-            // Step 1: Get UPC data (cached)
-            const upcData = await this.lookupUPCData(barcode);
-            console.log(`✅ UPC data retrieved: "${upcData.originalTitle}"`);
-            
-            // Step 2: Extract and clean movie title
-            const cleanTitle = this.cleanMovieTitle(upcData.originalTitle);
-            const extractedYear = this.extractYearFromTitle(upcData.originalTitle);
-            console.log(`🧹 Cleaned title: "${cleanTitle}", Year: ${extractedYear || 'none'}`);
-            
-            // Step 3: Search TMDB with optimization
-            const tmdbData = await this.searchTMDBForTitle(cleanTitle, extractedYear);
-            console.log(`✅ TMDB data retrieved: "${tmdbData.title || tmdbData.name}"`);
-            
-            // Step 4: Create physical edition data
-            const physicalEdition = this.createPhysicalEditionData(upcData);
+        // Step 1: Get UPC data (cached)
+        const upcData = await this.lookupUPCData(barcode);
+        console.log(`✅ UPC data retrieved: "${upcData.originalTitle}"`);
+        
+        // Step 2: Extract and clean movie title
+        const cleanTitle = this.cleanMovieTitle(upcData.originalTitle);
+        const extractedYear = this.extractYearFromTitle(upcData.originalTitle);
+        console.log(`🧹 Cleaned title: "${cleanTitle}", Year: ${extractedYear || 'none'}`);
+        
+        // Step 3: Search TMDB with optimization
+        const tmdbData = await this.searchTMDBForTitle(cleanTitle, extractedYear);
+        console.log(`✅ TMDB data retrieved: "${tmdbData.title || tmdbData.name}"`);
+        
+        // Step 4: Create physical edition data
+        const physicalEdition = this.createPhysicalEditionData(upcData);
 
-            // Step 5: Determine confidence and review status
-            let confidence = tmdbData.matchScore || 0; 
-                // If no matchScore (likely from cache), calculate a basic confidence
-                if (confidence === 0 && tmdbData && upcData) {
-                    // Calculate a basic confidence based on title similarity
-                    const titleSimilarity = this.calculateTitleSimilarity(cleanTitle, tmdbData.title || tmdbData.name);
-                    const hasYear = extractedYear && (tmdbData.release_date || tmdbData.first_air_date);
-                    const yearMatch = hasYear ? Math.abs(extractedYear - this.extractYearFromDate(tmdbData.release_date || tmdbData.first_air_date)) <= 1 : false;
-                    
-                    confidence = titleSimilarity + (yearMatch ? 20 : 0) + (tmdbData.popularity ? Math.min(tmdbData.popularity / 10, 15) : 0);
-                    console.log(`📊 Calculated fallback confidence: ${confidence} (title: ${titleSimilarity}, year: ${yearMatch}, pop: ${tmdbData.popularity || 0})`);
+        // Step 5: Determine confidence and review status
+        let confidence = tmdbData.matchScore || 0; 
+            // If no matchScore (likely from cache), calculate a basic confidence
+            if (confidence === 0 && tmdbData && upcData) {
+                // Calculate a basic confidence based on title similarity
+                const titleSimilarity = this.calculateTitleSimilarity(cleanTitle, tmdbData.title || tmdbData.name);
+                const hasYear = extractedYear && (tmdbData.release_date || tmdbData.first_air_date);
+                const yearMatch = hasYear ? Math.abs(extractedYear - this.extractYearFromDate(tmdbData.release_date || tmdbData.first_air_date)) <= 1 : false;
+                
+                confidence = titleSimilarity + (yearMatch ? 20 : 0) + (tmdbData.popularity ? Math.min(tmdbData.popularity / 10, 15) : 0);
+                console.log(`📊 Calculated fallback confidence: ${confidence} (title: ${titleSimilarity}, year: ${yearMatch}, pop: ${tmdbData.popularity || 0})`);
 
-                    // Update the tmdbData object so needsManualReview can see the calculated score
-                    tmdbData.matchScore = confidence;
-                }
+                // Update the tmdbData object so needsManualReview can see the calculated score
+                tmdbData.matchScore = confidence;
+            }
 
             const needsReview = this.needsManualReview(tmdbData, cleanTitle, extractedYear);
             console.log(`📊 Match confidence: ${confidence}, Needs review: ${needsReview}`);    
@@ -874,11 +883,11 @@ const MediaLookupUtils = {
             console.error('💥 Complete movie lookup failed:', error);
             throw error;
         }
+
+
     },
 
-    /**
-     * Clean movie title by removing format indicators and years
-     */
+    /* Clean movie title by removing format indicators and years */
     cleanMovieTitle(title) {
         if (!title) return '';
         
@@ -886,7 +895,7 @@ const MediaLookupUtils = {
             const studioNames = [
                 'warner home video', 'sony pictures', 'alpha video', 'universal studios',
                 'paramount pictures', 'disney', 'mgm', 'columbia pictures', 'fox',
-                'lionsgate', 'criterion collection', 'anchor bay', 'searchlight'
+                'lionsgate', 'criterion collection', 'anchor bay', 'searchlight','magnolia',
             ];
 
             studioNames.forEach(studio => {
@@ -897,15 +906,13 @@ const MediaLookupUtils = {
             cleaned = cleaned
             .replace(/\b(DVD|Blu-ray|Blu Ray|BD|4K|UHD|Ultra HD|HD)\b/gi, '')
             .replace(/\b(Widescreen|Full Screen|Fullscreen)\b/gi, '')
-            .replace(/\b(Director's Cut|Extended Edition|Special Edition|Collector's Edition|Limited Edition|Anniversary Edition|Unrated|Theatrical|Ultimate Edition)\b/gi, '');
+            .replace(/\b(Director's Cut|Extended Edition|Special Edition|Collector's Edition|Limited Edition|Anniversary Edition|Unrated|Theatrical|Ultimate Edition|Extended|Cut|2-Disc|Two Disk|2 Disk|Deluxe)\b/gi, '');
 
-            // Step 3: Remove genre tags and marketing phrases
             cleaned = cleaned
                 .replace(/\b(comedy|drama|action|thriller|horror|romance|sci-fi|fantasy|adventure|documentary)\b/gi, '')
                 .replace(/\b(Version You've Never Seen|Special Features|Bonus Material|Behind the Scenes)\b/gi, '')
                 .replace(/\b(used|new|sealed)\b/gi, '');
             
-            // Step 4: Fix common punctuation issues
             cleaned = cleaned
                 .replace(/\bs\b/g, "'s")  // Fix missing apostrophes
                 .replace(/\bt\b/g, "'t")  // Fix "don t" -> "don't"
@@ -939,9 +946,7 @@ const MediaLookupUtils = {
             return cleaned;
         },
 
-    /**
-     * Extract year from title string
-     */
+    /* Extract year from title string */
     extractYearFromTitle(title) {
         if (!title) return null;
         
@@ -956,12 +961,56 @@ const MediaLookupUtils = {
         }
         return null;
     },
+    extractActorNames(title) {
+        if (!title) return [];
+        
+        // Common patterns like "Movie starring Actor" or "Actor in Movie"
+        const patterns = [
+            /starring\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi,
+            /with\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi,
+            /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+in/gi,
+            /featuring\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi
+        ];
+        
+        const actors = [];
+        patterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(title)) !== null) {
+                const actorName = match[1].trim();
+                if (actorName.length > 3 && !actors.includes(actorName)) {
+                    actors.push(actorName);
+                }
+            }
+        });
+        return actors;
+    },
+        
+    extractDirectorHints(title) {
+        if (!title) return [];
+        
+        const patterns = [
+            /directed\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi,
+            /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+film/gi,
+            /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+movie/gi,
+            /from\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gi
+        ];
+        
+        const directors = [];
+        patterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(title)) !== null) {
+                const directorName = match[1].trim();
+                if (directorName.length > 3 && !directors.includes(directorName)) {
+                    directors.push(directorName);
+                }
+            }
+        });
+        return directors;
+    },
 
-    /**
-     * Create physical edition data from UPC information
-     */
+    /* Create physical edition data from UPC information */
     createPhysicalEditionData(upcData) {
-        return {
+            return {
             format: this.extractFormat(upcData.originalTitle, upcData.category),
             edition: this.extractEdition(upcData.originalTitle),
             region: this.extractRegion(upcData.originalTitle, upcData.description),
@@ -971,9 +1020,7 @@ const MediaLookupUtils = {
         };
     },
 
-    /**
-     * Extract media format from title and category
-     */
+    /* Extract media format from title and category */
     extractFormat(title, category) {
         const formats = ['4K', 'UHD', 'Ultra HD', 'Blu-ray', 'Blu Ray', 'DVD', 'Digital', 'VHS'];
         const titleUpper = (title || '').toUpperCase();
@@ -992,14 +1039,13 @@ const MediaLookupUtils = {
         return 'DVD';
     },
 
-    /**
-     * Extract edition type from title
-     */
+    /* Extract edition type from title */
     extractEdition(title) {
         const editions = [
             'Director\'s Cut', 'Extended Edition', 'Special Edition', 'Collector\'s Edition',
             'Limited Edition', 'Anniversary Edition', 'Theatrical Release', 'Unrated',
-            'Ultimate Edition', 'Criterion Collection'
+            'Ultimate Edition', 'Criterion Collection', 'Collector', 'Edition','Director','Extended','Cut',
+            'Two-Disk', '2-Disk','2-Disc','Two-Disc','2 Disk','2 Disc','Two Disk','Two Disc'
         ];
         
         const titleLower = (title || '').toLowerCase();
