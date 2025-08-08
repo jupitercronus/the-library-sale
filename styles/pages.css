@@ -216,7 +216,234 @@
   }
 }
 
-/* ===== INDEX PAGE (HOME) ===== */
+/* ===== HOME PAGE (ACTIVITY FEED) ===== */
+
+.activity-item {
+  background-color: var(--color-secondary-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md); /* Smaller padding */
+  margin: 0 auto var(--space-xl); /* Centered with a bottom margin for gap */
+  max-width: 500px; /* Limits the width of the card */
+}
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.activity-user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm); /* Smaller font */
+}
+.activity-user-info .username {
+  font-weight: bold;
+  color: var(--color-brand-cyan);
+  display: inline-block; /* Add this to ensure transform works reliably */
+  transition: var(--transition-all)
+}
+.activity-user-info .username:hover {
+  color: var(--color-brand-yellow);
+  transform: scale (1.05);
+}
+.action-text {
+  color: var(--color-text-secondary);
+}
+.action-text strong {
+  color: var(--color-text-primary);
+  font-weight: bold;
+}
+.activity-movie-link {
+  color: var(--color-brand-cyan);
+  font-weight: bold;
+  display: inline-block; /* Add this to ensure transform works reliably */
+  transition: var(--transition-all)
+}
+.activity-movie-link:hover {
+  color: var(--color-brand-yellow);
+  transform: scale (1.05);
+}
+.activity-timestamp {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.activity-body {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.activity-poster-link {
+  flex-shrink: 0;
+}
+
+.activity-poster {
+  width: 60px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  transition: var(--transition-transform);
+}
+.activity-poster:hover {
+  transform: scale(1.05);
+}
+
+.activity-content {
+  flex-grow: 1;
+}
+
+.activity-content .star-rating {
+  justify-content: flex-start;
+  margin-bottom: var(--space-sm);
+}
+
+.activity-review p {
+  background-color: var(--color-primary-bg);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-style: italic;
+  line-height: var(--line-height-loose);
+  margin: 0;
+  border-left: 3px solid var(--color-brand-cyan);
+}
+
+/* Skeleton styles for activity feed */
+.activity-item-skeleton {
+  padding: var(--space-lg);
+  max-width: 700px;
+  margin: 0 auto var(--space-xl);
+}
+.activity-skeleton-header {
+  height: 20px;
+  width: 60%;
+  margin-bottom: var(--space-md);
+}
+.activity-skeleton-body {
+  display: flex;
+  gap: var(--space-lg);
+}
+.activity-skeleton-poster {
+  width: 80px;
+  height: 120px;
+  flex-shrink: 0;
+}
+.activity-skeleton-content {
+  flex-grow: 1;
+}
+.activity-skeleton-content .skeleton-text-line.short {
+  width: 70%;
+}
+
+/* ===== HOME PAGE TWO-COLUMN LAYOUT ===== */
+.home-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr; 
+  gap: var(--space-2xl); /* The space between the two columns */
+  align-items: start;
+}
+
+.sidebar-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xl); /* The space between the comments and ratings boxes */
+  position: sticky; /* Makes the sidebar stick as you scroll */
+  top: var(--space-xl);
+}
+
+/* On screens 1024px or less, stack the columns */
+@media (max-width: 400px) {
+  .home-layout {
+    grid-template-columns: 1fr; /* Single column */
+  }
+  .sidebar-feed {
+    position: static; /* Unstick the sidebar on mobile */
+  }
+}
+
+/* ===== LATEST COMMENTS & RATINGS SECTIONS (Sidebar modules) ===== */
+.latest-comments-section,
+.latest-ratings-section {
+  background-color: var(--color-tertiary-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  /* REMOVED max-width and margin:auto, as they are now controlled by the grid */
+}
+
+.latest-comments-section h2,
+.latest-ratings-section h2 {
+  font-family: var(--font-family-heading);
+  text-align: center;
+  margin-bottom: var(--space-lg);
+  color: var(--color-brand-yellow);
+}
+
+#latestCommentsContainer,
+#latestRatingsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.latest-comment-item {
+  border-left: 3px solid var(--color-brand-cyan);
+  padding-left: var(--space-lg);
+}
+
+.comment-text {
+  margin: 0 0 var(--space-md) 0;
+  font-style: normal;
+  line-height: var(--line-height-loose);
+}
+
+.comment-meta {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.latest-rating-item {
+  border-left: 3px solid var(--color-brand-yellow);
+  padding-left: var(--space-lg);
+}
+
+.rating-meta {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.comment-meta .username,
+.comment-meta .movie-title,
+.rating-meta .username,
+.rating-meta .movie-title {
+  color: var(--color-brand-cyan);
+  font-weight: bold;
+}
+
+.comment-meta .username:hover,
+.comment-meta .movie-title:hover,
+.rating-meta .username:hover,
+.rating-meta .movie-title:hover {
+  color: var(--color-brand-yellow);
+}
+
+.latest-rating-item .star-rating {
+  justify-content: flex-start;
+}
+
+.comment-item-skeleton,
+.rating-item-skeleton {
+  padding: var(--space-md) 0;
+}
+
+
+/* ===== INDEX PAGE ===== */
 /* Square grid media layout */
 
 .index-page .hero-section {
@@ -1063,7 +1290,6 @@
 }
 
 .details-actions-centered .btn {
-  min-width: 200px;
   gap: var(--space-md);
 }
 

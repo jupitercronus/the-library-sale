@@ -110,6 +110,10 @@
                     <span>edit movie details</span>
                 </h2>
 
+                <div class="details-poster">
+                    <img id="movie-poster-img" src="https://placehold.co/300x450/2D194D/DEF0F7?text=poster.jpeg" alt="Movie Poster">
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="edit-title">title *</label>
@@ -135,12 +139,6 @@
                     <label for="edit-cast">cast</label>
                     <input type="text" id="edit-cast" placeholder="">
                 </div>
-
-                <div class="form-group">
-                    <label for="edit-poster-url">poster uRL</label>
-                    <input type="url" id="edit-poster-url" placeholder="https://...">
-                </div>
-
                 <div class="form-group">
                     <label for="edit-summary">summary</label>
                     <textarea id="edit-summary" rows="6" placeholder="Movie description..."></textarea>
@@ -317,7 +315,10 @@
             }
         }  
         function populateCurrentDisplay() {
-            document.getElementById('current-poster-img').src = movieData.posterUrl || 'https://placehold.co/200x300/2D194D/DEF0F7?text=No+Poster';
+            // Correctly uses movieData.posterUrl to set the image source
+            document.getElementById('current-poster-img').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
+            
+            // The rest of the function now correctly populates the display fields
             document.getElementById('current-title').textContent = movieData.title || 'Unknown Title';
             document.getElementById('current-year').textContent = movieData.year || 'N/A';
             document.getElementById('current-director').textContent = movieData.director || 'N/A';
@@ -347,7 +348,6 @@
             document.getElementById('edit-genre').value = movieData.genre || '';
             document.getElementById('edit-cast').value = Array.isArray(movieData.cast) ? 
                 movieData.cast.join(', ') : (movieData.cast || '');
-            document.getElementById('edit-poster-url').value = movieData.posterUrl || '';
             document.getElementById('edit-summary').value = movieData.overview || '';
             document.getElementById('edit-content-type').value = movieData.contentType || 'movie';
         }
@@ -407,7 +407,6 @@
                     </div>
                     <button class="btn btn-sm btn-primary tmdb-select-btn">
                         <span class="icon icon-confirm"></span>
-                        Use This Data
                     </button>
                 </div>
             `;
@@ -436,8 +435,13 @@
             document.getElementById('edit-director').value = fullData.credits?.crew?.find(c => c.job === 'Director')?.name || '';
             document.getElementById('edit-genre').value = fullData.genres?.map(g => g.name).join(', ') || '';
             document.getElementById('edit-cast').value = fullData.credits?.cast?.slice(0, 5).map(c => c.name).join(', ') || '';
-            document.getElementById('edit-poster-url').value = fullData.poster_path ? 
-                `${MediaLookupUtils.TMDB_IMAGE_BASE}${fullData.poster_path}` : '';
+            const posterUrl = fullData.poster_path ? 
+                `${MediaLookupUtils.TMDB_IMAGE_BASE}${fullData.poster_path}` : 
+                'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
+
+            // This finds your existing image tag and updates its source
+            document.getElementById('movie-poster-img').src = posterUrl;
+
             document.getElementById('edit-summary').value = fullData.overview || '';
             document.getElementById('edit-content-type').value = fullData.media_type || (fullData.seasons ? 'tv' : 'movie');
 
@@ -445,11 +449,11 @@
             document.getElementById('tmdb-results').style.display = 'none';
             document.getElementById('tmdb-search').value = '';
 
-            LibraryUtils.ui.showStatusMessage('Form populated with TMDB data! Review and save when ready.', 'success');
+            LibraryUtils.ui.showStatusMessage('form populated with TMDB data! review and save when ready.', 'success');
 
         } catch (error) {
             console.error('Error loading TMDB details:', error);
-            LibraryUtils.ui.showStatusMessage('Failed to load full details. Please try again.', 'error');
+            LibraryUtils.ui.showStatusMessage('failed to load full details. please try again.', 'error');
         }
     }
         async function handleFormSubmit(e) {
@@ -466,7 +470,7 @@
                     director: document.getElementById('edit-director').value.trim(),
                     genre: document.getElementById('edit-genre').value.trim(),
                     cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
-                    posterUrl: document.getElementById('edit-poster-url').value.trim() || null,
+                    posterUrl: document.getElementById('movie-poster-img').src,
                     overview: document.getElementById('edit-summary').value.trim(),
                     contentType: document.getElementById('edit-content-type').value,
                     lastEditedBy: currentUser.uid,
