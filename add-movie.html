@@ -274,35 +274,32 @@
     });
 
 async function initializePage() {
-        setupForm();
-        setupSearch();
-        await initializeMovieScanner();       
-        
-        // Create the modal on page load and define what happens on submit.
-    ScannerUI.createManualEntryModal(async (barcode) => {
-        // Use the manager's method to handle the barcode.
-        // This will automatically call your onBarcodeScanned logic.
-        await movieScanner.addManualBarcode(barcode); 
-            return true; 
-        }, () => {
-            // Optional: Define a function for what happens on cancel.
-            console.log('Manual entry cancelled.');
-        });
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const queryFromUrl = urlParams.get('query');
-        const pageFromUrl = parseInt(urlParams.get('page')) || 1;
-        if (queryFromUrl) {
-            document.getElementById('movieSearch').value = queryFromUrl;
-            performSearch(queryFromUrl, pageFromUrl);
+    setupForm();
+    await initializeMovieScanner();       
+    
+    // Initialize the centralized search UI
+    SearchUI.initialize({
+        searchInputId: 'movieSearch',
+        searchBtnId: 'searchBtn',
+        resultsContainerId: 'searchResults',
+        searchFooterId: 'searchFooter',
+        resultCountId: 'resultCount',
+        loadMoreBtnId: 'loadMoreBtn',
+        onSelect: (id, type, element) => {
+            // This is the page-specific logic for what happens on select
+            selectMedia(id, type, element); 
         }
-        
+    });
+
+    ScannerUI.createManualEntryModal(async (barcode) => {
+        await movieScanner.addManualBarcode(barcode); 
+        return true; 
+    });
+
     document.getElementById('manualBarcodeBtn').addEventListener('click', () => {
-    ScannerUI.showManualEntryModal();
+        ScannerUI.showManualEntryModal();
     });
 }
-
-
     function setupForm() {
         const form = document.getElementById('movieForm');
         form.addEventListener('submit', (e) => {
@@ -361,7 +358,6 @@ async function initializeMovieScanner() {
             return;
         }
     
-        // CORRECTED: Event listener for the "Scan Barcode" button
         cameraBtn.addEventListener('click', async () => {
             if (movieScanner) {
                 // Show the scanner section inline
@@ -375,7 +371,6 @@ async function initializeMovieScanner() {
             }
         });
 
-        // CORRECTED: Event listener for the stop button
         stopBtn.addEventListener('click', () => {
             if (movieScanner) {
                 movieScanner.stopCamera();
@@ -501,34 +496,6 @@ async function initializeMovieScanner() {
             else el.readOnly = isReadonly;
         });
     }
-    function showStatusMessage(message, type) {
-        const statusDiv = document.getElementById('statusMessage');
-        const iconClass = type === 'success' ? 'icon-confirm' : type === 'error' ? 'icon-close' : 'icon-details';
-        
-        statusDiv.innerHTML = `
-            <div class="status-message status-${type}" style="
-                position: fixed;
-                top: var(--space-lg);
-                left: var(--space-md);
-                right: var(--space-md);
-                z-index: var(--z-modal);
-                text-align: center;
-                font-size: var(--font-size-base);
-                padding: var(--space-lg);
-                border-radius: var(--radius-lg);
-                box-shadow: var(--shadow-lg);
-            ">
-                <span class="icon ${iconClass} icon-md"></span>
-                ${message}
-            </div>
-        `;
-        
-        if (window.innerWidth <= 768) {
-            setTimeout(() => {
-                statusDiv.innerHTML = '';
-            }, 4000);
-        }
-    }
     function showTimedRedirectModal(title, message, redirectUrl, duration = 5) {
     const modal = document.getElementById('alertModal');
     if (!modal) {
@@ -585,37 +552,6 @@ async function initializeMovieScanner() {
         }
     };
 }
-
-    function setupSearch() {
-        const searchInput = document.getElementById('movieSearch');
-        const loadMoreBtn = document.getElementById('loadMoreBtn');
-        
-        // Use simple validation instead of LibraryUtils
-        const debouncedSearch = createSimpleDebounce((query) => {
-            const sanitizedQuery = query.trim();
-            if (sanitizedQuery.length > 2) {
-                performSearch(sanitizedQuery, 1);
-            } else {
-                document.getElementById('searchResults').innerHTML = '';
-                document.getElementById('searchFooter').style.display = 'none';
-            }
-        }, 500);
-        
-        searchInput.addEventListener('input', (e) => {
-            debouncedSearch(e.target.value);
-        });
-        
-        document.getElementById('searchBtn').addEventListener('click', () => {
-            const sanitizedQuery = searchInput.value.trim();
-            performSearch(sanitizedQuery, 1);
-        });
-        
-        loadMoreBtn.addEventListener('click', () => {
-            if (isLoadingMore || currentPage >= totalPages) return;
-            performSearch(currentSearchQuery, currentPage + 1);
-        });
-    }
-
     // Simple debounce function to replace LibraryUtils dependency
     function createSimpleDebounce(func, delay) {
         let timeoutId;
@@ -623,140 +559,6 @@ async function initializeMovieScanner() {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => func.apply(this, args), delay);
         };
-    }
-
-    async function performSearch(query, page = 1) {
-        if (!query || isLoadingMore) return;
-        
-        const isNewSearch = page === 1;
-        if (isNewSearch) {
-            currentSearchQuery = query;
-            currentPage = 1;
-        }
-        
-        isLoadingMore = true;
-        
-        const cacheKey = `search_${query.toLowerCase().replace(/\s+/g, '_')}_p${page}`;
-        const cachedData = apiCache.get('multi-search', cacheKey);
-        
-        if (cachedData) {
-            processAndDisplayResults(cachedData, query, isNewSearch);
-            isLoadingMore = false;
-            return;
-        }
-        
-        if (isNewSearch) {
-            document.getElementById('searchResults').innerHTML = `<div class="loading-container"><div class="loading-spinner" style="display: block;"></div></div>`;
-        } else {
-            document.getElementById('loadMoreBtn').textContent = 'Loading...';
-            document.getElementById('loadMoreBtn').disabled = true;
-        }
-        
-        try {
-            const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}&page=${page}`;
-            const response = await fetch(searchUrl);
-            const data = await response.json();
-            
-            apiCache.set('multi-search', cacheKey, data);
-            processAndDisplayResults(data, query, isNewSearch);
-            
-        } catch (error) {
-            console.error('Search error:', error);
-            showStatusMessage('Search failed.', 'error');
-        } finally {
-            isLoadingMore = false;
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            loadMoreBtn.textContent = 'Load More';
-            loadMoreBtn.disabled = currentPage >= totalPages;
-        }
-    }
-    async function searchTMDBAndPopulate(title, year, upcData) {
-        try {
-            // Build search query - include year if we have it for better accuracy
-            let searchQuery = title;
-            if (year) {
-                searchQuery += ` ${year}`;
-            }
-            
-            console.log('Searching TMDB for:', searchQuery);
-            
-            // Search TMDB
-            const searchUrl = `${TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(searchQuery)}`;
-            const response = await fetch(searchUrl);
-            const searchData = await response.json();
-            
-            if (!response.ok || !searchData.results || searchData.results.length === 0) {
-                // If search with year fails, try without year
-                if (year) {
-                    console.log('Search with year failed, trying without year...');
-                    return await searchTMDBAndPopulate(title, null, upcData);
-                }
-                throw new Error(`No TMDB results found for "${title}"`);
-            }
-            
-            // Filter to movies/TV shows only
-            const mediaResults = searchData.results.filter(item => 
-                item.media_type === 'movie' || item.media_type === 'tv'
-            );
-            
-            if (mediaResults.length === 0) {
-                throw new Error(`No movies or TV shows found for "${title}"`);
-            }
-            
-            // Find best match - prioritize exact title matches and year matches
-            let bestMatch = mediaResults[0];
-            
-            for (const result of mediaResults) {
-                const resultTitle = (result.title || result.name || '').toLowerCase();
-                const resultYear = parseInt((result.release_date || result.first_air_date || '').substring(0, 4));
-                
-                // Prefer exact title match
-                if (resultTitle === title.toLowerCase()) {
-                    bestMatch = result;
-                    // If year also matches, this is definitely the best
-                    if (year && resultYear === parseInt(year.substring(0, 4))) {
-                        break;
-                    }
-                }
-                // If no exact title match yet, prefer year match
-                else if (year && resultYear === parseInt(year.substring(0, 4)) && 
-                        resultTitle.includes(title.toLowerCase().split(' ')[0])) {
-                    bestMatch = result;
-                }
-            }
-            
-            console.log('Best TMDB match:', bestMatch);
-            showStatusMessage('Found TMDB match! Loading full details...', 'info');
-            
-            // Step 3: Get full details for the best match
-            const detailsUrl = `${TMDB_BASE_URL}/${bestMatch.media_type}/${bestMatch.id}?append_to_response=credits`;
-            const detailsResponse = await fetch(detailsUrl);
-            const detailsData = await detailsResponse.json();
-            
-            if (!detailsResponse.ok) {
-                throw new Error('Failed to load full movie details from TMDB');
-            }
-            
-            // Step 4: Combine TMDB data with UPC data and populate form
-            populateFormWithTMDBAndUPC(detailsData, upcData);
-            
-            showStatusMessage('Movie details loaded successfully from TMDB!', 'success');
-            
-        } catch (error) {
-            console.error('TMDB search failed:', error);
-            
-            // Fallback: Create basic entry with UPC data only
-            showStatusMessage(`TMDB search failed: ${error.message}. Using basic UPC data.`, 'error');
-            
-            setTimeout(() => {
-                if (confirm('Could not find this movie in TMDB. Would you like to create a basic entry with the UPC data, or search manually?')) {
-                    createBasicUPCEntry(title, upcData);
-                } else {
-                    document.getElementById('movieSearch').value = title;
-                    performSearch(title, 1);
-                }
-            }, 2000);
-        }
     }
     function populateFormWithTMDBAndUPC(tmdbData, upcData, physicalEdition) {
         // Use TMDB data for all the rich movie info
@@ -843,7 +645,6 @@ async function initializeMovieScanner() {
             featuresRow.style.display = 'none';
         }
     }
-
     function showNeedsReviewMessage(suggestedTitle, originalTitle) {
         // Populate search with the suggested title
         document.getElementById('movieSearch').value = suggestedTitle;
@@ -885,117 +686,32 @@ async function initializeMovieScanner() {
         showStatusMessage('Basic entry created with UPC data. You can edit details before saving.', 'info');
     }
     function processAndDisplayResults(data, query, isNewSearch) {
-            currentPage = data.page;
-            totalPages = data.total_pages;
-            totalResults = data.total_results;
-            
-            const results = data.results.filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-                .map(item => ({ ...item, score: calculateRelevanceScore(item, query) }))
-                .sort((a, b) => b.score - a.score);
-            
-            displayResults(results, isNewSearch);
-            updateUrl(query, currentPage);
-            updateSearchFooter();
-        }
-    function calculateRelevanceScore(item, query) {
-            const keywords = query.toLowerCase().split(' ').filter(k => k.length > 2);
-            const title = (item.title || item.name || '').toLowerCase();
-            const overview = (item.overview || '').toLowerCase();
-            let score = 0;
-            
-            keywords.forEach(keyword => {
-                if (title === keyword) score += 100;
-                if (title.startsWith(keyword)) score += 50;
-                if (title.includes(keyword)) score += 20;
-                if (overview.includes(keyword)) score += 5;
-            });
-            
-            const releaseYear = parseInt((item.release_date || item.first_air_date || '').substring(0, 4));
-            if (releaseYear > 2020) score += 5;
-            score += Math.min(item.popularity / 10, 20);
-            score += (item.vote_average || 0) * 2;
-            
-            return score;
-        }
-    function displayResults(results, isNewSearch) {
-        const resultsDiv = document.getElementById('searchResults');
-        if (isNewSearch) {
-            resultsDiv.innerHTML = '';
-        }
+        currentPage = data.page;
+        totalPages = data.total_pages;
+        totalResults = data.total_results;
         
-        if (results.length === 0 && isNewSearch) {
-            resultsDiv.innerHTML = `<div class="empty-state"><span class="icon icon-search icon-3xl"></span><h3>No results found</h3><p>Try adjusting your search terms.</p></div>`;
-            return;
-        }
+        const results = data.results.filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+            .map(item => ({ ...item, score: calculateRelevanceScore(item, query) }))
+            .sort((a, b) => b.score - a.score);
         
-        const resultsHTML = results.map((item) => {
-            const title = item.title || item.name;
-            const year = (item.release_date || item.first_air_date || '').substring(0, 4);
-            // Simple text truncation instead of LibraryUtils
-            const overview = truncateText(item.overview, 100);
-            const badgeHTML = item.media_type === 'tv' 
-                ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>`
-                : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
-            return `
-                <div class="search-result" onclick="selectMedia('${item.id}', '${item.media_type}')">
-                    <img src="${item.poster_path ? TMDB_IMAGE_BASE + item.poster_path : 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A'}" 
-                        class="search-result-poster" 
-                        loading="lazy"
-                        onerror="this.style.display='none'">
-                    <div class="search-result-info">
-                        <h4>${title} (${year}) ${badgeHTML}</h4>
-                        <p>${overview}</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        resultsDiv.insertAdjacentHTML('beforeend', resultsHTML);
+        displayResults(results, isNewSearch);
+        updateUrl(query, currentPage);
+        updateSearchFooter();
     }
-    function updateSearchFooter() {
-            const footer = document.getElementById('searchFooter');
-            const countSpan = document.getElementById('resultCount');
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            
-            if (totalResults > 0) {
-                footer.style.display = 'flex';
-                const itemsShown = document.getElementById('searchResults').children.length;
-                countSpan.textContent = `Showing ${itemsShown} of ${totalResults} results`;
-                
-                if (currentPage < totalPages) {
-                    loadMoreBtn.style.display = 'block';
-                    loadMoreBtn.disabled = false;
-                } else {
-                    loadMoreBtn.style.display = 'none';
-                }
-            } else {
-                footer.style.display = 'none';
-            }
-        }
-    function updateUrl(query, page) {
-            const url = new URL(window.location);
-            url.searchParams.set('query', query);
-            url.searchParams.set('page', page);
-            window.history.pushState({ path: url.href }, '', url.href);
-        }
-    function truncateText(text, maxLength) {
-        if (!text) return '';
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength - 3) + '...';
-    }
-async function selectMedia(id, type) {
-        const selectedResult = event.target.closest('.search-result');
-        if (selectedResult) {
-            selectedResult.classList.add('selected');
+async function selectMedia(id, type, selectedElement) {
+        // --- THIS IS THE NEW PART ---
+        // This block handles visually selecting the clicked item and disabling others.
+        if (selectedElement) {
+            selectedElement.classList.add('selected');
             const allResults = document.querySelectorAll('.search-result');
             allResults.forEach(result => {
-                if (result !== selectedResult) {
+                if (result !== selectedElement) {
                     result.style.opacity = '0.5';
                     result.style.pointerEvents = 'none';
                 }
             });
         }
-
+        // --- END OF NEW PART ---
         showMovieSelectionSkeleton();
         
         const cacheKey = `details_${type}_${id}`;
@@ -1048,17 +764,6 @@ async function selectMedia(id, type) {
             showStatusMessage('Failed to load movie details. Please try again.', 'error');
         }
     }
-    function clearSearchResults() {
-            document.getElementById('searchResults').innerHTML = '';
-            document.getElementById('searchFooter').style.display = 'none';
-            document.getElementById('movieSearch').value = '';
-            
-            currentSearchQuery = '';
-            currentPage = 1;
-            totalPages = 1;
-            totalResults = 0;
-            isLoadingMore = false;
-        }
     function showMovieSelectionSkeleton() {
             // Hide the real form and show the skeleton UI
             document.getElementById('movieForm').style.display = 'none';
@@ -1069,7 +774,6 @@ async function selectMedia(id, type) {
             document.getElementById('form-skeleton').style.display = 'none';
             document.getElementById('movieForm').style.display = 'block';
         }
-
     function validateFormOnMobile() {
         const titleValue = document.getElementById('title').value.trim();
         if (!titleValue) {

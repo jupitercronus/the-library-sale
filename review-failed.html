@@ -98,6 +98,10 @@
                 <div id="searchResults" class="search-results-grid">
                     <!-- Results will be populated here -->
                 </div>
+                <div id="searchFooter" class="search-footer" style="display: none;">
+                    <span id="resultCount"></span>
+                    <button type="button" id="loadMoreBtn" class="btn btn-rectangular btn-primary">Load More</button>
+                </div>
             </div>
 
             <!-- Action Buttons -->
@@ -257,132 +261,36 @@
             statusDiv.className = 'search-status';
         }
 
-        async function searchTMDB() {
-            const searchTitle = document.getElementById('searchTitle').value.trim();
-            if (!searchTitle) {
-                LibraryUtils.ui.showStatusMessage('Please enter a title to search', 'warning');
-                return;
-            }
-
-            const statusDiv = document.getElementById('searchStatus');
-            const resultsGrid = document.getElementById('searchResults');
-            
-            statusDiv.textContent = 'Searching TMDB...';
-            statusDiv.className = 'search-status searching';
-            resultsGrid.innerHTML = '';
-
-            try {
-                const searchResults = await MediaLookupUtils.searchTMDBForTitle(searchTitle, null, false);
-                
-                if (!searchResults) {
-                    statusDiv.textContent = 'No results found. Try editing the title or click "Delete Item".';
-                    statusDiv.className = 'search-status no-results';
-                    return;
-                }
-
-                // For search, we want to show multiple options, so we need to call the search API directly
-                const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(searchTitle)}`;
-                const response = await fetch(searchUrl);
-                const searchData = await response.json();
-
-                if (!searchData.results || searchData.results.length === 0) {
-                    statusDiv.textContent = 'No results found. Try editing the title or click "Delete Item".';
-                    statusDiv.className = 'search-status no-results';
-                    return;
-                }
-
-                // Filter to movies and TV shows only
-                const mediaResults = searchData.results.filter(item => 
-                    item.media_type === 'movie' || item.media_type === 'tv'
-                ).slice(0, 8); // Limit to top 8 results
-
-                displaySearchResults(mediaResults);
-                statusDiv.textContent = `Found ${mediaResults.length} results. Click one to select it.`;
-                statusDiv.className = 'search-status success';
-
-            } catch (error) {
-                console.error('TMDB search failed:', error);
-                statusDiv.textContent = 'Search failed. Please try again or click "Delete Item".';
-                statusDiv.className = 'search-status error';
-            }
-        }
-
-        function displaySearchResults(results) {
-            const resultsGrid = document.getElementById('searchResults');
-            
-            resultsGrid.innerHTML = results.map((result, index) => {
-                const title = result.title || result.name;
-                const year = result.release_date ? result.release_date.substring(0, 4) : 
-                           (result.first_air_date ? result.first_air_date.substring(0, 4) : '');
-                const poster = result.poster_path ? 
-                             `${MediaLookupUtils.TMDB_IMAGE_BASE}${result.poster_path}` : 
-                             'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
-                const overview = result.overview || 'No description available.';
-
-                // Add badge HTML like add-movie
-                const badgeHTML = result.media_type === 'tv' 
-                    ? `<span class="badge badge-tv" title="TV Show"><span class="icon icon-tv icon-sm"></span></span>`
-                    : `<span class="badge badge-movie" title="Movie"><span class="icon icon-movie icon-sm"></span></span>`;
-
-                return `
-                    <div class="search-result-item" data-result-index="${index}">
-                        <img src="${poster}" alt="${title}" class="search-result-poster" loading="lazy">
-                        <div class="search-result-info">
-                            <h5 class="search-result-title">${title}</h5>
-                            <p class="search-result-year">${year || 'Unknown year'} • ${result.media_type === 'tv' ? 'TV Series' : 'Movie'}</p>
-                            <p class="search-result-overview">${overview}</p>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // Add click handlers to select results
-            document.querySelectorAll('.search-result-item').forEach(item => {
-                item.addEventListener('click', () => selectSearchResult(item));
-            });
-        }
-
-        function selectSearchResult(element) {
-            // Clear previous selections
+        function selectSearchResult(id, type, element) {
+        // Visually highlight the selected item
+        if (element) {
             document.querySelectorAll('.search-result-item').forEach(item => {
                 item.classList.remove('selected');
             });
-
-            // Select the clicked item
             element.classList.add('selected');
-            
-            const resultIndex = parseInt(element.dataset.resultIndex);
-            const statusDiv = document.getElementById('searchStatus');
-            const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(document.getElementById('searchTitle').value)}`;
-            
-            // We need to get the full result data again
-            fetch(searchUrl)
-                .then(response => response.json())
-                .then(searchData => {
-                    const mediaResults = searchData.results.filter(item => 
-                        item.media_type === 'movie' || item.media_type === 'tv'
-                    );
-                    selectedResult = mediaResults[resultIndex];
-                    updateActionButtons();
-                    
-                    const title = selectedResult.title || selectedResult.name;
-                    statusDiv.textContent = `Selected: "${title}". Click "Add Selected" to save to your library.`;
-                    statusDiv.className = 'search-status selected';
-                })
-                .catch(error => {
-                    console.error('Failed to load selected result:', error);
-                    selectedResult = null;
-                    updateActionButtons();
-                });
-
-            // Clear search results after selection (like add-movie)
-            setTimeout(() => {
-                document.getElementById('searchResults').innerHTML = '';
-                document.getElementById('searchStatus').textContent = 'Movie selected! Click "Add Selected" to save.';
-                document.getElementById('searchStatus').className = 'search-status selected';
-            }, 500);
         }
+
+        const statusDiv = document.getElementById('searchStatus');
         
+        // Fetch the full result data to get the title and other details
+        const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${type}/${id}?append_to_response=credits`;
+        fetch(detailsUrl)
+            .then(response => response.json())
+            .then(fullData => {
+                // Store the complete data for the selected result
+                selectedResult = { ...fullData, media_type: type }; 
+                updateActionButtons();
+                
+                const title = selectedResult.title || selectedResult.name;
+                statusDiv.textContent = `Selected: "${title}". Click "Add" to save.`;
+                statusDiv.className = 'search-status selected';
+            })
+            .catch(error => {
+                console.error('Failed to load selected result:', error);
+                selectedResult = null;
+                updateActionButtons();
+            });
+    }
 
         function updateActionButtons() {
             const addBtn = document.getElementById('addSelectedBtn');
@@ -507,12 +415,16 @@
 
         // Event listeners
         function setupEventListeners() {
-            document.getElementById('searchBtn').addEventListener('click', searchTMDB);
-            
-            document.getElementById('searchTitle').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchTMDB();
+            SearchUI.initialize({
+                searchInputId: 'searchTitle',
+                searchBtnId: 'searchBtn',
+                resultsContainerId: 'searchResults',
+                // Add the IDs for the new footer elements
+                searchFooterId: 'searchFooter',
+                resultCountId: 'resultCount',
+                loadMoreBtnId: 'loadMoreBtn',
+                onSelect: (id, type, element) => {
+                    selectSearchResult(id, type, element);
                 }
             });
 
