@@ -30,23 +30,28 @@
         <!-- Centered Title, Year, and Ratings (Ticket Style) -->
         <div class="details-ticket">
             <h1 id="movieTitle" class="details-title"></h1>
-            <p id="movieYear" class="details-year"></p>
-            
+        
+            <div class="details-meta-line">
+                <p id="movieYear" class="details-year"></p>
+                <span id="contentTypeBadge" class="content-type-badge"></span>
+            </div>
+        
             <div class="details-ratings">
                 <div class="rating-box">
-                    <h3>Average Rating</h3>
-                    <div id="averageRating" class="star-rating star-rating-md"></div>
+                    <h3>avg rating</h3>
+                    <div id="averageRating" class="star-rating star-rating-sm"></div>
                 </div>
                 <div class="rating-box">
-                    <h3>My Rating</h3>
-                    <div id="myRating" class="star-rating star-rating-md"></div>
+                    <h3>my rating</h3>
+                    <div id="myRating" class="star-rating star-rating-sm"></div>
                 </div>
             </div>
+        
             <div class="details-actions-centered">
-                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="edit my rating and comments" style="display: none;">
-                    <span class="icon icon-person icon-xl"></span>
+                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="Edit my rating and comments" style="display: none;">
+                    <span class="icon icon-add icon-xl"></span>
                 </a>
-                <a id="editDetailsBtn" href="#" class="btn btn-xl btn-primary" title="edit movie details" style="display: none;">
+                <a id="editDetailsBtn" href="#" class="btn btn-xl btn-primary" title="Edit movie details" style="display: none;">
                     <span class="icon icon-edit icon-xl"></span>
                 </a>
             </div>
@@ -200,6 +205,11 @@
     function populateMovieDetails(movieData, myInteraction, allInteractions) {
         document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
         document.getElementById('movieYear').textContent = movieData.year || 'N/A';
+        const contentType = movieData.contentType || 'movie';
+            const badgeElement = document.getElementById('contentTypeBadge');
+            const iconClass = contentType === 'tv' ? 'icon-tv' : 'icon-movie';
+                badgeElement.innerHTML = `<span class="icon ${iconClass}"></span>`;
+             
         document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
         document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
         document.getElementById('movieDirector').textContent = movieData.director || 'N/A';

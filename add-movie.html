@@ -164,9 +164,14 @@
                             </div>
                             <div class="form-group">
                                 <label for="contentType">content type *</label>
-                                <select id="contentType" required>
-                                    <option value="movie">movie</option>
-                                    <option value="tv">tv show</option>
+                                <div id="contentTypeToggle" class="content-type-toggle">
+                                    <button type="button" class="content-type-btn active" data-value="movie">
+                                        <span class="icon icon-movie"></span> 
+                                    </button>
+                                    <button type="button" class="content-type-btn" data-value="tv">
+                                        <span class="icon icon-tv"></span>
+                                    </button>
+                                </div>
                                 </select>
                             </div>
                         </div>
@@ -271,6 +276,13 @@
                 window.location.href = 'auth.html'; 
             }
         });
+    });
+    
+    document.getElementById('contentTypeToggle').addEventListener('click', (e) => {
+        const selectedBtn = e.target.closest('.content-type-btn');
+        if (selectedBtn) {
+            updateContentTypeToggle(selectedBtn.dataset.value);
+        }
     });
 
 async function initializePage() {
@@ -421,7 +433,7 @@ async function initializeMovieScanner() {
                     tmdbId: tmdbId && !tmdbId.startsWith('upc_') ? parseInt(tmdbId) : null,
                     overview: document.getElementById('summary').value.trim(),
                     cast: document.getElementById('cast').value.split(',').map(c => c.trim()).filter(c => c),
-                    contentType: document.getElementById('contentType').value,
+                    contentType: document.querySelector('#contentTypeToggle .active').dataset.value,
                     dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
                     originalUploaderId: currentUser.uid,
                     originalUploaderDisplayName: currentUser.displayName || currentUser.email,
@@ -469,21 +481,21 @@ async function initializeMovieScanner() {
     }
 
     function populateFormWithData(data) {
-        document.getElementById('title').value = data.title || data.name;
-        document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);
-        document.getElementById('summary').value = data.overview;
-        document.getElementById('genre').value = data.genres.map(g => g.name).join(', ');
-        document.getElementById('cast').value = data.credits.cast.slice(0, 5).map(c => c.name).join(', ');
+            document.getElementById('title').value = data.title || data.name;
+            document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);
+            document.getElementById('summary').value = data.overview;
+            document.getElementById('genre').value = data.genres.map(g => g.name).join(', ');
+            document.getElementById('cast').value = data.credits.cast.slice(0, 5).map(c => c.name).join(', ');
         const director = data.credits.crew.find(c => c.job === 'Director');
-        document.getElementById('director').value = director ? director.name : '';
-        document.getElementById('contentType').value = data.media_type || (data.seasons ? 'tv' : 'movie');
-        
+            document.getElementById('director').value = director ? director.name : '';
+        const contentType = data.media_type || (data.seasons ? 'tv' : 'movie');
+            updateContentTypeToggle(contentType);        
         const posterUrl = data.poster_path ? TMDB_IMAGE_BASE + data.poster_path : 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
-        document.getElementById('movie-poster-img').src = posterUrl;
-        
-        document.getElementById('movieForm').dataset.tmdbId = data.id;
-        document.getElementById('movieForm').dataset.posterUrl = posterUrl;
-        document.getElementById('movieForm').dataset.runtime = data.runtime || (data.episode_run_time ? data.episode_run_time[0] : null);
+            document.getElementById('movie-poster-img').src = posterUrl;
+            
+            document.getElementById('movieForm').dataset.tmdbId = data.id;
+            document.getElementById('movieForm').dataset.posterUrl = posterUrl;
+            document.getElementById('movieForm').dataset.runtime = data.runtime || (data.episode_run_time ? data.episode_run_time[0] : null);
 
         togglePublicFieldsReadonly(true);
         isPublicFieldsEditable = false;
@@ -790,7 +802,12 @@ async function selectMedia(id, type, selectedElement) {
         }
         return true;
     }
-
+    function updateContentTypeToggle(selectedValue) {
+        const toggleContainer = document.getElementById('contentTypeToggle');
+        toggleContainer.querySelectorAll('.content-type-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.value === selectedValue);
+        });
+    }
 // === TEST FUNCTION FOR DEBUGGING UPC API ===
 window.testUPCLookup = async function(testBarcode = '883929736171') {
     console.log('🔍 Testing UPC lookup with barcode:', testBarcode);

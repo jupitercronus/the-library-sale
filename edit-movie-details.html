@@ -150,10 +150,14 @@
 
                 <div class="form-group">
                     <label for="edit-content-type">content type</label>
-                    <select id="edit-content-type">
-                        <option value="movie">movie</option>
-                        <option value="tv">tv Show</option>
-                    </select>
+                    <div id="contentTypeToggle" class="content-type-toggle">
+                        <button type="button" class="content-type-btn active" data-value="movie">
+                            <span class="icon icon-movie"></span> 
+                        </button>
+                        <button type="button" class="content-type-btn" data-value="tv">
+                            <span class="icon icon-tv"></span> 
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Action Buttons -->
@@ -224,6 +228,12 @@
                     window.location.href = 'auth.html';
                 }
             });
+        });
+        document.getElementById('contentTypeToggle').addEventListener('click', (e) => {
+            const selectedBtn = e.target.closest('.content-type-btn');
+            if (selectedBtn) {
+                updateContentTypeToggle(selectedBtn.dataset.value);
+            }
         });
 
         function updatePageContext(fromParam) {
@@ -365,7 +375,7 @@
             document.getElementById('edit-cast').value = Array.isArray(movieData.cast) ? 
                 movieData.cast.join(', ') : (movieData.cast || '');
             document.getElementById('edit-summary').value = movieData.overview || '';
-            document.getElementById('edit-content-type').value = movieData.contentType || 'movie';
+            updateContentTypeToggle(movieData.contentType || 'movie');        
         }
         async function selectTMDBResult(id, type) {
             if (!id || !type) return;
@@ -425,7 +435,7 @@
                     cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
                     posterUrl: document.getElementById('movie-poster-img').src,
                     overview: document.getElementById('edit-summary').value.trim(),
-                    contentType: document.getElementById('edit-content-type').value,
+                    contentType: document.querySelector('#contentTypeToggle .active').dataset.value,
                     lastEditedBy: currentUser.uid,
                     lastEditedDate: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -457,6 +467,13 @@
                 saveBtn.disabled = false;
             }
         }
+
+    function updateContentTypeToggle(selectedValue) {
+        const toggleContainer = document.getElementById('contentTypeToggle');
+        toggleContainer.querySelectorAll('.content-type-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.value === selectedValue);
+        });
+    }
     </script>
 
     <footer id="footer-placeholder"></footer>
