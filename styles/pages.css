@@ -1055,6 +1055,17 @@
   background-color: currentColor;
 }
 
+/* Details page edit actions within main content */
+.details-actions-centered {
+  text-align: center;
+  padding: var(--space-xl) 0;
+}
+
+.details-actions-centered .btn {
+  min-width: 200px;
+  gap: var(--space-md);
+}
+
 
 /* Summary section with read more */
 .details-summary.collapsed .summary-text {
@@ -1143,45 +1154,54 @@
 
 /* Enhanced Physical Copy Styling */
 .copy-format {
-    background: var(--color-brand-cyan);
-    color: var(--color-primary-bg);
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: bold;
+  background: var(--color-brand-cyan);
+  color: var(--color-primary-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: bold;
 }
 
 .copy-edition {
-    background: var(--color-brand-green);
-    color: var(--color-primary-bg);
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: bold;
+  background: var(--color-brand-green);
+  color: var(--color-primary-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: bold;
 }
 
 .copy-region {
-    background: var(--color-brand-blue);
-    color: var(--color-primary-bg);
-    padding: 2px 6px;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: bold;
+  background: var(--color-brand-blue);
+  color: var(--color-primary-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: bold;
 }
 
 .copy-distributor {
-    color: var(--color-text-secondary);
-    font-style: italic;
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 .copy-features, .copy-barcode {
-    margin-top: var(--space-xs);
-    color: var(--color-text-muted);
-    font-family: var(--font-family-mono);
+  margin-top: var(--space-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
 }
 
 .copy-features small, .copy-barcode small {
-    font-size: var(--font-size-xs);
+  font-size: var(--font-size-xs);
+}
+
+#smartBackBtn {
+  gap: var(--space-sm);
+  min-width: auto;
+}
+
+#backBtnText {
+  font-size: var(--font-size-sm);
 }
 
 /* Details responsive */
@@ -1217,6 +1237,10 @@
   
   .details-ratings {
     gap: var(--space-xl);
+  }
+  
+  #backBtnText {
+    display: none; /* Hide text on very small screens, keep just icon */
   }
 }
 

@@ -109,15 +109,24 @@
                 <!-- Physical copies will be injected by JS -->
             </div>
         </div>
+         <!-- ADD THIS: Edit Actions Section -->
+         <div class="details-section">
+            <div class="details-actions-centered">
+                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="edit movie details" style="display: none;">
+                    <span class="icon icon-edit icon-xl"></span>
+                </a>
+            </div>
+        </div>
+
         </div>
 
     </main>
     
     <footer class="site-footer">
         <div class="footer-container" style="text-align: center;">
-             <a href="index.html" class="btn btn-lg btn-danger" title="Back to Library">
+             <button id="smartBackBtn" onclick="goBack()" class="btn btn-lg btn-danger" title="take me away">
                 <i class="icon icon-back"></i>
-            </a>
+            </button>
         </div>
     </footer>
 
@@ -168,11 +177,10 @@
         try {
             const movieDocRef = db.collection('movies').doc(movieId);
             const movieDoc = await movieDocRef.get();
-
-            if (!movieDoc.exists) throw new Error("This movie could not be found in the main library.");
+            if (!movieDoc.exists) 
+                throw new Error("This movie could not be found in the main library.");
             
             const movieData = { id: movieDoc.id, ...movieDoc.data() };
-
             const interactionsSnapshot = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).get();
             
             const allInteractions = interactionsSnapshot.docs.map(doc => ({
@@ -186,6 +194,7 @@
             await loadCommentsWithUserData(allInteractions);
             await loadPhysicalCopies(allInteractions);
             setupCommentForm(user, movieId, myInteraction);
+            setupEditButton(user, movieId);
 
             document.getElementById('loadingState').style.display = 'none';
             document.getElementById('detailsContainer').style.display = 'flex'; // Use flex for proper layout
@@ -385,6 +394,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Update back button text based on context
+        updateBackButton();
+
         auth.onAuthStateChanged(user => {
             const movieId = new URLSearchParams(window.location.search).get('id');
             if (movieId) {
@@ -397,7 +409,93 @@
             }
         });
     });
+
+    function setupEditButton(user, movieId) {
+        const editBtn = document.getElementById('editMovieBtn');
+        
+        if (!user) {
+            editBtn.style.display = 'none';
+            return;
+        }
+        
+        // Set the edit URL with context
+        const currentUrl = new URLSearchParams(window.location.search);
+        const fromParam = currentUrl.get('from') || 'details';
+        
+        editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
+        editBtn.style.display = 'inline-flex';
+    }
+
+    function goBack() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromParam = urlParams.get('from');
+        
+        switch(fromParam) {
+            case 'library':
+            case 'home':
+                window.location.href = 'index.html';
+                break;
+            case 'profile':
+                const profileId = urlParams.get('profileId');
+                window.location.href = profileId ? `profile.html?id=${profileId}` : 'profile.html';
+                break;
+            case 'review':
+                window.location.href = 'review-failed.html';
+                break;
+            case 'bulk':
+                window.location.href = 'bulk-scan.html';
+                break;
+            case 'search':
+                // Try browser back first for search results
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.location.href = 'index.html';
+                }
+                break;
+            default:
+                // Default fallback to library
+                window.location.href = 'index.html';
+        }
+    }
+
+    function updateBackButton() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromParam = urlParams.get('from');
+        const backBtnText = document.getElementById('backBtnText');
+        const backBtn = document.getElementById('smartBackBtn');
+        
+        if (!backBtnText || !backBtn) return;
+        
+        switch(fromParam) {
+            case 'library':
+            case 'home':
+                backBtnText.textContent = 'Back to Library';
+                backBtn.title = 'Back to Library';
+                break;
+            case 'profile':
+                backBtnText.textContent = 'Back to Profile';
+                backBtn.title = 'Back to Profile';
+                break;
+            case 'review':
+                backBtnText.textContent = 'Back to Review';
+                backBtn.title = 'Back to Review';
+                break;
+            case 'bulk':
+                backBtnText.textContent = 'Back to Bulk Scan';
+                backBtn.title = 'Back to Bulk Scan';
+                break;
+            case 'search':
+                backBtnText.textContent = 'Back to Results';
+                backBtn.title = 'Back to Search Results';
+                break;
+            default:
+                backBtnText.textContent = 'Back to Library';
+                backBtn.title = 'Back to Library';
+        }
+    }
 </script>
+</div>
 <div id="footer-placeholder"></div>
 </body>
 </html>
