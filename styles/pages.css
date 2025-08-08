@@ -402,6 +402,7 @@
   .media-actions .btn,
   .status-badge-positive,
   .status-badge-negative {
+    color: var(--color-text-primary);
     width: var(--btn-size-sm);
     height: var(--btn-size-sm);
     font-size: var(--icon-size-sm);
