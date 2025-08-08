@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#24143E">
+    <title>edit movie details - the library sale</title>
+    
+    <!-- Google Fonts Import -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Dokdo&family=Kirang+Haerang&family=M+PLUS+2&family=Syne+Mono&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+    
+    <!-- App Utilities -->
+    <script src="utils.js"></script>
+    <script src="cache.js"></script>
+    <script src="scanner-utils.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/variables.css">
+    <link rel="stylesheet" href="styles/base.css">  
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/pages.css">
+    
+    <!-- Main utilities -->
+    <script src="main.js" defer></script>
+</head>
+<body>
+    <header id="navbar-placeholder"></header>
+
+    <main class="edit-movie-container">
+        <!-- Loading Skeleton -->
+        <div id="editLoadingState">
+            <section class="details-ticket skeleton">
+                <div class="skeleton" style="height: 36px; width: 60%; margin: 0 auto 8px;"></div>
+                <div class="skeleton" style="height: 24px; width: 20%; margin: 0 auto;"></div>
+            </section>
+            <div class="skeleton" style="height: 200px; margin: 40px 0;"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="mainContent" style="display: none;">
+            <!-- Header -->
+            <section class="details-ticket">
+                <h1 id="movie-title" class="details-title">edit movie detailsn</h1>
+                <p class="hero-subtitle">⚠️ changes here affect all users who have this movie</p>
+            </section>
+
+            <!-- Current Movie Info Display -->
+            <section class="details-section">
+                <h2 class="details-section-header">
+                    <i class="icon icon-movie"></i>
+                    <span>current movie details</span>
+                </h2>
+                <div class="current-movie-display">
+                    <div class="current-movie-grid">
+                        <div class="current-poster">
+                            <img id="current-poster-img" src="" alt="Current Poster">
+                        </div>
+                        <div class="current-info">
+                            <h3 id="current-title">Loading...</h3>
+                            <p><strong>year:</strong> <span id="current-year">-</span></p>
+                            <p><strong>director:</strong> <span id="current-director">-</span></p>
+                            <p><strong>genre:</strong> <span id="current-genre">-</span></p>
+                            <p><strong>cast:</strong> <span id="current-cast">-</span></p>
+                        </div>
+                    </div>
+                    <div class="current-summary">
+                        <h4>summary</h4>
+                        <p id="current-summary-text">Loading...</p>
+                    </div>
+                </div>
+            </section>
+            <!-- Add this section after the current movie display -->
+            <section class="details-section">
+                <h2 class="details-section-header">
+                    <i class="icon icon-search"></i>
+                    <span>Search & Replace from TMDB</span>
+                </h2>
+                
+                <div class="tmdb-search-container">
+                    <div class="search-controls">
+                        <div class="search-bar">
+                            <input type="text" id="tmdb-search" placeholder="Search TMDB for better movie data...">
+                        </div>
+                        <button type="button" id="tmdb-search-btn" class="btn btn-rectangular btn-primary">
+                            <span class="icon icon-search"></span>
+                            Search TMDB
+                        </button>
+                    </div>
+                    
+                    <div id="tmdb-results" class="tmdb-search-results" style="display: none;">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Edit Form -->
+            <form id="edit-details-form" class="details-section">
+                <h2 class="details-section-header">
+                    <i class="icon icon-edit"></i>
+                    <span>edit movie details</span>
+                </h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-title">title *</label>
+                        <input type="text" id="edit-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-year">year</label>
+                        <input type="number" id="edit-year" min="1900" max="2030">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-director">director</label>
+                    <input type="text" id="edit-director">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-genre">genre</label>
+                    <input type="text" id="edit-genre" placeholder="e.g., cction, comedy, drama">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-cast">cast</label>
+                    <input type="text" id="edit-cast" placeholder="">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-poster-url">poster uRL</label>
+                    <input type="url" id="edit-poster-url" placeholder="https://...">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-summary">summary</label>
+                    <textarea id="edit-summary" rows="6" placeholder="Movie description..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-content-type">content type</label>
+                    <select id="edit-content-type">
+                        <option value="movie">movie</option>
+                        <option value="tv">tv Show</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="form-actions">
+                    <div class="form-actions-left">
+                        <button type="submit" id="save-details-btn" class="btn btn-xl btn-success" title="Save Changes">
+                            <i class="icon icon-confirm"></i>
+                        </button>
+                        <button type="button" id="cancel-btn" class="btn btn-xl btn-danger" title="Cancel">
+                            <i class="icon icon-back"></i>
+                        </button>
+                    </div>
+                    <div class="form-actions-right">
+                        <p class="permissions-note">only the original uploader can edit movie details</p>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
+            authDomain: "tiny-lizard.firebaseapp.com",
+            projectId: "tiny-lizard",
+            storageBucket: "tiny-lizard.firebasestorage.app",
+            messagingSenderId: "250872474692",
+            appId: "1:250872474692:web:969e0b1302ae3cb4666011",
+        };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(); 
+        const auth = firebase.auth();
+
+        let movieData = null;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const movieId = params.get('id');
+            const fromParam = params.get('from');
+
+            initializeTMDBSearch();
+
+            if (!movieId) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Update page context
+            updatePageContext(fromParam);
+
+            // Set up cancel button
+            document.getElementById('cancel-btn').addEventListener('click', () => {
+                const backUrl = getBackUrl(fromParam, movieId);
+                window.location.href = backUrl;
+            });
+
+            // Set up form submission
+            document.getElementById('edit-details-form').addEventListener('submit', handleFormSubmit);
+
+            // Initialize page
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    loadMovieData(movieId);
+                } else {
+                    window.location.href = 'auth.html';
+                }
+            });
+        });
+
+        function updatePageContext(fromParam) {
+            const pageTitle = document.querySelector('title');
+            const heroTitle = document.querySelector('.hero-subtitle');
+            
+            if (fromParam === 'review') {
+                pageTitle.textContent = 'edit movie details - the library sale';
+                if (heroTitle) {
+                    heroTitle.textContent = '⚠️ review and correct movie information that affects all users';
+                }
+            } else {
+                pageTitle.textContent = 'edit movie details - the library sale';
+                if (heroTitle) {
+                    heroTitle.textContent = '⚠️ changes here affect all users who have this movie';
+                }
+            }
+        }
+        function getBackUrl(fromParam, movieId) {
+            switch(fromParam) {
+                case 'library':
+                case 'home':
+                    return 'index.html';
+                case 'details':
+                    return `library.html?id=${movieId}&from=details`;
+                case 'review':
+                    return 'review-failed.html';
+                default:
+                    return `library.html?id=${movieId}`;
+            }
+        }
+        async function checkAdminStatus(user) {
+            try {
+                const adminDoc = await db.collection('admins').doc(user.uid).get();
+                return adminDoc.exists && adminDoc.data().isActive === true;
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+                return false;
+            }
+        }
+        async function loadMovieData(movieId) {
+            try {
+                const movieDoc = await db.collection('movies').doc(movieId).get();
+                
+                if (!movieDoc.exists) {
+                    throw new Error('Movie not found');
+                }
+
+                movieData = { id: movieDoc.id, ...movieDoc.data() };
+
+                // Enhanced permission check - original uploader OR admin
+                const isOriginalUploader = movieData.originalUploaderId === currentUser.uid;
+                const isAdmin = await checkAdminStatus(currentUser);
+                
+                if (!isOriginalUploader && !isAdmin) {
+                    document.getElementById('editLoadingState').innerHTML = `
+                        <div class="error-state">
+                            <h3>Access Denied</h3>
+                            <p>Only the original uploader or administrators can edit movie details.</p>
+                            <button onclick="history.back()" class="btn btn-primary">Go Back</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Add admin indicator if user is admin
+                if (isAdmin && !isOriginalUploader) {
+                    const adminIndicator = document.createElement('p');
+                    adminIndicator.className = 'admin-indicator';
+                    adminIndicator.innerHTML = '👑 Editing as Administrator';
+                    document.querySelector('.hero-subtitle').after(adminIndicator);
+                }
+
+                // Populate current info display
+                populateCurrentDisplay();
+                
+                // Populate edit form
+                populateEditForm();
+
+                // Show main content
+                document.getElementById('editLoadingState').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error loading movie:', error);
+                document.getElementById('editLoadingState').innerHTML = `
+                    <div class="error-state">
+                        <h3>Error</h3>
+                        <p>${error.message}</p>
+                        <button onclick="history.back()" class="btn btn-primary">Go Back</button>
+                    </div>
+                `;
+            }
+        }  
+        function populateCurrentDisplay() {
+            document.getElementById('current-poster-img').src = movieData.posterUrl || 'https://placehold.co/200x300/2D194D/DEF0F7?text=No+Poster';
+            document.getElementById('current-title').textContent = movieData.title || 'Unknown Title';
+            document.getElementById('current-year').textContent = movieData.year || 'N/A';
+            document.getElementById('current-director').textContent = movieData.director || 'N/A';
+            document.getElementById('current-genre').textContent = movieData.genre || 'N/A';
+            document.getElementById('current-cast').textContent = Array.isArray(movieData.cast) ? 
+                movieData.cast.join(', ') : (movieData.cast || 'N/A');
+            document.getElementById('current-summary-text').textContent = movieData.overview || 'No summary available.';
+        }
+        async function initializeTMDBSearch() {
+            const searchInput = document.getElementById('tmdb-search');
+            const searchBtn = document.getElementById('tmdb-search-btn');
+            const resultsContainer = document.getElementById('tmdb-results');
+
+            searchBtn.addEventListener('click', () => performTMDBSearch());
+            
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    performTMDBSearch();
+                }
+            });
+        }
+        function populateEditForm() {
+            document.getElementById('edit-title').value = movieData.title || '';
+            document.getElementById('edit-year').value = movieData.year || '';
+            document.getElementById('edit-director').value = movieData.director || '';
+            document.getElementById('edit-genre').value = movieData.genre || '';
+            document.getElementById('edit-cast').value = Array.isArray(movieData.cast) ? 
+                movieData.cast.join(', ') : (movieData.cast || '');
+            document.getElementById('edit-poster-url').value = movieData.posterUrl || '';
+            document.getElementById('edit-summary').value = movieData.overview || '';
+            document.getElementById('edit-content-type').value = movieData.contentType || 'movie';
+        }
+        async function performTMDBSearch() {
+            const query = document.getElementById('tmdb-search').value.trim();
+            if (!query) return;
+
+            const resultsContainer = document.getElementById('tmdb-results');
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = '<div class="loading-container"><div class="loading-spinner" style="display: block;"></div></div>';
+
+            try {
+                const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}`;
+                const response = await fetch(searchUrl);
+                const data = await response.json();
+
+                if (!data.results || data.results.length === 0) {
+                    resultsContainer.innerHTML = '<p class="no-results">No results found. Try a different search term.</p>';
+                    return;
+                }
+
+                // Filter to movies and TV shows
+                const mediaResults = data.results.filter(item => 
+                    item.media_type === 'movie' || item.media_type === 'tv'
+                );
+
+                displayTMDBResults(mediaResults);
+
+            } catch (error) {
+                console.error('TMDB search failed:', error);
+                resultsContainer.innerHTML = '<p class="error-results">Search failed. Please try again.</p>';
+            }
+        }
+    function displayTMDBResults(results) {
+        const resultsContainer = document.getElementById('tmdb-results');
+        
+        if (results.length === 0) {
+            resultsContainer.innerHTML = '<p class="no-results">No movies or TV shows found.</p>';
+            return;
+        }
+
+        resultsContainer.innerHTML = results.map((item, index) => {
+            const title = item.title || item.name;
+            const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+            const poster = item.poster_path ? 
+                        `${MediaLookupUtils.TMDB_IMAGE_BASE}${item.poster_path}` : 
+                        'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
+            const overview = item.overview || 'No description available.';
+            
+            return `
+                <div class="tmdb-result-item" onclick="selectTMDBResult(${index})">
+                    <img src="${poster}" alt="${title}" class="tmdb-result-poster" loading="lazy">
+                    <div class="tmdb-result-info">
+                        <h4 class="tmdb-result-title">${title} (${year || 'Unknown'})</h4>
+                        <p class="tmdb-result-overview">${overview.substring(0, 150)}${overview.length > 150 ? '...' : ''}</p>
+                        <span class="tmdb-result-type">${item.media_type === 'tv' ? 'TV Series' : 'Movie'}</span>
+                    </div>
+                    <button class="btn btn-sm btn-primary tmdb-select-btn">
+                        <span class="icon icon-confirm"></span>
+                        Use This Data
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        // Store results for selection
+        window.tmdbSearchResults = results;
+    }
+    async function selectTMDBResult(index) {
+        const result = window.tmdbSearchResults[index];
+        if (!result) return;
+
+        try {
+            // Get full details
+            const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${result.media_type}/${result.id}?append_to_response=credits`;
+            const response = await fetch(detailsUrl);
+            const fullData = await response.json();
+
+            if (!response.ok) {
+                throw new Error('Failed to load full details');
+            }
+
+            // Populate the edit form with TMDB data
+            document.getElementById('edit-title').value = fullData.title || fullData.name || '';
+            document.getElementById('edit-year').value = (fullData.release_date || fullData.first_air_date || '').substring(0, 4);
+            document.getElementById('edit-director').value = fullData.credits?.crew?.find(c => c.job === 'Director')?.name || '';
+            document.getElementById('edit-genre').value = fullData.genres?.map(g => g.name).join(', ') || '';
+            document.getElementById('edit-cast').value = fullData.credits?.cast?.slice(0, 5).map(c => c.name).join(', ') || '';
+            document.getElementById('edit-poster-url').value = fullData.poster_path ? 
+                `${MediaLookupUtils.TMDB_IMAGE_BASE}${fullData.poster_path}` : '';
+            document.getElementById('edit-summary').value = fullData.overview || '';
+            document.getElementById('edit-content-type').value = fullData.media_type || (fullData.seasons ? 'tv' : 'movie');
+
+            // Hide search results
+            document.getElementById('tmdb-results').style.display = 'none';
+            document.getElementById('tmdb-search').value = '';
+
+            LibraryUtils.ui.showStatusMessage('Form populated with TMDB data! Review and save when ready.', 'success');
+
+        } catch (error) {
+            console.error('Error loading TMDB details:', error);
+            LibraryUtils.ui.showStatusMessage('Failed to load full details. Please try again.', 'error');
+        }
+    }
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const saveBtn = document.getElementById('save-details-btn');
+            saveBtn.classList.add('saving');
+            saveBtn.disabled = true;
+
+            try {
+                const updatedData = {
+                    title: document.getElementById('edit-title').value.trim(),
+                    year: parseInt(document.getElementById('edit-year').value) || null,
+                    director: document.getElementById('edit-director').value.trim(),
+                    genre: document.getElementById('edit-genre').value.trim(),
+                    cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
+                    posterUrl: document.getElementById('edit-poster-url').value.trim() || null,
+                    overview: document.getElementById('edit-summary').value.trim(),
+                    contentType: document.getElementById('edit-content-type').value,
+                    lastEditedBy: currentUser.uid,
+                    lastEditedDate: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Validate required fields
+                if (!updatedData.title) {
+                    throw new Error('Title is required');
+                }
+
+                // Update the movie document
+                await db.collection('movies').doc(movieData.id).update(updatedData);
+
+                // Show success message
+                LibraryUtils.ui.showStatusMessage('movie details updated successfully!', 'success');
+
+                // Redirect back after a delay
+                setTimeout(() => {
+                    const params = new URLSearchParams(window.location.search);
+                    const fromParam = params.get('from');
+                    const backUrl = getBackUrl(fromParam, movieData.id);
+                    window.location.href = backUrl;
+                }, 1500);
+
+            } catch (error) {
+                console.error('error updating movie:', error);
+                LibraryUtils.ui.showStatusMessage(error.message || 'error updating movie details', 'error');
+            } finally {
+                saveBtn.classList.remove('saving');
+                saveBtn.disabled = false;
+            }
+        }
+    </script>
+
+    <footer id="footer-placeholder"></footer>
+</body>
+</html>

@@ -109,13 +109,10 @@
                 <!-- Physical copies will be injected by JS -->
             </div>
         </div>
-         <!-- ADD THIS: Edit Actions Section -->
-         <div class="details-section">
-            <div class="details-actions-centered">
-                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="edit movie details" style="display: none;">
-                    <span class="icon icon-edit icon-xl"></span>
-                </a>
-            </div>
+        <!-- Add second button for movie details (if user has permission) -->
+        <a id="editDetailsBtn" href="#" class="btn btn-xl btn-secondary" title="edit movie details" style="display: none;">
+            <span class="icon icon-edit icon-xl"></span>
+        </a>
         </div>
 
         </div>
@@ -412,18 +409,47 @@
 
     function setupEditButton(user, movieId) {
         const editBtn = document.getElementById('editMovieBtn');
+        const detailsBtn = document.getElementById('editDetailsBtn');
         
         if (!user) {
             editBtn.style.display = 'none';
+            detailsBtn.style.display = 'none';
             return;
         }
         
-        // Set the edit URL with context
+        // Set the personal collection edit URL
         const currentUrl = new URLSearchParams(window.location.search);
         const fromParam = currentUrl.get('from') || 'details';
         
         editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
         editBtn.style.display = 'inline-flex';
+        
+        // Check if user can edit movie details (original uploader or admin)
+        checkMovieEditPermissions(user, movieId).then(canEdit => {
+            if (canEdit) {
+                detailsBtn.href = `edit-movie-details.html?id=${movieId}&from=${fromParam}`;
+                detailsBtn.style.display = 'inline-flex';
+            }
+        });
+    }
+    async function checkMovieEditPermissions(user, movieId) {
+        try {
+            const [movieDoc, adminDoc] = await Promise.all([
+                db.collection('movies').doc(movieId).get(),
+                db.collection('admins').doc(user.uid).get()
+            ]);
+            
+            if (!movieDoc.exists) return false;
+            
+            const movieData = movieDoc.data();
+            const isOriginalUploader = movieData.originalUploaderId === user.uid;
+            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
+            
+            return isOriginalUploader || isAdmin;
+        } catch (error) {
+            console.error('Error checking permissions:', error);
+            return false;
+        }
     }
 
     function goBack() {
