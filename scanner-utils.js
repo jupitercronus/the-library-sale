@@ -1386,9 +1386,41 @@ const SearchUI = {
             result.addEventListener('click', (e) => {
                 const id = e.currentTarget.dataset.id;
                 const type = e.currentTarget.dataset.type;
+                
+                // Call the onSelect callback
                 this.config.onSelect(id, type, e.currentTarget);
+                
+                // Collapse search results after selection
+                this.collapseResults();
             });
         });
+    },
+    
+    /**
+     * Collapse search results and clear search input
+     */
+    collapseResults() {
+        const resultsContainer = document.getElementById(this.config.resultsContainerId);
+        const searchFooter = document.getElementById(this.config.searchFooterId);
+        const searchInput = document.getElementById(this.config.searchInputId);
+        
+        if (resultsContainer) {
+            resultsContainer.style.display = 'none';
+            resultsContainer.innerHTML = '';
+        }
+        
+        if (searchFooter) {
+            searchFooter.style.display = 'none';
+        }
+        
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        
+        // Reset pagination state
+        this.currentPage = 1;
+        this.totalPages = 1;
+        this.totalResults = 0;
     },
 
     loadMore() {

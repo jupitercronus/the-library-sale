@@ -498,7 +498,7 @@
             });
             // Setup Star Rating using LibraryUtils
             // LibraryUtils is already available from utils.js
-            
+
             const setupStars = (initialRating) => {
                 currentRating = initialRating;
                 if (window.LibraryUtils && window.LibraryUtils.stars) {
@@ -930,17 +930,15 @@ async function selectTMDBResult(id, type) {
 
         document.getElementById('movie-poster-img').src = posterUrl;
         document.getElementById('edit-summary').value = fullData.overview || '';
-        document.getElementById('edit-content-type').value = type;
+        
+        // Update content type toggle
+        updateContentTypeToggle(type);
 
-        // Hide search results
-        document.getElementById('tmdb-results').style.display = 'none';
-        document.getElementById('tmdb-search').value = '';
-
-        LibraryUtils.ui.showStatusMessage('form populated with TMDB data! review and save when ready.', 'success');
+        LibraryUtils.ui.showStatusMessage('Form populated with TMDB data! Review and save when ready.', 'success');
 
     } catch (error) {
         console.error('Error loading TMDB details:', error);
-        LibraryUtils.ui.showStatusMessage('failed to load full details. flease try again.', 'error');
+        LibraryUtils.ui.showStatusMessage('Failed to load full details. Please try again.', 'error');
     }
 }
 function populateMovieFields(movieData) {
