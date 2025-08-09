@@ -1,18 +1,7 @@
 // migration-physical-copies.js
 // Run this ONCE to migrate existing data
 
-// Firebase configuration (copy from your existing files)
-const firebaseConfig = {
-    apiKey: "AIzaSyDDW8LtwpYevdkD7Q-_CxJ23mMfi00P21M",
-    authDomain: "tiny-lizard.firebaseapp.com",
-    projectId: "tiny-lizard",
-    storageBucket: "tiny-lizard.firebasestorage.app",
-    messagingSenderId: "250872474692",
-    appId: "1:250872474692:web:969e0b1302ae3cb4666011",
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+// Firebase is already initialized by migration.html
 const db = firebase.firestore();
 
 // Migration state tracking
