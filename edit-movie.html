@@ -101,6 +101,56 @@
                     </button>
                 </div>
             </section>
+            <!-- Movie Details Form (only show for full edit mode) -->
+            <section id="movieDetailsForm" class="details-section" style="display: none;">
+                <h2 class="details-section-header">
+                    <i class="icon icon-edit"></i>
+                    <span>Movie Details</span>
+                </h2>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-title">title *</label>
+                        <input type="text" id="edit-title" required readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-year">year</label>
+                        <input type="number" id="edit-year" min="1900" max="2030" readonly>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-director">director</label>
+                    <input type="text" id="edit-director" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-genre">genre</label>
+                    <input type="text" id="edit-genre" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-cast">cast</label>
+                    <input type="text" id="edit-cast" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-summary">summary</label>
+                    <textarea id="edit-summary" rows="6" readonly></textarea>
+                </div>
+
+                <div class="form-group" id="contentTypeSection" style="display: none;">
+                    <label for="edit-content-type">content type</label>
+                    <div id="contentTypeToggle" class="content-type-toggle">
+                        <button type="button" class="content-type-btn active" data-value="movie">
+                            <span class="icon icon-movie"></span> 
+                        </button>
+                        <button type="button" class="content-type-btn" data-value="tv">
+                            <span class="icon icon-tv"></span> 
+                        </button>
+                    </div>
+                </div>
+            </section>
 
             <!-- User Data Form -->
             <form id="edit-movie-form" class="details-section">
@@ -423,30 +473,32 @@
                 window.location.href = 'index.html';
                 return;
             }
+            // Update page context based on where user came from
+            updatePageContext(fromParam);
 
-        checkEditPermissions(movieId);
+                const mainContent = document.getElementById('mainContent');
+                const scannerSection = document.getElementById('scanner-section');
+                const editMovieForm = document.getElementById('edit-movie-form');
+                const watchedToggle = document.getElementById('watched-toggle');
+                const ownedToggle = document.getElementById('owned-toggle');
+                const physicalDetailsSection = document.getElementById('physical-edition-details');
+                const cancelBtn = document.getElementById('delete-btn');
 
-        // Update page context based on where user came from
-        updatePageContext(fromParam);
-
-            const mainContent = document.getElementById('mainContent');
-            const scannerSection = document.getElementById('scanner-section');
-            const editMovieForm = document.getElementById('edit-movie-form');
-            const watchedToggle = document.getElementById('watched-toggle');
-            const ownedToggle = document.getElementById('owned-toggle');
-            const physicalDetailsSection = document.getElementById('physical-edition-details');
-            const cancelBtn = document.getElementById('delete-btn');
-
+            // Authentication Check
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user; // Set currentUser
+                    loadMovieData(user.uid);
+                    initializeEditScanner();
+                    // Now check permissions after user is set
+                    checkEditPermissions(movieId);
+                } else {
+                    window.location.href = 'auth.html';
+                }
+            });
             // Setup Star Rating using LibraryUtils
-            const LibraryUtils = {
-                stars: StarUtils,
-                dates: DateUtils,
-                errors: ErrorUtils,
-                validation: ValidationUtils,
-                ui: UIUtils,  // This should already include showStatusMessage now
-                skeleton: SkeletonUtils,
-                search: SearchUtils
-            };
+            // LibraryUtils is already available from utils.js
+            
             const setupStars = (initialRating) => {
                 currentRating = initialRating;
                 if (window.LibraryUtils && window.LibraryUtils.stars) {
@@ -572,23 +624,12 @@
                 }
             };
 
-            // Authentication Check
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    loadMovieData(user.uid);
-                    initializeEditScanner(); 
-                } else {
-                    window.location.href = 'auth.html';
-                }
-            });
-
             // Form Submission
             editMovieForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const user = auth.currentUser;
 
-                // If user has full edit rights, update movie document
-                if (hasFullEditRights) {
+                if (window.hasFullEditRights) {
                     const updatedMovieData = {
                         title: document.getElementById('edit-title').value.trim(),
                         year: parseInt(document.getElementById('edit-year').value) || null,
@@ -604,6 +645,7 @@
 
                     await db.collection('movies').doc(movieId).update(updatedMovieData);
                 }
+
                 if (!user) return;
 
                 const saveBtn = document.getElementById('save-btn');
@@ -754,10 +796,17 @@
             });
         });
 async function checkEditPermissions(movieId) {
+    // Wait for auth state to be available
+    const user = auth.currentUser;
+    if (!user) {
+        console.log('User not authenticated yet, waiting...');
+        return;
+    }
+    
     try {
         const [movieDoc, adminDoc] = await Promise.all([
             db.collection('movies').doc(movieId).get(),
-            db.collection('admins').doc(currentUser.uid).get()
+            db.collection('admins').doc(user.uid).get()
         ]);
         
         if (!movieDoc.exists) {
@@ -765,7 +814,7 @@ async function checkEditPermissions(movieId) {
         }
 
         const movieData = movieDoc.data();
-        const isOriginalUploader = movieData.originalUploaderId === currentUser.uid;
+        const isOriginalUploader = movieData.originalUploaderId === user.uid;
         const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
         
         const hasFullEditRights = isOriginalUploader || isAdmin;
@@ -782,11 +831,11 @@ async function checkEditPermissions(movieId) {
         setupEditMode(false, null);
     }
 }
-
 function setupEditMode(hasFullRights, movieData) {
     if (hasFullRights) {
         // Show full edit mode
         document.getElementById('tmdbSearchSection').style.display = 'block';
+        document.getElementById('movieDetailsForm').style.display = 'block';
         document.getElementById('contentTypeSection').style.display = 'block';
         
         // Make fields editable
@@ -802,13 +851,20 @@ function setupEditMode(hasFullRights, movieData) {
         if (movieData) {
             populateMovieFields(movieData);
         }
+        
+        // Store for form submission
+        window.hasFullEditRights = true;
     } else {
         // Limited mode - keep fields readonly
         document.getElementById('tmdbSearchSection').style.display = 'none';
+        document.getElementById('movieDetailsForm').style.display = 'none';
         document.getElementById('contentTypeSection').style.display = 'none';
         
         // Update page title
         document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
+        
+        // Store for form submission
+        window.hasFullEditRights = false;
     }
 }
 

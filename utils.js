@@ -594,16 +594,6 @@ db.collection('physicalCopyLogs')
   .get();
 */
 
-// Make monitor globally available
-if (typeof window !== 'undefined') {
-    window.PhysicalCopyMonitor = physicalCopyMonitor;
-}
-
-// Export for Node.js environments
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { PhysicalCopyMonitor, PerformanceTracker };
-}
-
 /**
  * SKELETON LOADING UTILITIES
  */
