@@ -557,6 +557,53 @@ const UIUtils = {
     } 
 };
 
+// Usage example:
+// const tracker = new PerformanceTracker('complete_movie_lookup');
+// tracker.checkpoint('upc_lookup_complete');
+// tracker.checkpoint('tmdb_search_complete');
+// tracker.finish(true, { barcode: barcode, confidence: result.confidence });
+
+// Dashboard Query Examples (run these in Firebase Console):
+/*
+// Get recent physical copy creation stats
+db.collection('physicalCopyLogs')
+  .where('operation', '==', 'CREATED')
+  .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(new Date(Date.now() - 24*60*60*1000)))
+  .orderBy('timestamp', 'desc')
+  .get();
+
+// Get duplicate detection patterns
+db.collection('physicalCopyLogs')
+  .where('operation', '==', 'DUPLICATE_DETECTED')
+  .orderBy('timestamp', 'desc')
+  .limit(100)
+  .get();
+
+// Get performance metrics for slow operations
+db.collection('physicalCopyLogs')
+  .where('operation', '==', 'PERFORMANCE_METRIC')
+  .where('data.value', '>', 5000) // Operations taking more than 5 seconds
+  .orderBy('data.value', 'desc')
+  .get();
+
+// Get error patterns
+db.collection('physicalCopyLogs')
+  .where('operation', '==', 'FUNCTION_ERROR')
+  .orderBy('timestamp', 'desc')
+  .limit(50)
+  .get();
+*/
+
+// Make monitor globally available
+if (typeof window !== 'undefined') {
+    window.PhysicalCopyMonitor = physicalCopyMonitor;
+}
+
+// Export for Node.js environments
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { PhysicalCopyMonitor, PerformanceTracker };
+}
+
 /**
  * SKELETON LOADING UTILITIES
  */

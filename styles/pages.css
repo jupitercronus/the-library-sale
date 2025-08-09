@@ -2980,6 +2980,211 @@ input.error {
   overflow-x: auto;
 }
 
+
+/* Duplicate Confirmation Modal Styles */
+.duplicate-copy-details {
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-lg);
+  margin: var(--space-md) 0;
+  text-align: center;
+}
+
+.duplicate-copy-details h4 {
+  margin: 0 0 var(--space-sm) 0;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.duplicate-copy-details p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Enhanced Physical Copy Display */
+.copy-quantity {
+  background: var(--color-accent);
+  color: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-left: var(--space-xs);
+}
+
+.physical-copy-item {
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  transition: all 0.2s ease;
+}
+
+.physical-copy-item:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.copy-edition-details {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-xs);
+  line-height: 1.4;
+}
+
+.copy-format {
+  background: var(--color-success);
+  color: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-right: var(--space-xs);
+}
+
+.copy-edition {
+  background: var(--color-warning);
+  color: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-right: var(--space-xs);
+}
+
+.copy-region {
+  background: var(--color-info);
+  color: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-right: var(--space-xs);
+}
+
+.copy-distributor {
+  background: var(--color-secondary);
+  color: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-right: var(--space-xs);
+}
+
+.copy-features {
+  margin-top: var(--space-xs);
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+.copy-barcode {
+  margin-top: var(--space-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.copy-owner {
+  margin-top: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.copy-owner a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.copy-owner a:hover {
+  text-decoration: underline;
+}
+
+/* Bulk Scan Result Updates */
+.bulk-result-item.status-skipped {
+  border-left: 4px solid var(--color-info);
+  background: var(--color-info-light);
+}
+
+.bulk-result-item.status-skipped .bulk-result-title {
+  color: var(--color-info-dark);
+}
+
+.bulk-result-skipped {
+  color: var(--color-info);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+/* Modal Enhancements */
+.modal-content h3 {
+  color: var(--color-warning);
+  margin-bottom: var(--space-md);
+}
+
+.modal-buttons {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
+.modal-buttons .btn {
+  min-width: 120px;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .duplicate-copy-details {
+      padding: var(--space-md);
+  }
+  
+  .modal-buttons {
+      flex-direction: column;
+      gap: var(--space-sm);
+  }
+  
+  .modal-buttons .btn {
+      width: 100%;
+      min-width: unset;
+  }
+  
+  .copy-format,
+  .copy-edition,
+  .copy-region,
+  .copy-distributor,
+  .copy-quantity {
+      display: inline-block;
+      margin: 2px;
+      font-size: 10px;
+      padding: 1px 4px;
+  }
+}
+
+/* Filter tab update for skipped items */
+.filter-btn[data-filter="skipped"] {
+  background: var(--color-info);
+  color: var(--color-surface);
+}
+
+.filter-btn[data-filter="skipped"]:hover {
+  background: var(--color-info-dark);
+}
+
+/* No physical copies state */
+.no-physical-copies {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-style: italic;
+  padding: var(--space-xl);
+  background: var(--color-surface-secondary);
+  border-radius: var(--border-radius-md);
+  border: 1px dashed var(--color-border);
+}
+
 /* REVIEW PAGE STYLES */
 
 .review-container {

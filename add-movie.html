@@ -393,57 +393,170 @@ async function initializeMovieScanner() {
         });
     }
     async function addMedia() {
-        const submitBtn = document.getElementById('save-btn');
-        if (submitBtn) {
-            submitBtn.classList.add('saving');
+    const submitBtn = document.getElementById('save-btn');
+    if (submitBtn) {
+        submitBtn.classList.add('saving');
+    }
+
+    try {
+        const form = document.getElementById('movieForm');
+        const titleValue = document.getElementById('title').value.trim();
+        if (!titleValue) {
+            throw new Error('Title is a required field. Please search for and select a movie first.');
+        }
+    
+        const yearValue = document.getElementById('year').value;
+        if (yearValue && (isNaN(yearValue) || yearValue < 1900 || yearValue > 2030)) {
+            throw new Error('Please enter a valid year between 1900 and 2030.');
+        }
+    
+        const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
+        let movieDocRef;
+
+        if (tmdbId && tmdbId !== `upc_${document.getElementById('movieForm').dataset.upcCode}`) {
+            const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbId)).limit(1).get();
+            if (!existingQuery.empty) {
+                movieDocRef = existingQuery.docs[0].ref;
+                console.log('Found existing movie in database');
+            }
         }
 
-        try {
+        if (!movieDocRef) {
             const form = document.getElementById('movieForm');
-            const titleValue = document.getElementById('title').value.trim();
-            if (!titleValue) {
-                throw new Error('Title is a required field. Please search for and select a movie first.');
-            }
-        
-            const yearValue = document.getElementById('year').value;
-            if (yearValue && (isNaN(yearValue) || yearValue < 1900 || yearValue > 2030)) {
-                throw new Error('Please enter a valid year between 1900 and 2030.');
-            }
-        
-            const tmdbId = document.getElementById('movieForm').dataset.tmdbId;
-            let movieDocRef;
+            const mainMediaData = {
+                title: titleValue,
+                year: yearValue ? parseInt(yearValue) : null,
+                director: document.getElementById('director').value.trim(),
+                genre: document.getElementById('genre').value.trim(),
+                posterUrl: form.dataset.posterUrl || null,
+                runtime: form.dataset.runtime ? parseInt(form.dataset.runtime) : null,
+                tmdbId: tmdbId && !tmdbId.startsWith('upc_') ? parseInt(tmdbId) : null,
+                overview: document.getElementById('summary').value.trim(),
+                cast: document.getElementById('cast').value.split(',').map(c => c.trim()).filter(c => c),
+                contentType: document.querySelector('#contentTypeToggle .active').dataset.value,
+                dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
+                originalUploaderId: currentUser.uid,
+                originalUploaderDisplayName: currentUser.displayName || currentUser.email,
+                isManualEntry: isPublicFieldsEditable,
+            };
+            
+            console.log('Creating new movie entry:', mainMediaData);
+            movieDocRef = await db.collection('movies').add(mainMediaData);
+        }
 
-            if (tmdbId && tmdbId !== `upc_${document.getElementById('movieForm').dataset.upcCode}`) {
-                const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbId)).limit(1).get();
-                if (!existingQuery.empty) {
-                    movieDocRef = existingQuery.docs[0].ref;
-                    console.log('Found existing movie in database');
-                }
-            }
+        // Handle physical copy creation
+        let physicalCopyId = null;
+        const physicalEditionData = JSON.parse(form.dataset.physicalEdition || '{}');
+        const upcCode = form.dataset.upcCode;
 
-            if (!movieDocRef) {
-                const form = document.getElementById('movieForm');
-                const mainMediaData = {
-                    title: titleValue,
-                    year: yearValue ? parseInt(yearValue) : null,
-                    director: document.getElementById('director').value.trim(),
-                    genre: document.getElementById('genre').value.trim(),
-                    posterUrl: form.dataset.posterUrl || null,
-                    runtime: form.dataset.runtime ? parseInt(form.dataset.runtime) : null,
-                    tmdbId: tmdbId && !tmdbId.startsWith('upc_') ? parseInt(tmdbId) : null,
-                    overview: document.getElementById('summary').value.trim(),
-                    cast: document.getElementById('cast').value.split(',').map(c => c.trim()).filter(c => c),
-                    contentType: document.querySelector('#contentTypeToggle .active').dataset.value,
-                    dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
-                    originalUploaderId: currentUser.uid,
-                    originalUploaderDisplayName: currentUser.displayName || currentUser.email,
-                    isManualEntry: isPublicFieldsEditable,
-                };
+        if (upcCode && Object.keys(physicalEditionData).length > 0) {
+            const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                upcCode,
+                physicalEditionData.format,
+                physicalEditionData.edition,
+                physicalEditionData.region
+            );
+
+            // Check if this physical copy already exists
+            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+            
+            if (existingCopy) {
+                physicalCopyId = existingCopy.id;
+                console.log('Using existing physical copy:', physicalCopyId);
+            } else {
+                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                    movieDocRef.id, 
+                    {
+                        ...physicalEditionData,
+                        barcode: upcCode
+                    }, 
+                    currentUser.uid
+                );
+                console.log('Created new physical copy:', physicalCopyId);
+            }
+        }
+
+        // FIXED: Check for existing user interaction and append to physical copies
+        const userInteractionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id);
+        const existingInteraction = await userInteractionRef.get();
+        
+        let physicalCopiesArray = [];
+        if (existingInteraction.exists) {
+            // Get existing physical copies
+            const existingData = existingInteraction.data();
+            physicalCopiesArray = existingData.physicalCopies || [];
+            
+            // Add new physical copy if not already in array
+            if (physicalCopyId && !physicalCopiesArray.includes(physicalCopyId)) {
+                physicalCopiesArray.push(physicalCopyId);
+            }
+            
+            // NEW: Check for duplicates before creating/adding physical copy
+        if (upcCode && Object.keys(physicalEditionData).length > 0) {
+            const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                upcCode,
+                physicalEditionData.format,
+                physicalEditionData.edition,
+                physicalEditionData.region
+            );
+
+            // Check if this physical copy already exists
+            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+            
+            if (existingCopy) {
+                physicalCopyId = existingCopy.id;
                 
-                console.log('Creating new movie entry:', mainMediaData);
-                movieDocRef = await db.collection('movies').add(mainMediaData);
+                // Check if user already owns this exact copy
+                const userInteractionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id);
+                const existingInteraction = await userInteractionRef.get();
+                
+                if (existingInteraction.exists) {
+                    const existingData = existingInteraction.data();
+                    const currentPhysicalCopies = existingData.physicalCopies || [];
+                    
+                    if (currentPhysicalCopies.includes(physicalCopyId)) {
+                        // User already owns this exact copy - show confirmation
+                        const currentCount = currentPhysicalCopies.filter(id => id === physicalCopyId).length;
+                        const shouldAddAnyway = confirm(
+                            `You already own ${currentCount} copy/copies of this ${physicalEditionData.format} edition of "${movieData.title}". Add another copy anyway?`
+                        );
+                        
+                        if (!shouldAddAnyway) {
+                            showStatusMessage('Duplicate copy skipped by user choice.', 'info');
+                            return; // Exit the function early
+                        }
+                    }
+                }
+                console.log('Using existing physical copy:', physicalCopyId);
+            } else {
+                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                    movieDocRef.id, 
+                    {
+                        ...physicalEditionData,
+                        barcode: upcCode
+                    }, 
+                    currentUser.uid
+                );
+                console.log('Created new physical copy:', physicalCopyId);
             }
+        }
 
+            // Update only the physical copies, preserve ratings/reviews/etc
+            await userInteractionRef.update({
+                physicalCopies: physicalCopiesArray,
+                owned: true, // Make sure owned is true when adding physical copy
+                // Update legacy fields for backward compatibility
+                upc: upcCode || existingData.upc || '',
+                physicalEdition: physicalEditionData
+            });
+            
+            console.log(`Updated existing interaction. Total physical copies: ${physicalCopiesArray.length}`);
+        } else {
+            // Create new user interaction
+            if (physicalCopyId) {
+                physicalCopiesArray = [physicalCopyId];
+            }
+            
             const userInteractionData = {
                 movieId: movieDocRef.id,
                 rating: 0,
@@ -452,34 +565,38 @@ async function initializeMovieScanner() {
                 watchedDate: null,
                 owned: true,
                 interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                upc: form.dataset.upcCode || '',
-                physicalEdition: JSON.parse(form.dataset.physicalEdition || '{}')
+                physicalCopies: physicalCopiesArray,
+                
+                // DEPRECATED: Keep for backward compatibility
+                upc: upcCode || '',
+                physicalEdition: physicalEditionData
             };
 
-            await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
-        
-            showTimedRedirectModal('Success!', 'Media added to your library! You will now be taken to edit your personal details.', `edit-movie.html?id=${movieDocRef.id}`, 3);
+            await userInteractionRef.set(userInteractionData);
+            console.log('Created new user interaction');
+        }
+    
+        showTimedRedirectModal('Success!', 'Media added to your library! You will now be taken to edit your personal details.', `edit-movie.html?id=${movieDocRef.id}`, 3);
 
-        } catch (error) {
-            console.error('Error adding media:', error);
-            
-            const errorMessage = document.createElement('div');
-            errorMessage.className = 'status-message status-error';
-            errorMessage.innerHTML = `<span class="icon icon-close icon-md"></span>${error.message}`;
-            errorMessage.style.position = 'fixed';
-            errorMessage.style.top = 'var(--space-xl)';
-            errorMessage.style.right = 'var(--space-xl)';
-            errorMessage.style.zIndex = 'var(--z-modal)';
-            document.body.appendChild(errorMessage);
-            
-            setTimeout(() => errorMessage.remove(), 5000);
-        } finally {
-            if (submitBtn) {
-                submitBtn.classList.remove('saving');
-            }
+    } catch (error) {
+        console.error('Error adding media:', error);
+        
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'status-message status-error';
+        errorMessage.innerHTML = `<span class="icon icon-close icon-md"></span>${error.message}`;
+        errorMessage.style.position = 'fixed';
+        errorMessage.style.top = 'var(--space-xl)';
+        errorMessage.style.right = 'var(--space-xl)';
+        errorMessage.style.zIndex = 'var(--z-modal)';
+        document.body.appendChild(errorMessage);
+        
+        setTimeout(() => errorMessage.remove(), 5000);
+    } finally {
+        if (submitBtn) {
+            submitBtn.classList.remove('saving');
         }
     }
-
+}
     function populateFormWithData(data) {
             document.getElementById('title').value = data.title || data.name;
             document.getElementById('year').value = (data.release_date || data.first_air_date || '').substring(0, 4);

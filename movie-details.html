@@ -48,10 +48,7 @@
             </div>
         
             <div class="details-actions-centered">
-                <a id="editMovieBtn" href="#" class="btn btn-xl btn-primary" title="Edit my rating and comments" style="display: none;">
-                    <span class="icon icon-add icon-xl"></span>
-                </a>
-                <a id="editDetailsBtn" href="#" class="btn btn-xl btn-primary" title="Edit movie details" style="display: none;">
+                <a id="editBtn" href="#" class="btn btn-xl btn-primary" title="Edit" style="display: none;">
                     <span class="icon icon-edit icon-xl"></span>
                 </a>
             </div>
@@ -272,87 +269,6 @@
             commentsContainer.appendChild(commentEl);
         });
     }
-
-    async function loadPhysicalCopies(interactions) {
-        const container = document.getElementById('physicalCopiesContainer');
-        container.innerHTML = '';
-
-        const physicalCopies = interactions.filter(i => i.owned === true);
-
-        if (physicalCopies.length === 0) {
-            container.innerHTML = `<p class="no-physical-copies">No physical copies have been tracked by users yet.</p>`;
-            return;
-        }
-
-        const userIds = [...new Set(physicalCopies.map(c => c.userId))];
-        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-        const userDocs = await Promise.all(userPromises);
-        
-        const userMap = new Map();
-        userDocs.forEach(doc => {
-            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-        });
-
-        physicalCopies.forEach(copy => {
-            const username = userMap.get(copy.userId) || 'Anonymous';
-            const copyEl = document.createElement('div');
-            copyEl.className = 'physical-copy-item';
-            
-            // Enhanced physical copy display
-            let copyInfo = '';
-            
-            if (copy.physicalEdition) {
-                const edition = copy.physicalEdition;
-                const details = [];
-                
-                if (edition.format && edition.format !== 'Unknown') {
-                    details.push(`<span class="copy-format">${edition.format}</span>`);
-                }
-                if (edition.edition && edition.edition !== 'Standard') {
-                    details.push(`<span class="copy-edition">${edition.edition}</span>`);
-                }
-                if (edition.region && edition.region !== 'Unknown') {
-                    details.push(`<span class="copy-region">${edition.region}</span>`);
-                }
-                if (edition.distributor && edition.distributor !== 'Unknown') {
-                    details.push(`<span class="copy-distributor">${edition.distributor}</span>`);
-                }
-                
-                copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
-                
-                // Add special features if available
-                if (edition.features && edition.features.length > 0) {
-                    const featuresText = Array.isArray(edition.features) 
-                        ? edition.features.join(', ') 
-                        : edition.features;
-                    copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
-                }
-                
-                // Add barcode if available
-                if (copy.upc || edition.barcode) {
-                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc || edition.barcode}</small></div>`;
-                }
-            } else {
-                // Legacy format support
-                let legacyDetails = [];
-                if (copy.editionFormat) legacyDetails.push(copy.editionFormat);
-                if (copy.editionTitle && copy.editionTitle !== copy.editionFormat) {
-                    legacyDetails.push(copy.editionTitle);
-                }
-                copyInfo = legacyDetails.length > 0 ? legacyDetails.join(' ') : 'Physical Copy';
-                
-                if (copy.upc) {
-                    copyInfo += `<div class="copy-barcode"><small>UPC: ${copy.upc}</small></div>`;
-                }
-            }
-            
-            copyEl.innerHTML = `
-                <div class="copy-edition-details">${copyInfo}</div>
-                <div class="copy-owner">by <a href="profile.html?id=${copy.userId}">${username}</a></div>
-            `;
-            container.appendChild(copyEl);
-        });
-    }
     function renderStars(container, rating) {
         if (!container) return;
         container.innerHTML = '';
@@ -368,7 +284,119 @@
         }
         container.innerHTML = starsHTML;
     }
+// NEW: Enhanced physical copies display with quantities (for movie-details.html)
+async function loadPhysicalCopies(interactions) {
+    const container = document.getElementById('physicalCopiesContainer');
+    container.innerHTML = '';
 
+    const physicalCopies = interactions.filter(i => i.owned === true && i.physicalCopies && i.physicalCopies.length > 0);
+
+    if (physicalCopies.length === 0) {
+        container.innerHTML = `<p class="no-physical-copies">No physical copies have been tracked by users yet.</p>`;
+        return;
+    }
+
+    // Get all unique physical copy IDs
+    const allPhysicalCopyIds = [];
+    physicalCopies.forEach(copy => {
+        if (copy.physicalCopies) {
+            allPhysicalCopyIds.push(...copy.physicalCopies);
+        }
+    });
+
+    // Fetch physical copy details
+    const uniqueCopyIds = [...new Set(allPhysicalCopyIds)];
+    const copyPromises = uniqueCopyIds.map(id => 
+        db.collection('physicalCopies').doc(id).get()
+    );
+    const copyDocs = await Promise.all(copyPromises);
+    
+    const copyMap = new Map();
+    copyDocs.forEach(doc => {
+        if (doc.exists) {
+            copyMap.set(doc.id, doc.data());
+        }
+    });
+
+    // Get user data
+    const userIds = [...new Set(physicalCopies.map(c => c.userId))];
+    const userPromises = userIds.map(id => db.collection('users').doc(id).get());
+    const userDocs = await Promise.all(userPromises);
+    
+    const userMap = new Map();
+    userDocs.forEach(doc => {
+        if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
+    });
+
+    // Group copies by user and copy type
+    const copyGroups = new Map(); // userId -> copyId -> count
+    
+    physicalCopies.forEach(userCopy => {
+        const userId = userCopy.userId;
+        if (!copyGroups.has(userId)) {
+            copyGroups.set(userId, new Map());
+        }
+        
+        const userCopyGroups = copyGroups.get(userId);
+        
+        userCopy.physicalCopies.forEach(copyId => {
+            const currentCount = userCopyGroups.get(copyId) || 0;
+            userCopyGroups.set(copyId, currentCount + 1);
+        });
+    });
+
+    // Display grouped copies
+    copyGroups.forEach((userCopies, userId) => {
+        const username = userMap.get(userId) || 'Anonymous';
+        
+        userCopies.forEach((count, copyId) => {
+            const copyData = copyMap.get(copyId);
+            if (!copyData) return;
+            
+            const copyEl = document.createElement('div');
+            copyEl.className = 'physical-copy-item';
+            
+            let copyInfo = '';
+            const details = [];
+            
+            if (copyData.format && copyData.format !== 'Unknown') {
+                details.push(`<span class="copy-format">${copyData.format}</span>`);
+            }
+            if (copyData.edition && copyData.edition !== 'Standard') {
+                details.push(`<span class="copy-edition">${copyData.edition}</span>`);
+            }
+            if (copyData.region && copyData.region !== 'Unknown') {
+                details.push(`<span class="copy-region">${copyData.region}</span>`);
+            }
+            
+            copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
+            
+            // Add quantity indicator if more than 1
+            if (count > 1) {
+                copyInfo += ` <span class="copy-quantity">(${count})</span>`;
+            }
+            
+            // Add special features if available
+            if (copyData.features && copyData.features.length > 0) {
+                const featuresText = Array.isArray(copyData.features) 
+                    ? copyData.features.join(', ') 
+                    : copyData.features;
+                copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
+            }
+            
+            // Add barcode if available
+            if (copyData.barcode) {
+                copyInfo += `<div class="copy-barcode"><small>UPC: ${copyData.barcode}</small></div>`;
+            }
+            
+            copyEl.innerHTML = `
+                <div class="copy-edition-details">${copyInfo}</div>
+                <div class="copy-owner">by <a href="profile.html?id=${userId}">${username}</a></div>
+            `;
+            container.appendChild(copyEl);
+        });
+    });
+}
     function setupCommentForm(user, movieId, myInteraction) {
         const editMovieBtn = document.getElementById('editMovieBtn');
 
@@ -395,50 +423,20 @@
         });
     });
 
-    function setupEditButton(user, movieId) {
-        const editBtn = document.getElementById('editMovieBtn');
-        const detailsBtn = document.getElementById('editDetailsBtn');
-        
-        if (!user) {
-            editBtn.style.display = 'none';
-            detailsBtn.style.display = 'none';
-            return;
-        }
-        
-        // Set the personal collection edit URL
-        const currentUrl = new URLSearchParams(window.location.search);
-        const fromParam = currentUrl.get('from') || 'details';
-        
-        editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
-        editBtn.style.display = 'inline-flex';
-        
-        // Check if user can edit movie details (original uploader or admin)
-        checkMovieEditPermissions(user, movieId).then(canEdit => {
-            if (canEdit) {
-                detailsBtn.href = `edit-movie-details.html?id=${movieId}&from=${fromParam}`;
-                detailsBtn.style.display = 'inline-flex';
-            }
-        });
+function setupEditButton(user, movieId) {
+    const editBtn = document.getElementById('editBtn');
+    
+    if (!user) {
+        editBtn.style.display = 'none';
+        return;
     }
-    async function checkMovieEditPermissions(user, movieId) {
-        try {
-            const [movieDoc, adminDoc] = await Promise.all([
-                db.collection('movies').doc(movieId).get(),
-                db.collection('admins').doc(user.uid).get()
-            ]);
-            
-            if (!movieDoc.exists) return false;
-            
-            const movieData = movieDoc.data();
-            const isOriginalUploader = movieData.originalUploaderId === user.uid;
-            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
-            
-            return isOriginalUploader || isAdmin;
-        } catch (error) {
-            console.error('Error checking permissions:', error);
-            return false;
-        }
-    }
+    
+    const currentUrl = new URLSearchParams(window.location.search);
+    const fromParam = currentUrl.get('from') || 'details';
+    
+    editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
+    editBtn.style.display = 'inline-flex';  
+}
 
     function goBack() {
         const urlParams = new URLSearchParams(window.location.search);

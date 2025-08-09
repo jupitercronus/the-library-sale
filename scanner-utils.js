@@ -385,6 +385,105 @@ const MediaLookupUtils = {
         }
     },
 
+    /**
+     * Generate unique identifier for physical copies
+     */
+    generateUniqueIdentifier(barcode, format, edition, region) {
+        const normalizedFormat = (format || 'Unknown').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedEdition = (edition || 'Standard').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedRegion = (region || 'Region1').toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        return `${barcode}_${normalizedFormat}_${normalizedEdition}_${normalizedRegion}`;
+    },
+
+    /**
+     * Check if physical copy already exists
+     */
+    async findExistingPhysicalCopy(uniqueIdentifier) {
+        try {
+            const copyQuery = await db.collection('physicalCopies')
+                .where('uniqueIdentifier', '==', uniqueIdentifier)
+                .limit(1)
+                .get();
+            
+            return copyQuery.empty ? null : {
+                id: copyQuery.docs[0].id,
+                data: copyQuery.docs[0].data()
+            };
+        } catch (error) {
+            console.error('Error finding physical copy:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Create new physical copy in database
+     */
+    async createPhysicalCopy(movieId, physicalEditionData, userId) {
+        const uniqueId = this.generateUniqueIdentifier(
+            physicalEditionData.barcode,
+            physicalEditionData.format,
+            physicalEditionData.edition,
+            physicalEditionData.region
+        );
+
+        const copyData = {
+            movieId: movieId,
+            barcode: physicalEditionData.barcode || '',
+            format: physicalEditionData.format || 'Unknown',
+            edition: physicalEditionData.edition || 'Standard',
+            region: physicalEditionData.region || 'Region 1',
+            distributor: physicalEditionData.distributor || '',
+            features: physicalEditionData.features || [],
+            uniqueIdentifier: uniqueId,
+            dateFirstScanned: firebase.firestore.FieldValue.serverTimestamp(),
+            scannedBy: userId,
+            scanCount: 1
+        };
+
+        const copyRef = await db.collection('physicalCopies').add(copyData);
+        return copyRef.id;
+    }, 
+
+    async createPhysicalCopyWithTransaction(movieId, physicalEditionData, userId) {
+            return await db.runTransaction(async (transaction) => {
+            const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                physicalEditionData.barcode,
+                physicalEditionData.format,
+                physicalEditionData.edition,
+                physicalEditionData.region
+            );
+    
+            // Check if copy already exists
+            const existingCopyQuery = await transaction.get(
+                db.collection('physicalCopies').where('uniqueIdentifier', '==', uniqueId).limit(1)
+            );
+            
+            if (!existingCopyQuery.empty) {
+                return existingCopyQuery.docs[0].id;
+            }
+    
+            // Create new copy
+            const copyRef = db.collection('physicalCopies').doc();
+            const copyData = {
+                movieId: movieId,
+                barcode: physicalEditionData.barcode || '',
+                format: physicalEditionData.format || 'Unknown',
+                edition: physicalEditionData.edition || 'Standard',
+                region: physicalEditionData.region || 'Region 1',
+                distributor: physicalEditionData.distributor || '',
+                features: physicalEditionData.features || [],
+                uniqueIdentifier: uniqueId,
+                dateFirstScanned: firebase.firestore.FieldValue.serverTimestamp(),
+                scannedBy: userId,
+                scanCount: 1
+            };
+    
+            transaction.set(copyRef, copyData);
+            return copyRef.id;
+        });
+    },
+    
     /* Internal UPC fetch method */
     async _fetchUPCData(barcode) {
         try {
@@ -416,6 +515,7 @@ const MediaLookupUtils = {
             }
             throw error;
         }
+        
     },
 
  async searchTMDBForTitle(title, year = null, exactMatch = false) {
