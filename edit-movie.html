@@ -628,25 +628,49 @@
             editMovieForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const user = auth.currentUser;
-
+                // If user has full edit rights, update movie document
                 if (window.hasFullEditRights) {
-                    const updatedMovieData = {
-                        title: document.getElementById('edit-title').value.trim(),
-                        year: parseInt(document.getElementById('edit-year').value) || null,
-                        director: document.getElementById('edit-director').value.trim(),
-                        genre: document.getElementById('edit-genre').value.trim(),
-                        cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
-                        posterUrl: document.getElementById('movie-poster-img').src,
-                        overview: document.getElementById('edit-summary').value.trim(),
-                        contentType: document.querySelector('#contentTypeToggle .active')?.dataset.value || 'movie',
-                        lastEditedBy: currentUser.uid,
-                        lastEditedDate: firebase.firestore.FieldValue.serverTimestamp()
-                    };
+                    try {
+                        console.log('Attempting to update movie as user:', currentUser.uid);
+                        console.log('Movie ID:', movieId);
+                        
+                        // Check admin status
+                        const adminDoc = await db.collection('admins').doc(currentUser.uid).get();
+                        console.log('Admin doc exists:', adminDoc.exists);
+                        if (adminDoc.exists) {
+                            console.log('Admin data:', adminDoc.data());
+                        }
+                        
+                        // Check movie ownership
+                        const movieDoc = await db.collection('movies').doc(movieId).get();
+                        console.log('Movie original uploader:', movieDoc.data().originalUploaderId);
+                        console.log('Current user:', currentUser.uid);
+                        console.log('Is original uploader:', movieDoc.data().originalUploaderId === currentUser.uid);
+                        
+                        const updatedMovieData = {
+                            title: document.getElementById('edit-title').value.trim(),
+                            year: parseInt(document.getElementById('edit-year').value) || null,
+                            director: document.getElementById('edit-director').value.trim(),
+                            genre: document.getElementById('edit-genre').value.trim(),
+                            cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
+                            posterUrl: document.getElementById('movie-poster-img').src,
+                            overview: document.getElementById('edit-summary').value.trim(),
+                            contentType: document.querySelector('#contentTypeToggle .active')?.dataset.value || 'movie',
+                            lastEditedBy: currentUser.uid,
+                            lastEditedDate: firebase.firestore.FieldValue.serverTimestamp()
+                        };
 
-                    await db.collection('movies').doc(movieId).update(updatedMovieData);
+                        console.log('Update data:', updatedMovieData);
+                        await db.collection('movies').doc(movieId).update(updatedMovieData);
+                        console.log('Movie details updated successfully');
+                    } catch (movieUpdateError) {
+                        console.error('Failed to update movie details:', movieUpdateError);
+                        console.error('Error code:', movieUpdateError.code);
+                        console.error('Error message:', movieUpdateError.message);
+                        LibraryUtils.ui.showStatusMessage('Note: Movie details update failed, but personal data will still be saved.', 'warning');
+                        // Continue with personal data update - don't fail the whole operation
+                    }
                 }
-
-                if (!user) return;
 
                 const saveBtn = document.getElementById('save-btn');
                 saveBtn.classList.add('saving');
@@ -830,6 +854,14 @@ async function checkEditPermissions(movieId) {
         // Default to limited mode
         setupEditMode(false, null);
     }
+    console.log('Checking permissions for user:', user.uid);
+    console.log('Movie original uploader:', movieData.originalUploaderId);
+    console.log('Is original uploader:', isOriginalUploader);
+    console.log('Admin doc exists:', adminDoc.exists);
+    if (adminDoc.exists) {
+        console.log('Admin is active:', adminDoc.data().isActive);
+    }
+    console.log('Has full edit rights:', hasFullEditRights);
 }
 function setupEditMode(hasFullRights, movieData) {
     if (hasFullRights) {
@@ -876,31 +908,92 @@ function showAdminIndicator() {
 }
 
 async function initializeTMDBSearch() {
-            SearchUI.initialize({
-                searchInputId: 'tmdb-search',
-                searchBtnId: 'tmdb-search-btn',
-                resultsContainerId: 'tmdb-results',
-                // UPDATE these lines from null to use the new element IDs
-                searchFooterId: 'tmdb-search-footer',
-                resultCountId: 'tmdb-result-count',
-                loadMoreBtnId: 'tmdb-load-more-btn',
-                onSelect: (id, type) => {
-                    selectTMDBResult(id, type);
-                }
-            });
-            const searchInput = document.getElementById('tmdb-search');
-            const searchBtn = document.getElementById('tmdb-search-btn');
-            const resultsContainer = document.getElementById('tmdb-results');
+    const searchInput = document.getElementById('tmdb-search');
+    const searchBtn = document.getElementById('tmdb-search-btn');
+    const resultsContainer = document.getElementById('tmdb-results');
 
-            searchBtn.addEventListener('click', () => performTMDBSearch());
-            
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    performTMDBSearch();
-                }
-            });
+    if (!searchInput || !searchBtn || !resultsContainer) {
+        console.error('TMDB search elements not found');
+        return;
+    }
+
+    const performSearch = async () => {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        try {
+            const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}`;
+            const response = await fetch(searchUrl);
+            const data = await response.json();
+
+            if (!response.ok) throw new Error('Search failed');
+
+            displayTMDBResults(data.results || [], true);
+        } catch (error) {
+            console.error('TMDB search error:', error);
+            resultsContainer.innerHTML = '<div class="error-state"><p>Search failed. Please try again.</p></div>';
+            resultsContainer.style.display = 'block';
         }
+    };
+
+    searchBtn.addEventListener('click', performSearch);
+    
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            performSearch();
+        }
+    });
+}
+function displayTMDBResults(results, isNewSearch) {
+    const resultsContainer = document.getElementById('tmdb-results');
+    if (!resultsContainer) return;
+
+    if (isNewSearch) {
+        resultsContainer.innerHTML = '';
+    }
+
+    if (results.length === 0 && isNewSearch) {
+        resultsContainer.innerHTML = '<div class="empty-state"><p>No results found.</p></div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+
+    const validResults = results.filter(item => item.media_type === 'movie' || item.media_type === 'tv');
+
+    const resultsHTML = validResults.map(item => {
+        const title = item.title || item.name;
+        const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+        const poster = item.poster_path ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${item.poster_path}` : 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A';
+        const overview = item.overview ? item.overview.substring(0, 100) + '...' : '';
+        const badgeHTML = item.media_type === 'tv' ?
+            `<span class="badge badge-tv"><span class="icon icon-tv icon-sm"></span></span>` :
+            `<span class="badge badge-movie"><span class="icon icon-movie icon-sm"></span></span>`;
+
+        return `
+            <div class="tmdb-result-item" data-id="${item.id}" data-type="${item.media_type}">
+                <img src="${poster}" class="tmdb-result-poster" loading="lazy">
+                <div class="tmdb-result-info">
+                    <h4 class="tmdb-result-title">${title} (${year}) ${badgeHTML}</h4>
+                    <p class="tmdb-result-overview">${overview}</p>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary tmdb-select-btn">Select</button>
+            </div>
+        `;
+    }).join('');
+
+    resultsContainer.insertAdjacentHTML('beforeend', resultsHTML);
+    resultsContainer.style.display = 'block';
+    
+    // Add click handlers
+    resultsContainer.querySelectorAll('.tmdb-result-item').forEach(result => {
+        result.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            const type = e.currentTarget.dataset.type;
+            selectTMDBResult(id, type);
+        });
+    });
+}
 async function selectTMDBResult(id, type) {
     if (!id || !type) return;
 
@@ -940,6 +1033,18 @@ async function selectTMDBResult(id, type) {
         console.error('Error loading TMDB details:', error);
         LibraryUtils.ui.showStatusMessage('Failed to load full details. Please try again.', 'error');
     }
+
+    const resultsContainer = document.getElementById('tmdb-results');
+    const searchInput = document.getElementById('tmdb-search');
+        
+        if (resultsContainer) {
+            resultsContainer.style.display = 'none';
+            resultsContainer.innerHTML = '';
+        }
+        
+        if (searchInput) {
+            searchInput.value = '';
+        }
 }
 function populateMovieFields(movieData) {
     document.getElementById('edit-title').value = movieData.title || '';
