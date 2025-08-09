@@ -267,9 +267,18 @@ if (progressDiv) {
         console.log('Start migration button clicked');
         startButton.disabled = true;
         startButton.textContent = 'Migration Running...';
-        migratePhysicalCopies().finally(() => {
-            startButton.textContent = 'Migration Complete';
-        });
+        
+        migratePhysicalCopies()
+            .then(() => {
+                console.log('Migration completed successfully');
+            })
+            .catch((error) => {
+                console.error('Migration failed:', error);
+                updateProgress(`💥 Migration failed: ${error.message}`, true);
+            })
+            .finally(() => {
+                startButton.textContent = 'Migration Complete';
+            });
     };
     
     progressDiv.parentNode.insertBefore(startButton, progressDiv);
