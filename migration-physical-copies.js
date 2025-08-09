@@ -2,7 +2,6 @@
 // Run this ONCE to migrate existing data
 
 // Firebase is already initialized by migration.html
-const db = firebase.firestore();
 
 // Migration state tracking
 let migrationStats = {
