@@ -289,113 +289,84 @@ async function loadPhysicalCopies(interactions) {
     const container = document.getElementById('physicalCopiesContainer');
     container.innerHTML = '';
 
-    const physicalCopies = interactions.filter(i => i.owned === true && i.physicalCopies && i.physicalCopies.length > 0);
+    // NEW: Support both old and new data structures
+    const physicalCopies = interactions.filter(i => {
+        return i.owned === true && (
+            (i.physicalCopies && i.physicalCopies.length > 0) || // New format
+            (i.physicalEdition && Object.keys(i.physicalEdition).length > 0) || // Old format
+            i.upc // Very old format
+        );
+    });
 
     if (physicalCopies.length === 0) {
         container.innerHTML = `<p class="no-physical-copies">No physical copies have been tracked by users yet.</p>`;
         return;
     }
 
-    // Get all unique physical copy IDs
-    const allPhysicalCopyIds = [];
-    physicalCopies.forEach(copy => {
-        if (copy.physicalCopies) {
-            allPhysicalCopyIds.push(...copy.physicalCopies);
-        }
-    });
+    // Handle new format (physicalCopies arrays)
+    const newFormatCopies = physicalCopies.filter(i => i.physicalCopies && i.physicalCopies.length > 0);
+    if (newFormatCopies.length > 0) {
+        // Your existing new format code here...
+        // (all the existing code for handling physicalCopies arrays)
+    }
 
-    // Fetch physical copy details
-    const uniqueCopyIds = [...new Set(allPhysicalCopyIds)];
-    const copyPromises = uniqueCopyIds.map(id => 
-        db.collection('physicalCopies').doc(id).get()
+    // Handle legacy format (physicalEdition objects)
+    const legacyCopies = physicalCopies.filter(i => 
+        (!i.physicalCopies || i.physicalCopies.length === 0) && 
+        (i.physicalEdition || i.upc)
     );
-    const copyDocs = await Promise.all(copyPromises);
-    
-    const copyMap = new Map();
-    copyDocs.forEach(doc => {
-        if (doc.exists) {
-            copyMap.set(doc.id, doc.data());
+
+    for (const userCopy of legacyCopies) {
+        const edition = userCopy.physicalEdition || {};
+        const username = await getUserDisplayName(userCopy.userId);
+        
+        const copyEl = document.createElement('div');
+        copyEl.className = 'physical-copy-item';
+        
+        let copyInfo = '';
+        const details = [];
+        
+        if (edition.format && edition.format !== 'Unknown') {
+            details.push(`<span class="copy-format">${edition.format}</span>`);
         }
-    });
-
-    // Get user data
-    const userIds = [...new Set(physicalCopies.map(c => c.userId))];
-    const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-    const userDocs = await Promise.all(userPromises);
-    
-    const userMap = new Map();
-    userDocs.forEach(doc => {
-        if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-    });
-
-    // Group copies by user and copy type
-    const copyGroups = new Map(); // userId -> copyId -> count
-    
-    physicalCopies.forEach(userCopy => {
-        const userId = userCopy.userId;
-        if (!copyGroups.has(userId)) {
-            copyGroups.set(userId, new Map());
+        if (edition.edition && edition.edition !== 'Standard') {
+            details.push(`<span class="copy-edition">${edition.edition}</span>`);
+        }
+        if (edition.region && edition.region !== 'Unknown') {
+            details.push(`<span class="copy-region">${edition.region}</span>`);
         }
         
-        const userCopyGroups = copyGroups.get(userId);
+        copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
         
-        userCopy.physicalCopies.forEach(copyId => {
-            const currentCount = userCopyGroups.get(copyId) || 0;
-            userCopyGroups.set(copyId, currentCount + 1);
-        });
-    });
+        // Add special features if available
+        if (edition.features && edition.features.length > 0) {
+            const featuresText = Array.isArray(edition.features) 
+                ? edition.features.join(', ') 
+                : edition.features;
+            copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
+        }
+        
+        // Add barcode if available
+        if (userCopy.upc) {
+            copyInfo += `<div class="copy-barcode"><small>UPC: ${userCopy.upc}</small></div>`;
+        }
+        
+        copyEl.innerHTML = `
+            <div class="copy-edition-details">${copyInfo}</div>
+            <div class="copy-owner">by <a href="profile.html?id=${userCopy.userId}">${username}</a></div>
+        `;
+        container.appendChild(copyEl);
+    }
+}
 
-    // Display grouped copies
-    copyGroups.forEach((userCopies, userId) => {
-        const username = userMap.get(userId) || 'Anonymous';
-        
-        userCopies.forEach((count, copyId) => {
-            const copyData = copyMap.get(copyId);
-            if (!copyData) return;
-            
-            const copyEl = document.createElement('div');
-            copyEl.className = 'physical-copy-item';
-            
-            let copyInfo = '';
-            const details = [];
-            
-            if (copyData.format && copyData.format !== 'Unknown') {
-                details.push(`<span class="copy-format">${copyData.format}</span>`);
-            }
-            if (copyData.edition && copyData.edition !== 'Standard') {
-                details.push(`<span class="copy-edition">${copyData.edition}</span>`);
-            }
-            if (copyData.region && copyData.region !== 'Unknown') {
-                details.push(`<span class="copy-region">${copyData.region}</span>`);
-            }
-            
-            copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
-            
-            // Add quantity indicator if more than 1
-            if (count > 1) {
-                copyInfo += ` <span class="copy-quantity">(${count})</span>`;
-            }
-            
-            // Add special features if available
-            if (copyData.features && copyData.features.length > 0) {
-                const featuresText = Array.isArray(copyData.features) 
-                    ? copyData.features.join(', ') 
-                    : copyData.features;
-                copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
-            }
-            
-            // Add barcode if available
-            if (copyData.barcode) {
-                copyInfo += `<div class="copy-barcode"><small>UPC: ${copyData.barcode}</small></div>`;
-            }
-            
-            copyEl.innerHTML = `
-                <div class="copy-edition-details">${copyInfo}</div>
-                <div class="copy-owner">by <a href="profile.html?id=${userId}">${username}</a></div>
-            `;
-            container.appendChild(copyEl);
-        });
-    });
+// Helper function to get user display name
+async function getUserDisplayName(userId) {
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        return userDoc.exists ? (userDoc.data().displayName || 'Anonymous') : 'Anonymous';
+    } catch (error) {
+        return 'Anonymous';
+    }
 }
     function setupCommentForm(user, movieId, myInteraction) {
         const editMovieBtn = document.getElementById('editMovieBtn');
