@@ -28,14 +28,20 @@ function extractPhysicalEditionData(userInteraction) {
     const physicalEdition = userInteraction.physicalEdition || {};
     const upc = userInteraction.upc || '';
     
-    // Skip if no meaningful physical data
-    if (!upc && !physicalEdition.format && !physicalEdition.edition) {
+    // Skip only if NO physical data at all
+    const hasPhysicalData = upc || 
+                           (physicalEdition && Object.keys(physicalEdition).length > 0) ||
+                           physicalEdition.format || 
+                           physicalEdition.edition ||
+                           physicalEdition.barcode;
+    
+    if (!hasPhysicalData) {
         return null;
     }
     
     return {
         movieId: userInteraction.movieId,
-        barcode: upc,
+        barcode: physicalEdition.barcode || upc,
         format: physicalEdition.format || 'Unknown',
         edition: physicalEdition.edition || 'Standard',
         region: physicalEdition.region || 'Region 1',
