@@ -251,19 +251,20 @@ async function migratePhysicalCopies() {
         console.error('Migration failed:', error);
     }
 }
+// Run immediately when script loads (DOM is already ready)
+console.log('Migration script executing...');
+updateProgress('Migration script loaded and ready.');
 
-// Run migration when this script loads
-document.addEventListener('DOMContentLoaded', () => {
-    updateProgress('Migration script loaded. Click the button to start migration.');
-    
-    // Add start button
-    const progressDiv = document.getElementById('progress');
+// Add start button
+const progressDiv = document.getElementById('progress');
+if (progressDiv) {
     const startButton = document.createElement('button');
     startButton.textContent = 'Start Migration';
     startButton.className = 'btn btn-lg btn-primary';
     startButton.style.margin = '20px 0';
     
     startButton.onclick = () => {
+        console.log('Start migration button clicked');
         startButton.disabled = true;
         startButton.textContent = 'Migration Running...';
         migratePhysicalCopies().finally(() => {
@@ -272,4 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     progressDiv.parentNode.insertBefore(startButton, progressDiv);
-});
+    console.log('Migration button added to page');
+} else {
+    console.error('Could not find progress div');
+}
