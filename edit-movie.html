@@ -206,7 +206,6 @@
                             </div>
                             <button type="button" id="tmdb-search-btn" class="btn btn-rectangular btn-primary">
                                 <span class="icon icon-search"></span>
-                                Search TMDB
                             </button>
                         </div>
                         
@@ -965,31 +964,34 @@ function displayTMDBResults(results, isNewSearch) {
         const title = item.title || item.name;
         const year = (item.release_date || item.first_air_date || '').substring(0, 4);
         const poster = item.poster_path ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${item.poster_path}` : 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A';
-        const overview = item.overview ? item.overview.substring(0, 100) + '...' : '';
+        const overview = item.overview ? item.overview.substring(0, 150) + '...' : '';
         const badgeHTML = item.media_type === 'tv' ?
             `<span class="badge badge-tv"><span class="icon icon-tv icon-sm"></span></span>` :
             `<span class="badge badge-movie"><span class="icon icon-movie icon-sm"></span></span>`;
 
         return `
-            <div class="tmdb-result-item" data-id="${item.id}" data-type="${item.media_type}">
-                <img src="${poster}" class="tmdb-result-poster" loading="lazy">
-                <div class="tmdb-result-info">
-                    <h4 class="tmdb-result-title">${title} (${year}) ${badgeHTML}</h4>
-                    <p class="tmdb-result-overview">${overview}</p>
+            <div class="search-result" data-id="${item.id}" data-type="${item.media_type}">
+                <img src="${poster}" class="search-result-poster" loading="lazy">
+                <div class="search-result-info">
+                    <h4>${title} (${year}) ${badgeHTML}</h4>
+                    <p>${overview}</p>
                 </div>
-                <button type="button" class="btn btn-sm btn-primary tmdb-select-btn">Select</button>
             </div>
         `;
     }).join('');
 
     resultsContainer.insertAdjacentHTML('beforeend', resultsHTML);
     resultsContainer.style.display = 'block';
-    
     // Add click handlers
-    resultsContainer.querySelectorAll('.tmdb-result-item').forEach(result => {
+    resultsContainer.querySelectorAll('.search-result').forEach(result => {
         result.addEventListener('click', (e) => {
             const id = e.currentTarget.dataset.id;
             const type = e.currentTarget.dataset.type;
+            
+            // Add selected styling
+            resultsContainer.querySelectorAll('.search-result').forEach(r => r.classList.remove('selected'));
+            e.currentTarget.classList.add('selected');
+            
             selectTMDBResult(id, type);
         });
     });
