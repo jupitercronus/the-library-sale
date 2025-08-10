@@ -635,8 +635,9 @@ async function initializeMovieScanner() {
             tmdbData.credits.crew.find(c => c.job === 'Director') : null;
         document.getElementById('director').value = director ? director.name : '';
         
-        document.getElementById('contentType').value = tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie');
-        
+        const contentType = tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie');
+        updateContentTypeToggle(contentType);
+                
         const confidence = tmdbData.matchScore || 0;
             const needsReview = MediaLookupUtils.needsManualReview(tmdbData, upcData.originalTitle, null);
             

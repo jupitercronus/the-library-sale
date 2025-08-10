@@ -245,11 +245,6 @@ class ScannerManager {
                 this.onError('Barcode already processed', 'duplicate');
                 return false;
             }
-        
-            if (this.processingBarcodes.has(cleanBarcode)) {
-                this.onError('This barcode is currently being processed.', 'processing');
-                return false;
-            }   
 
             try {
                 this.scannedBarcodes.add(cleanBarcode);
@@ -1494,38 +1489,40 @@ const ScannerUI = {
         `;
         
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+       
         
-        // Store references to the elements
-        this.modal = document.getElementById('manualBarcodeModal');
-        this.input = document.getElementById('manualBarcodeInput');
-        const submitBtn = document.getElementById('submitManualBarcodeBtn');
-        const cancelBtn = document.getElementById('cancelManualBarcodeBtn');
-        
-        const handleSubmit = () => {
-            if (onSubmit(this.input.value.trim())) {
-                this.hideManualEntryModal();
-            }
-        };
-        
-        const handleCancel = () => {
-            this.hideManualEntryModal();
-            if (onCancel) onCancel();
-        };
-        
-        submitBtn.addEventListener('click', handleSubmit);
-        cancelBtn.addEventListener('click', handleCancel);
-        this.input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSubmit();
-            }
-        });
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                handleCancel();
-            }
-        });
-    },
+         // Store references to the elements
+         this.modal = document.getElementById('manualBarcodeModal');
+         this.input = document.getElementById('manualBarcodeInput');
+         const submitBtn = document.getElementById('submitManualBarcodeBtn');
+         const cancelBtn = document.getElementById('cancelManualBarcodeBtn');
+         
+         const handleSubmit = () => {
+             if (onSubmit(this.input.value.trim())) {
+                 this.hideManualEntryModal();
+             }
+         };
+         
+         const handleCancel = () => {
+             this.hideManualEntryModal();
+             if (onCancel) onCancel();
+         };
+         
+         submitBtn.addEventListener('click', handleSubmit);
+         cancelBtn.addEventListener('click', handleCancel);
+         this.input.addEventListener('keypress', (e) => {
+             if (e.key === 'Enter') {
+                 e.preventDefault();
+                 handleSubmit();
+             }
+         });
+         this.modal.addEventListener('click', (e) => {
+             if (e.target === this.modal) {
+                 handleCancel();
+             }
+         });
+     },
+ 
 
     /* Show the existing modal */
     showManualEntryModal() {
@@ -1536,108 +1533,15 @@ const ScannerUI = {
         }
     },
 
-     /* Hide the existing modal */
+    /* Hide the existing modal */
     hideManualEntryModal() {
         if (this.modal) {
             this.modal.classList.remove('active');
         }
     },
 
-    /*Create manual barcode entry modal*/
-    createManualEntryModal(onSubmit, onCancel) {
-        const modalHtml = `
-            <div class="modal" id="manualBarcodeModal">
-                <div class="modal-content">
-                    <h3>Manual Barcode Entry</h3>
-                    <div class="form-group">
-                        <label for="manualBarcodeInput">Barcode (8-18 digits)</label>
-                        <input type="text" id="manualBarcodeInput" 
-                               placeholder="Enter 8-18 digit barcode" 
-                               pattern="[0-9]{8,18}" 
-                               maxlength="18">
-                    </div>
-                    <div class="modal-buttons">
-                        <button id="submitManualBarcodeBtn" class="btn btn-lg btn-success" title="Submit">
-                            <span class="icon icon-confirm icon-lg"></span>
-                        </button>
-                        <button id="cancelManualBarcodeBtn" class="btn btn-lg btn-secondary" title="Cancel">
-                            <span class="icon icon-close icon-lg"></span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remove existing modal if present
-        const existingModal = document.getElementById('manualBarcodeModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        
-        // Add modal to page
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // Set up event listeners
-        const modal = document.getElementById('manualBarcodeModal');
-        const input = document.getElementById('manualBarcodeInput');
-        const submitBtn = document.getElementById('submitManualBarcodeBtn');
-        const cancelBtn = document.getElementById('cancelManualBarcodeBtn');
-        
-        const handleSubmit = () => {
-            const barcode = input.value.trim();
-            if (onSubmit(barcode)) {
-                this.hideManualEntryModal();
-            }
-        };
-        
-        const handleCancel = () => {
-            this.hideManualEntryModal();
-            if (onCancel) onCancel();
-        };
-        
-        submitBtn.addEventListener('click', handleSubmit);
-        cancelBtn.addEventListener('click', handleCancel);
-        
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSubmit();
-            }
-        });
-        
-        // Handle backdrop click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                handleCancel();
-            }
-        });
-    },
 
-    /* Show manual entry modal */
-    showManualEntryModal() {
-        const modal = document.getElementById('manualBarcodeModal');
-        const input = document.getElementById('manualBarcodeInput');
-        
-        if (modal) {
-            modal.classList.add('active');
-            if (input) {
-                input.focus();
-                input.value = '';
-            }
-        }
-    },
-
-    /* Hide manual entry modal */
-    hideManualEntryModal() {
-        const modal = document.getElementById('manualBarcodeModal');
-        if (modal) {
-            modal.classList.remove('active');
-        }
-    },
-
-    /**
-     * Create scanner status display
-     */
+    /* Create scanner status display */
     createStatusDisplay(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;

@@ -46,17 +46,6 @@
             <p class="hero-subtitle">scan multiple barcodes</p>
         </section>
 
-        <section class="scan-controls-section">
-            <div class="scan-actions">
-                <button id="startScanBtn" class="btn-rectangular btn-success" title="start scanning">
-                    <span class="icon icon-bulk icon-xl"></span>
-                </button>
-                <button id="finishScanBtn" class="btn btn-xl btn-success" style="display: none;" title="finish and review">
-                    <span class="icon icon-confirm icon-xl"></span>
-                </button>
-            </div>
-        </section>
-
         <!-- Scanner Section -->
         <section id="scannerSection" class="scanner-section" style="display: none;">
             <div class="scanner-viewport-bulk">
@@ -110,7 +99,7 @@
             <div class="result-filters">
                 <button class="filter-btn active" data-filter="all">all (<span id="allCount">0</span>)</button>
                 <button class="filter-btn" data-filter="found">found (<span id="foundTabCount">0</span>)</button>
-                <button class="filter-btn filter-needs-review" data-filter="needs_review">needs review (<span id="needsReviewTabCount">0</span>)</button>
+                <button class="filter-btn" data-filter="needs_review">needs review (<span id="needsReviewTabCount">0</span>)</button>
                 <button class="filter-btn" data-filter="skipped">skipped (<span id="skippedTabCount">0</span>)</button>
                 <button class="filter-btn" data-filter="failed">failed (<span id="failedTabCount">0</span>)</button>
             </div>
@@ -280,20 +269,20 @@ async function initializeBulkScanner() {
                 indicator.className = 'scan-result-indicator';
             }, 2800); // Slightly less than the 3000ms pause
     }
-// In bulk-scan.html, replace the existing addMovieToDatabase function:
 
-async function addMovieToDatabase(result) {
+    async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
-    // Use a transaction to ensure atomicity
-    return await db.runTransaction(async (transaction) => {
+    try {
         let movieDocRef;
         
         // Check if movie already exists
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
-            const existingQuery = await transaction.get(
-                db.collection('movies').where('tmdbId', '==', parseInt(tmdbData.id)).limit(1)
-            );
+            const existingQuery = await db.collection('movies')
+                .where('tmdbId', '==', parseInt(tmdbData.id))
+                .limit(1)
+                .get();
+            
             if (!existingQuery.empty) {
                 movieDocRef = existingQuery.docs[0].ref;
             }
@@ -301,7 +290,6 @@ async function addMovieToDatabase(result) {
 
         // Create new movie if doesn't exist
         if (!movieDocRef) {
-            movieDocRef = db.collection('movies').doc();
             const movieData = {
                 title: tmdbData.title || tmdbData.name,
                 year: tmdbData.release_date ? parseInt(tmdbData.release_date.substring(0, 4)) : null,
@@ -319,10 +307,10 @@ async function addMovieToDatabase(result) {
                 isManualEntry: false,
             };
             
-            transaction.set(movieDocRef, movieData);
+            movieDocRef = await db.collection('movies').add(movieData);
         }
 
-        // Handle physical copy creation within transaction
+        // Handle physical copy creation
         let physicalCopyId = null;
         if (physicalEdition && upcData.barcode) {
             const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
@@ -332,46 +320,45 @@ async function addMovieToDatabase(result) {
                 physicalEdition.region
             );
 
-            // Check if physical copy exists (within transaction)
-            const existingCopyQuery = await transaction.get(
-                db.collection('physicalCopies').where('uniqueIdentifier', '==', uniqueId).limit(1)
-            );
+            // Check if physical copy exists
+            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
             
-            if (!existingCopyQuery.empty) {
-                physicalCopyId = existingCopyQuery.docs[0].id;
+            if (existingCopy) {
+                physicalCopyId = existingCopy.id;
             } else {
                 // Create new physical copy
-                const newCopyRef = db.collection('physicalCopies').doc();
-                const copyData = {
-                    movieId: movieDocRef.id,
-                    barcode: upcData.barcode,
-                    format: physicalEdition.format || 'Unknown',
-                    edition: physicalEdition.edition || 'Standard',
-                    region: physicalEdition.region || 'Region 1',
-                    distributor: physicalEdition.distributor || '',
-                    features: physicalEdition.features || [],
-                    uniqueIdentifier: uniqueId,
-                    dateFirstScanned: firebase.firestore.FieldValue.serverTimestamp(),
-                    scannedBy: currentUser.uid,
-                    scanCount: 1
-                };
-                
-                transaction.set(newCopyRef, copyData);
-                physicalCopyId = newCopyRef.id;
+                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                    movieDocRef.id,
+                    {
+                        ...physicalEdition,
+                        barcode: upcData.barcode
+                    },
+                    currentUser.uid
+                );
             }
 
-            // Check for duplicate ownership (within transaction)
+            // Check for duplicate ownership
             const userInteractionRef = db.collection('users').doc(currentUser.uid)
                 .collection('movieInteractions').doc(movieDocRef.id);
-            const existingInteraction = await transaction.get(userInteractionRef);
+            const existingInteraction = await userInteractionRef.get();
             
             if (existingInteraction.exists) {
                 const existingData = existingInteraction.data();
                 const currentPhysicalCopies = existingData.physicalCopies || [];
                 
                 if (currentPhysicalCopies.includes(physicalCopyId)) {
-                    // This needs to be handled outside the transaction since it requires user input
-                    throw new Error('DUPLICATE_CHECK_NEEDED');
+                    // Ask user about duplicate
+                    const currentCount = currentPhysicalCopies.filter(id => id === physicalCopyId).length;
+                    const shouldAddAnyway = await showDuplicateConfirmation(
+                        tmdbData.title || tmdbData.name,
+                        physicalEdition.format,
+                        physicalEdition.edition,
+                        currentCount
+                    );
+                    
+                    if (!shouldAddAnyway) {
+                        throw new Error('DUPLICATE_SKIPPED');
+                    }
                 }
             }
         }
@@ -379,27 +366,23 @@ async function addMovieToDatabase(result) {
         // Update/create user interaction
         const userInteractionRef = db.collection('users').doc(currentUser.uid)
             .collection('movieInteractions').doc(movieDocRef.id);
-        const existingInteraction = await transaction.get(userInteractionRef);
+        const existingInteraction = await userInteractionRef.get();
         
-        let physicalCopiesArray = [];
         if (existingInteraction.exists) {
             const existingData = existingInteraction.data();
-            physicalCopiesArray = existingData.physicalCopies || [];
+            let physicalCopiesArray = existingData.physicalCopies || [];
             
-            if (physicalCopyId && !physicalCopiesArray.includes(physicalCopyId)) {
+            if (physicalCopyId) {
                 physicalCopiesArray.push(physicalCopyId);
             }
             
-            transaction.update(userInteractionRef, {
+            await userInteractionRef.update({
                 physicalCopies: physicalCopiesArray,
+                owned: true,
                 upc: upcData?.barcode || existingData.upc || '',
                 physicalEdition: physicalEdition || existingData.physicalEdition || {},
             });
         } else {
-            if (physicalCopyId) {
-                physicalCopiesArray = [physicalCopyId];
-            }
-            
             const userInteractionData = {
                 movieId: movieDocRef.id,
                 rating: 0,
@@ -408,16 +391,20 @@ async function addMovieToDatabase(result) {
                 watchedDate: null,
                 owned: true,
                 interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                physicalCopies: physicalCopiesArray,
+                physicalCopies: physicalCopyId ? [physicalCopyId] : [],
                 physicalEdition: physicalEdition || {},
                 upc: upcData?.barcode || '',
             };
 
-            transaction.set(userInteractionRef, userInteractionData);
+            await userInteractionRef.set(userInteractionData);
         }
         
         return { movieDocRef, physicalCopyId };
-    });
+        
+    } catch (error) {
+        console.error('Error in addMovieToDatabase:', error);
+        throw error;
+    }
 }
 async function addMovieToDatabase_WithDuplicateHandling(result) {
     try {

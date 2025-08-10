@@ -221,7 +221,7 @@
             <!-- Enhanced Physical Edition Details -->
             <div class="form-group" id="physical-edition-details" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
-                    <label>physical edition details</label>
+                    <h3>physical copy details</h3>
                     <button type="button" id="scan-barcode-btn" class="btn btn-barcode btn-rectangular btn-primary">
                         <i class="icon icon-search"></i>
                         <span>scan barcode</span>
@@ -281,75 +281,33 @@
                             <option value="4K UHD">4K UHD</option>
                             <option value="Blu-ray">Blu-ray</option>
                             <option value="DVD">DVD</option>
-                            <option value="VHS">VHS</option>
-                            <option value="Digital">Digital</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edition">edition</label>
+                        <select id="edition" name="edition" class="form-select">
+                            <option value="">select format...</option>
+                            <option value="fullscreen">fullscreen</option>
+                            <option value="widescreen">widescreen</option>
+                            <option value="special edition">special edition</option>
+                            <option value="collector's edition">collector's edition</option>
+                            <option value="director's cut">director's cut</option>
+                            <option value="extended version">extended version</option>
+                            <option value="criterion collection">criterion collection</option>
+                            <option value="other">other</option>
                         </select>
                     </div>
 
-            <!-- Edition - Multiple Choice Checkboxes -->
-            <div class="form-group">
-                <label>edition Types</label>
-                <div class="checkbox-grid">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="edition-standard" class="form-checkbox" value="Standard">
-                        <label for="edition-standard" class="checkbox-label">standard</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="edition-special" class="form-checkbox" value="Special Edition">
-                        <label for="edition-special" class="checkbox-label">special edition</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="edition-directors" class="form-checkbox" value="Director's Cut">
-                        <label for="edition-directors" class="checkbox-label">director's cut</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="edition-collectors" class="form-checkbox" value="Collector's Edition">
-                        <label for="edition-collectors" class="checkbox-label">collector's edition</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="edition-extended" class="form-checkbox" value="Extended Edition">
-                        <label for="edition-extended" class="checkbox-label">extended edition</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="edition-anniversary" class="form-checkbox" value="Anniversary Edition">
-                        <label for="edition-anniversary" class="checkbox-label">anniversary</label>
+                    <div class="form-group" id="other-edition-group" style="display: none;">
+                        <label for="other-edition-text">Please specify other edition:</label>
+                        <input type="text" id="other-edition-text" name="other-edition-text" class="form-input" placeholder="Enter edition type...">
                     </div>
                 </div>
-            </div>
 
-            <!-- Region - Radio Buttons -->
+            <!-- Region - -->
             <div class="form-group">
-                <label>region</label>
-                <div class="radio-grid">
-                    <div class="radio-item">
-                        <input type="radio" id="region-free" name="region" class="form-radio" value="Region Free">
-                        <label for="region-free" class="radio-label">region free</label>
-                    </div>
-                    <div class="radio-item">
-                        <input type="radio" id="region-1" name="region" class="form-radio" value="Region 1">
-                        <label for="region-1" class="radio-label">region 1</label>
-                    </div>
-                    <div class="radio-item">
-                        <input type="radio" id="region-2" name="region" class="form-radio" value="Region 2">
-                        <label for="region-2" class="radio-label">region 2</label>
-                    </div>
-                    <div class="radio-item">
-                        <input type="radio" id="region-3" name="region" class="form-radio" value="Region 3">
-                        <label for="region-3" class="radio-label">region 3</label>
-                    </div>
-                    <div class="radio-item">
-                        <input type="radio" id="region-a" name="region" class="form-radio" value="Region A">
-                        <label for="region-a" class="radio-label">region 4</label>
-                    </div>
-                    <div class="radio-item">
-                        <input type="radio" id="region-b" name="region" class="form-radio" value="Region B">
-                        <label for="region-b" class="radio-label">Region 5</label>
-                    </div>
-                    <div class="radio-item">
-                        <input type="radio" id="region-c" name="region" class="form-radio" value="Region C">
-                        <label for="region-c" class="radio-label">Region 6</label>
-                    </div>
-                </div>
+                <label for="region">region</label>
+                <input type="number" id="region" name="region" class="form-input" placeholder="enter region" inputmode="numeric">
             </div>
 
             <!-- Distributor - Text Input -->
@@ -439,474 +397,311 @@
         const auth = firebase.auth();
 
         // Global variables
+        let currentUser = null; // Defined globally so all functions can see it
         let currentRating = 0;
         let starRatingController = null;
         let editScanner = null;
         let physicalEditionData = {};
         let isEditingPhysical = false;
 
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. Get DOM Elements ---
+    const params = new URLSearchParams(window.location.search);
+    const movieId = params.get('id');
+    const fromParam = params.get('from');
+
+    const mainContent = document.getElementById('mainContent');
+    const editMovieForm = document.getElementById('edit-movie-form');
+    const watchedToggle = document.getElementById('watched-toggle');
+    const ownedToggle = document.getElementById('owned-toggle');
+    const physicalDetailsSection = document.getElementById('physical-edition-details');
+    const editionSelect = document.getElementById('edition');
+    const otherEditionGroup = document.getElementById('other-edition-group');
+    const deleteBtn = document.getElementById('delete-btn');
+    const saveBtn = document.getElementById('save-btn');
+
+
     function updatePageContext(fromParam) {
-        const pageTitle = document.querySelector('title');
-        const heroTitle = document.querySelector('.hero-subtitle');
+            const pageTitle = document.querySelector('title');
+            const heroTitle = document.querySelector('.hero-subtitle');
+            if (fromParam === 'review') {
+                pageTitle.textContent = 'review my thots - the library sale';
+                if (heroTitle) heroTitle.textContent = 'review and edit your personal thots';
+            } else {
+                pageTitle.textContent = 'edit media - the library sale';
+                if (heroTitle) heroTitle.textContent = 'review and add your personal thots';
+            }
+        }
+
+        const setupStars = (initialRating) => {
+            currentRating = initialRating;
+            if (window.LibraryUtils && window.LibraryUtils.stars) {
+                starRatingController = window.LibraryUtils.stars.setupInteractiveStarRating('star-rating', (rating) => {
+                    currentRating = rating;
+                }, currentRating);
+            }
+        };
         
+        function toggleOtherEditionField() {
+            if (editionSelect.value === 'other') {
+                otherEditionGroup.style.display = 'block';
+            } else {
+                otherEditionGroup.style.display = 'none';
+            }
+        }
+
+        function populateEdition(editionValue) {
+            const otherEditionInput = document.getElementById('other-edition-text');
+            const isStandardOption = [...editionSelect.options].some(opt => opt.value === editionValue);
+            if (isStandardOption) {
+                editionSelect.value = editionValue;
+            } else if (editionValue) {
+                editionSelect.value = 'other';
+                otherEditionInput.value = editionValue;
+            }
+            toggleOtherEditionField();
+        }
+
+        function displayLegacyPhysicalEdition(userData) {
+            document.getElementById('editablePhysicalForm').style.display = 'block';
+            const edition = userData.physicalEdition || {};
+            document.getElementById('edition-format').value = edition.format || '';
+            populateEdition(edition.edition || userData.editionTitle);
+            document.getElementById('region').value = edition.region || '';
+            document.getElementById('edition-distributor').value = edition.distributor || '';
+            document.getElementById('upc-code').value = userData.upc || '';
+        }
+
+        async function displayCurrentPhysicalEdition(userData) {
+            const editableForm = document.getElementById('editablePhysicalForm');
+            if (userData.owned && userData.physicalCopies && userData.physicalCopies.length > 0) {
+                editableForm.style.display = 'block';
+                try {
+                    const copyId = userData.physicalCopies[0];
+                    const copyDoc = await db.collection('physicalCopies').doc(copyId).get();
+                    if (copyDoc.exists) {
+                        const copyData = copyDoc.data();
+                        document.getElementById('edition-format').value = copyData.format || '';
+                        populateEdition(copyData.edition);
+                        document.getElementById('region').value = copyData.region || '';
+                        document.getElementById('edition-distributor').value = copyData.distributor || '';
+                        const features = Array.isArray(copyData.features) ? copyData.features : [];
+                        document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
+                            cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
+                        });
+                        document.getElementById('upc-code').value = copyData.barcode || '';
+                    } else {
+                        displayLegacyPhysicalEdition(userData);
+                    }
+                } catch (error) {
+                    console.error('Error loading physical copy:', error);
+                    displayLegacyPhysicalEdition(userData);
+                }
+            } else if (userData.owned) {
+                displayLegacyPhysicalEdition(userData);
+            }
+        }
+
+        const populateForm = (userData) => {
+            setupStars(userData.rating || 0);
+            watchedToggle.dataset.active = userData.watched === true ? 'true' : 'false';
+            document.getElementById('watched-date-group').style.display = userData.watched ? 'block' : 'none';
+            document.getElementById('watched-date').value = userData.watchedDate || '';
+            ownedToggle.dataset.active = userData.owned === true ? 'true' : 'false';
+            physicalDetailsSection.style.display = userData.owned ? 'block' : 'none';
+            if (userData.owned) {
+                displayCurrentPhysicalEdition(userData);
+            }
+            document.getElementById('comments').value = userData.review || '';
+        };
+
+        const loadMovieData = async (userId, movieId) => {
+            try {
+                const [movieDoc, interactionDoc] = await Promise.all([
+                    db.collection('movies').doc(movieId).get(),
+                    db.collection('users').doc(userId).collection('movieInteractions').doc(movieId).get()
+                ]);
+
+                if (!movieDoc.exists) throw new Error('Movie not found');
+                const movieData = movieDoc.data();
+                
+                document.getElementById('movie-poster-img').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
+                document.getElementById('movie-title').textContent = movieData.title || 'Unknown Title';
+                document.getElementById('movie-year').textContent = movieData.year || 'N/A';
+                document.getElementById('movie-director').textContent = movieData.director || 'N/A';
+                document.getElementById('movie-cast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : (movieData.cast || 'N/A');
+                document.getElementById('movie-genre').textContent = movieData.genre || 'N/A';
+                document.getElementById('movieOverview').textContent = movieData.overview || 'No description available.';
+
+                if (interactionDoc.exists) {
+                    populateForm(interactionDoc.data());
+                } else {
+                    setupStars(0);
+                }
+                
+                document.getElementById('editLoadingState').style.display = 'none';
+                mainContent.style.display = 'block';
+            } catch (error) {
+                console.error("Error loading movie data:", error);
+                document.getElementById('editLoadingState').innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p><a href="index.html" class="btn btn-primary">Back</a></div>`;
+            }
+        };
+
+        function setupEditMode(hasFullRights, movieData) {
+        if (hasFullRights) {
+            // Show full edit mode
+            document.getElementById('tmdbSearchSection').style.display = 'block';
+            document.getElementById('movieDetailsForm').style.display = 'block';
+            document.getElementById('contentTypeSection').style.display = 'block';
+            
+            // Make fields editable
+            ['edit-title', 'edit-year', 'edit-director', 'edit-genre', 'edit-cast', 'edit-summary'].forEach(id => {
+                const field = document.getElementById(id);
+                if (field) field.removeAttribute('readonly');
+            });
+            
+            // Initialize TMDB search
+            initializeTMDBSearch();
+            
+            // Populate with current movie data
+            if (movieData) {
+                populateMovieFields(movieData);
+            }
+            
+            // Store for form submission
+            window.hasFullEditRights = true;
+        } else {
+            // Limited mode - keep fields readonly
+            document.getElementById('tmdbSearchSection').style.display = 'none';
+            document.getElementById('movieDetailsForm').style.display = 'none';
+            document.getElementById('contentTypeSection').style.display = 'none';
+            
+            // Update page title
+            document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
+            
+            // Store for form submission
+            window.hasFullEditRights = false;
+        }
+    };
+
+    async function initializeEditScanner() {
+        // Get references to the UI elements
+        const scanBtn = document.getElementById('scan-barcode-btn');
+        const stopBtn = document.getElementById('stop-scanner-btn');
+        const scannerSection = document.getElementById('scanner-section');
+        const videoEl = document.getElementById('scanner-video');
+
+        // Create a new ScannerManager instance
+        editScanner = new ScannerManager({
+        continuous: false, // Stop after one successful scan
+        onBarcodeScanned: async (barcode) => {
+        // When a barcode is found, hide the scanner UI
+        scannerSection.style.display = 'none';
+
+        try {
+            // Use the centralized lookup utility
+            LibraryUtils.ui.showStatusMessage('Looking up barcode...', 'info');
+            const { physicalEdition } = await MediaLookupUtils.completeMovieLookup(barcode);
+
+            // Populate the editable form with the new data
+            document.getElementById('edition-format').value = physicalEdition.format || '';
+            populateEdition(physicalEdition.edition);
+            document.getElementById('region').value = physicalEdition.region || '';
+            document.getElementById('edition-distributor').value = physicalEdition.distributor || '';
+            const features = Array.isArray(physicalEdition.features) ? physicalEdition.features : [];
+                document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
+                    // Check the box if a feature from the scan results includes the checkbox's value
+                    // e.g., "Bloopers/Outtakes" includes "Bloopers"
+                    cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
+                });
+            document.getElementById('upc-code').value = barcode;
+
+            LibraryUtils.ui.showStatusMessage('physical copy details updated!', 'success');
+
+        } catch (error) {
+            console.error('Barcode lookup failed:', error);
+            LibraryUtils.ui.showStatusMessage(error.message, 'error');
+        }
+        },
+        onStatusUpdate: (message, type) => {
+            ScannerUI.updateStatus(message, type, 'scannerStatus');
+        },
+        onError: (message) => {
+            LibraryUtils.ui.showStatusMessage(message, 'error');
+            scannerSection.style.display = 'none';
+        }
+        });
+
+        // Initialize the scanner and set up button event listeners
+        const initialized = await editScanner.initialize();
+        if (!initialized) {
+            scanBtn.disabled = true;
+            scanBtn.textContent = 'Scanner N/A';
+            return;
+        }
+
+        scanBtn.addEventListener('click', async () => {
+            document.getElementById('editablePhysicalForm').style.display = 'block';
+            document.getElementById('currentPhysicalEdition').style.display = 'none';
+            scannerSection.style.display = 'block';
+            await editScanner.startCamera(videoEl, 'scannerStatus');
+        });
+
+        stopBtn.addEventListener('click', () => {
+            editScanner.stopCamera();
+            scannerSection.style.display = 'none';
+        });
+    };
+
+    async function checkEditPermissions(movieId) {
+    const user = auth.currentUser;
+        if (!user) return;
+        try {
+            const [movieDoc, adminDoc] = await Promise.all([
+                db.collection('movies').doc(movieId).get(),
+                db.collection('admins').doc(user.uid).get()
+            ]);
+            if (!movieDoc.exists) throw new Error('Movie not found');
+            const movieData = movieDoc.data();
+            const isOriginalUploader = movieData.originalUploaderId === user.uid;
+            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
+            const hasFullEditRights = isOriginalUploader || isAdmin;
+
+            // This is the corrected section from the last fix
+            console.log('Checking permissions for user:', user.uid);
+            console.log('Has full edit rights:', hasFullEditRights);
+            
+            setupEditMode(hasFullEditRights, movieData);
+        } catch (error) {
+            console.error('Permission check failed:', error);
+            setupEditMode(false, null);
+        };
+    };
+
+    function showAdminIndicator() {
+        const adminIndicator = document.createElement('p');
+            adminIndicator.className = 'admin-indicator';
+            adminIndicator.innerHTML = '👑 editing as admin';
+            document.querySelector('.hero-subtitle').after(adminIndicator);
+    }
+
+    function updatePageContext(fromParam) {
+    const pageTitle = document.querySelector('title');
+    const heroTitle = document.querySelector('.hero-subtitle');
+    
         if (fromParam === 'review') {
             pageTitle.textContent = 'review my thots - the library sale';
             if (heroTitle) {
                 heroTitle.textContent = 'review and edit your personal thots';
             }
         } else {
-            // Default context
-            pageTitle.textContent = 'edit my collection - the library sale';
+            pageTitle.textContent = 'edit media - the library sale';
             if (heroTitle) {
-                heroTitle.textContent = 'edit your personal collection details';
+                heroTitle.textContent = 'review and add your personal thots';
             }
-        }
-    }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const params = new URLSearchParams(window.location.search);
-            const movieId = params.get('id');
-            const fromParam = params.get('from');
-
-            if (!movieId) {
-                window.location.href = 'index.html';
-                return;
-            }
-            // Update page context based on where user came from
-            updatePageContext(fromParam);
-
-                const mainContent = document.getElementById('mainContent');
-                const scannerSection = document.getElementById('scanner-section');
-                const editMovieForm = document.getElementById('edit-movie-form');
-                const watchedToggle = document.getElementById('watched-toggle');
-                const ownedToggle = document.getElementById('owned-toggle');
-                const physicalDetailsSection = document.getElementById('physical-edition-details');
-                const cancelBtn = document.getElementById('delete-btn');
-
-            // Authentication Check
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    currentUser = user; // Set currentUser
-                    loadMovieData(user.uid);
-                    initializeEditScanner();
-                    // Now check permissions after user is set
-                    checkEditPermissions(movieId);
-                } else {
-                    window.location.href = 'auth.html';
-                }
-            });
-            // Setup Star Rating using LibraryUtils
-            // LibraryUtils is already available from utils.js
-
-            const setupStars = (initialRating) => {
-                currentRating = initialRating;
-                if (window.LibraryUtils && window.LibraryUtils.stars) {
-                    starRatingController = window.LibraryUtils.stars.setupInteractiveStarRating('star-rating', (rating) => {
-                        currentRating = rating;
-                    }, currentRating);
-                } else {
-                    console.error('LibraryUtils or LibraryUtils.stars not available. Check that utils.js is loaded correctly.');
-                }
-            };
-
-            // Toggle Button Logic
-            watchedToggle.addEventListener('click', () => {
-                const isWatched = watchedToggle.dataset.active === 'true';
-                const newWatchedState = !isWatched;
-                watchedToggle.dataset.active = newWatchedState ? 'true' : 'false';
-                
-                // Show/hide the watched date field
-                const watchedDateGroup = document.getElementById('watched-date-group');
-                watchedDateGroup.style.display = newWatchedState ? 'block' : 'none';
-                
-                // Clear the date if unwatched
-                if (!newWatchedState) {
-                    document.getElementById('watched-date').value = '';
-                }
-            });
-
-            ownedToggle.addEventListener('click', () => {
-                const isOwned = ownedToggle.dataset.active === 'true';
-                const newOwnedState = !isOwned;
-                ownedToggle.dataset.active = newOwnedState ? 'true' : 'false';
-                
-                physicalDetailsSection.style.display = newOwnedState ? 'block' : 'none';
-                if (!newOwnedState) {
-                    document.getElementById('edition-title').value = '';
-                    document.getElementById('edition-format').value = '';
-                    document.getElementById('upc-code').value = '';
-                }
-            });
-
-            // Cancel Button Logic
-            cancelBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (document.referrer && !document.referrer.includes('edit-movie.html')) {
-                    window.history.back();
-                } else {
-                    window.location.href = 'index.html';
-                }
-            });
-
-            // Data Loading and Form Population
-            const populateForm = (userData) => {
-                setupStars(userData.rating || 0);
-
-                watchedToggle.dataset.active = userData.watched === true ? 'true' : 'false';
-                if (userData.watched === true) {
-                    document.getElementById('watched-date-group').style.display = 'block'; 
-                    document.getElementById('watched-date').value = userData.watchedDate || '';
-                } else {
-                    document.getElementById('watched-date-group').style.display = 'none';
-                }
-
-                ownedToggle.dataset.active = userData.owned === true ? 'true' : 'false';
-
-                ownedToggle.dataset.active = userData.owned === true ? 'true' : 'false';
-
-                if (userData.owned === true) {
-                    physicalDetailsSection.style.display = 'block';
-                    displayCurrentPhysicalEdition(userData);
-                } else {
-                    physicalDetailsSection.style.display = 'none';
-                }
-
-                document.getElementById('comments').value = userData.review || '';
-            };
-            
-            // Load Movie Data Function
-            const loadMovieData = async (userId) => {
-                try {
-                    const [movieDoc] = await Promise.all([
-                        db.collection('movies').doc(movieId).get(),
-                        new Promise(resolve => setTimeout(resolve, 800)) // Smooth UX
-                    ]);
-
-                    if (!movieDoc.exists) throw new Error('Movie not found');
-
-                    const movieData = movieDoc.data();
-                    
-                    document.getElementById('movie-poster-img').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
-                    document.getElementById('movie-title').textContent = movieData.title || 'Unknown Title';
-                    document.getElementById('movie-year').textContent = movieData.year || 'N/A';
-                    document.getElementById('movie-director').textContent = movieData.director || 'N/A';
-                    document.getElementById('movie-cast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : (movieData.cast || 'N/A');
-                    document.getElementById('movie-genre').textContent = movieData.genre || 'N/A';
-
-                    const overviewElement = document.getElementById('movieOverview');
-                    const readMoreBtn = document.getElementById('readMoreBtn');
-                    const overview = movieData.overview || 'No description available.';
-                    overviewElement.textContent = overview;
-                    
-                    if (overview.length > 200) {
-                        readMoreBtn.style.display = 'inline-flex';
-                        readMoreBtn.onclick = function() {
-                            overviewElement.classList.toggle('collapsed');
-                            this.textContent = overviewElement.classList.contains('collapsed') ? 'Read more' : 'Read less';
-                        };
-                    }
-
-                    const interactionDoc = await db.collection('users').doc(userId).collection('movieInteractions').doc(movieId).get();
-
-                    if (interactionDoc.exists) {
-                        populateForm(interactionDoc.data());
-                    } else {
-                        setupStars(0);
-                    }
-                    
-                    document.getElementById('editLoadingState').style.display = 'none';
-                    mainContent.style.display = 'block';
-                    
-                } catch (error) {
-                    console.error("Error loading movie data:", error);
-                    document.getElementById('editLoadingState').innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p><a href="index.html" class="btn btn-primary">Back</a></div>`;
-                }
-            };
-
-            // Form Submission
-            editMovieForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const user = auth.currentUser;
-                // If user has full edit rights, update movie document
-                if (window.hasFullEditRights) {
-                    try {
-                        console.log('Attempting to update movie as user:', currentUser.uid);
-                        console.log('Movie ID:', movieId);
-                        
-                        // Check admin status
-                        const adminDoc = await db.collection('admins').doc(currentUser.uid).get();
-                        console.log('Admin doc exists:', adminDoc.exists);
-                        if (adminDoc.exists) {
-                            console.log('Admin data:', adminDoc.data());
-                        }
-                        
-                        // Check movie ownership
-                        const movieDoc = await db.collection('movies').doc(movieId).get();
-                        console.log('Movie original uploader:', movieDoc.data().originalUploaderId);
-                        console.log('Current user:', currentUser.uid);
-                        console.log('Is original uploader:', movieDoc.data().originalUploaderId === currentUser.uid);
-                        
-                        const updatedMovieData = {
-                            title: document.getElementById('edit-title').value.trim(),
-                            year: parseInt(document.getElementById('edit-year').value) || null,
-                            director: document.getElementById('edit-director').value.trim(),
-                            genre: document.getElementById('edit-genre').value.trim(),
-                            cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
-                            posterUrl: document.getElementById('movie-poster-img').src,
-                            overview: document.getElementById('edit-summary').value.trim(),
-                            contentType: document.querySelector('#contentTypeToggle .active')?.dataset.value || 'movie',
-                            lastEditedBy: currentUser.uid,
-                            lastEditedDate: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-
-                        console.log('Update data:', updatedMovieData);
-                        await db.collection('movies').doc(movieId).update(updatedMovieData);
-                        console.log('Movie details updated successfully');
-                    } catch (movieUpdateError) {
-                        console.error('Failed to update movie details:', movieUpdateError);
-                        console.error('Error code:', movieUpdateError.code);
-                        console.error('Error message:', movieUpdateError.message);
-                        LibraryUtils.ui.showStatusMessage('Note: Movie details update failed, but personal data will still be saved.', 'warning');
-                        // Continue with personal data update - don't fail the whole operation
-                    }
-                }
-
-                const saveBtn = document.getElementById('save-btn');
-                saveBtn.classList.add('saving');
-
-                const watchedDateElement = document.getElementById('watched-date');
-                const watchedDateValue = watchedDateElement ? watchedDateElement.value || null : null;
-                const updatedData = {
-                    movieId: movieId,
-                    rating: currentRating,
-                    watched: watchedToggle.dataset.active === 'true',
-                    owned: ownedToggle.dataset.active === 'true',
-                    review: document.getElementById('comments').value.trim(),
-                    interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                    watchedDate: watchedDateValue            
-                    };
-
-// Find this section in the form submission and replace it:
-                if (updatedData.owned) {
-                    // Get selected edition types
-                    const editionTypes = [];
-                    document.querySelectorAll('input[id^="edition-"]:checked').forEach(cb => {
-                        editionTypes.push(cb.value);
-                    });
-
-                    // Get selected region
-                    const region = document.querySelector('input[name="region"]:checked')?.value || 'Region 1';
-
-                    // Get selected features
-                    const features = [];
-                    document.querySelectorAll('input[id^="feature-"]:checked').forEach(cb => {
-                        features.push(cb.value);
-                    });
-
-                    const newPhysicalData = {
-                        format: document.getElementById('edition-format').value,
-                        edition: editionTypes.join(', ') || 'Standard',
-                        region: region,
-                        distributor: document.getElementById('edition-distributor').value.trim(),
-                        features: features,
-                        barcode: document.getElementById('upc-code').value.trim()
-                    };
-
-                    // NEW: Create or update physical copy
-                    let physicalCopyId = null;
-                    
-                    if (newPhysicalData.barcode) {
-                        const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
-                            newPhysicalData.barcode,
-                            newPhysicalData.format,
-                            newPhysicalData.edition,
-                            newPhysicalData.region
-                        );
-
-                        // Check if this physical copy already exists
-                        const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-                        
-                        if (existingCopy) {
-                            physicalCopyId = existingCopy.id;
-                        } else {
-                            physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
-                                movieId, 
-                                newPhysicalData, 
-                                user.uid
-                            );
-                        }
-                    }
-
-                    // NEW: Handle duplicate detection for edit page
-                    if (physicalCopyId) {
-                        // Check if user already has this copy
-                        const existingInteractionDoc = await db.collection('users')
-                            .doc(user.uid)
-                            .collection('movieInteractions')
-                            .doc(movieId)
-                            .get();
-                        
-                        let physicalCopiesArray = [];
-                        if (existingInteractionDoc.exists) {
-                            const existingData = existingInteractionDoc.data();
-                            physicalCopiesArray = existingData.physicalCopies || [];
-                            
-                            if (physicalCopiesArray.includes(physicalCopyId)) {
-                                const currentCount = physicalCopiesArray.filter(id => id === physicalCopyId).length;
-                                const shouldAddAnyway = confirm(
-                                    `You already own ${currentCount} copy/copies of this edition. Add another copy anyway?`
-                                );
-                                
-                                if (shouldAddAnyway) {
-                                    physicalCopiesArray.push(physicalCopyId);
-                                }
-                            } else {
-                                physicalCopiesArray.push(physicalCopyId);
-                            }
-                        } else {
-                            physicalCopiesArray = [physicalCopyId];
-                        }
-                        
-                        updatedData.physicalCopies = physicalCopiesArray;
-                    }
-                    // DEPRECATED: Keep for backward compatibility
-                    updatedData.physicalEdition = newPhysicalData;
-                    updatedData.upc = newPhysicalData.barcode;
-                }
-
-                try {
-                    await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(updatedData, { merge: true });
-                    LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');
-                    setTimeout(() => window.location.href = `movie-details.html?id=${movieId}`, 1500);
-                } catch (error) {
-                    console.error("Error updating movie:", error);
-                    LibraryUtils.ui.showStatusMessage('Error saving changes.', 'error');
-                } finally {
-                    saveBtn.classList.remove('saving');
-                }
-            });
-            
-            // Barcode Scanner Logic
-            const scanBtn = document.getElementById('scan-barcode-btn');
-            const stopBtn = document.getElementById('stop-scanner-btn');
-            const video = document.getElementById('scanner-video');
-
-            // Delete Button Logic
-            const deleteBtn = document.getElementById('delete-btn');
-            deleteBtn.addEventListener('click', async () => {
-                if (!confirm('Are you sure you want to delete this movie from your collection? This cannot be undone.')) return;
-
-                const user = auth.currentUser;
-                if (!user) return;
-
-                deleteBtn.classList.add('loading');
-                try {
-                    await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).delete();
-                    
-                    const otherInteractions = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).limit(1).get();
-                    if (otherInteractions.empty) {
-                        await db.collection('movies').doc(movieId).delete();
-                    }
-
-                    LibraryUtils.ui.showStatusMessage('Movie deleted from your collection.', 'success');
-                    setTimeout(() => window.location.href = 'index.html', 1500);
-                } catch (error) {
-                    console.error('Error deleting movie:', error);
-                    LibraryUtils.ui.showStatusMessage('Failed to delete movie.', 'error');
-                } finally {
-                    deleteBtn.classList.remove('loading');
-                }
-            });
-        });
-async function checkEditPermissions(movieId) {
-    // Wait for auth state to be available
-    const user = auth.currentUser;
-    if (!user) {
-        console.log('User not authenticated yet, waiting...');
-        return;
-    }
-    
-    try {
-        const [movieDoc, adminDoc] = await Promise.all([
-            db.collection('movies').doc(movieId).get(),
-            db.collection('admins').doc(user.uid).get()
-        ]);
-        
-        if (!movieDoc.exists) {
-            throw new Error('Movie not found');
-        }
-
-        const movieData = movieDoc.data();
-        const isOriginalUploader = movieData.originalUploaderId === user.uid;
-        const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
-        
-        const hasFullEditRights = isOriginalUploader || isAdmin;
-        
-        setupEditMode(hasFullEditRights, movieData);
-        
-        if (hasFullEditRights && isAdmin && !isOriginalUploader) {
-            showAdminIndicator();
-        }
-        
-    } catch (error) {
-        console.error('Permission check failed:', error);
-        // Default to limited mode
-        setupEditMode(false, null);
-    }
-    console.log('Checking permissions for user:', user.uid);
-    console.log('Movie original uploader:', movieData.originalUploaderId);
-    console.log('Is original uploader:', isOriginalUploader);
-    console.log('Admin doc exists:', adminDoc.exists);
-    if (adminDoc.exists) {
-        console.log('Admin is active:', adminDoc.data().isActive);
-    }
-    console.log('Has full edit rights:', hasFullEditRights);
-}
-function setupEditMode(hasFullRights, movieData) {
-    if (hasFullRights) {
-        // Show full edit mode
-        document.getElementById('tmdbSearchSection').style.display = 'block';
-        document.getElementById('movieDetailsForm').style.display = 'block';
-        document.getElementById('contentTypeSection').style.display = 'block';
-        
-        // Make fields editable
-        ['edit-title', 'edit-year', 'edit-director', 'edit-genre', 'edit-cast', 'edit-summary'].forEach(id => {
-            const field = document.getElementById(id);
-            if (field) field.removeAttribute('readonly');
-        });
-        
-        // Initialize TMDB search
-        initializeTMDBSearch();
-        
-        // Populate with current movie data
-        if (movieData) {
-            populateMovieFields(movieData);
-        }
-        
-        // Store for form submission
-        window.hasFullEditRights = true;
-    } else {
-        // Limited mode - keep fields readonly
-        document.getElementById('tmdbSearchSection').style.display = 'none';
-        document.getElementById('movieDetailsForm').style.display = 'none';
-        document.getElementById('contentTypeSection').style.display = 'none';
-        
-        // Update page title
-        document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
-        
-        // Store for form submission
-        window.hasFullEditRights = false;
-    }
-}
-
-function showAdminIndicator() {
-    const adminIndicator = document.createElement('p');
-    adminIndicator.className = 'admin-indicator';
-    adminIndicator.innerHTML = '👑 editing as admin';
-    document.querySelector('.hero-subtitle').after(adminIndicator);
-}
-
-async function initializeTMDBSearch() {
+        };
+    };
+    async function initializeTMDBSearch() {
     const searchInput = document.getElementById('tmdb-search');
     const searchBtn = document.getElementById('tmdb-search-btn');
     const resultsContainer = document.getElementById('tmdb-results');
@@ -943,8 +738,8 @@ async function initializeTMDBSearch() {
             performSearch();
         }
     });
-}
-function displayTMDBResults(results, isNewSearch) {
+    }
+    function displayTMDBResults(results, isNewSearch) {
     const resultsContainer = document.getElementById('tmdb-results');
     if (!resultsContainer) return;
 
@@ -995,8 +790,8 @@ function displayTMDBResults(results, isNewSearch) {
             selectTMDBResult(id, type);
         });
     });
-}
-async function selectTMDBResult(id, type) {
+    }
+    async function selectTMDBResult(id, type) {
     if (!id || !type) return;
 
     try {
@@ -1047,8 +842,8 @@ async function selectTMDBResult(id, type) {
         if (searchInput) {
             searchInput.value = '';
         }
-}
-function populateMovieFields(movieData) {
+    }
+    function populateMovieFields(movieData) {
     document.getElementById('edit-title').value = movieData.title || '';
     document.getElementById('edit-year').value = movieData.year || '';
     document.getElementById('edit-director').value = movieData.director || '';
@@ -1059,210 +854,135 @@ function populateMovieFields(movieData) {
     
     // Set content type
     updateContentTypeToggle(movieData.contentType || 'movie');
-}
-function updateContentTypeToggle(selectedValue) {
+    } 
+    function updateContentTypeToggle(selectedValue) {
     const toggleContainer = document.getElementById('contentTypeToggle');
     if (toggleContainer) {
         toggleContainer.querySelectorAll('.content-type-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.value === selectedValue);
         });
     }
-}
-async function initializeEditScanner() {
-    // Get references to the UI elements
-    const scanBtn = document.getElementById('scan-barcode-btn');
-    const stopBtn = document.getElementById('stop-scanner-btn');
-    const scannerSection = document.getElementById('scanner-section');
-    const videoEl = document.getElementById('scanner-video');
-
-    // Create a new ScannerManager instance
-    editScanner = new ScannerManager({
-        continuous: false, // Stop after one successful scan
-        onBarcodeScanned: async (barcode) => {
-            // When a barcode is found, hide the scanner UI
-            scannerSection.style.display = 'none';
-
-            try {
-                // Use the centralized lookup utility
-                LibraryUtils.ui.showStatusMessage('Looking up barcode...', 'info');
-                const { physicalEdition } = await MediaLookupUtils.completeMovieLookup(barcode);
-
-                // Populate the editable form with the new data
-                document.getElementById('edition-format').value = physicalEdition.format || '';
-                document.getElementById('edition-type').value = physicalEdition.edition || '';
-                document.getElementById('edition-region').value = physicalEdition.region || '';
-                document.getElementById('edition-distributor').value = physicalEdition.distributor || '';
-                document.getElementById('edition-features').value = physicalEdition.features.join(', ');
-                document.getElementById('upc-code').value = barcode;
-
-                LibraryUtils.ui.showStatusMessage('Physical edition details updated!', 'success');
-
-            } catch (error) {
-                console.error('Barcode lookup failed:', error);
-                LibraryUtils.ui.showStatusMessage(error.message, 'error');
-            }
-        },
-        onStatusUpdate: (message, type) => {
-            ScannerUI.updateStatus(message, type, 'scannerStatus');
-        },
-        onError: (message) => {
-            LibraryUtils.ui.showStatusMessage(message, 'error');
-            scannerSection.style.display = 'none';
-        }
-    });
-
-        // Initialize the scanner and set up button event listeners
-        const initialized = await editScanner.initialize();
-        if (!initialized) {
-            scanBtn.disabled = true;
-            scanBtn.textContent = 'Scanner N/A';
+    }
+    // --- Main Logic and Event Listeners ---
+    if (!movieId) {
+            window.location.href = 'index.html';
             return;
         }
+        updatePageContext(fromParam);
 
-        scanBtn.addEventListener('click', async () => {
-            document.getElementById('editablePhysicalForm').style.display = 'block';
-            document.getElementById('currentPhysicalEdition').style.display = 'none';
-            scannerSection.style.display = 'block';
-            await editScanner.startCamera(videoEl, 'scannerStatus');
-        });
-
-        stopBtn.addEventListener('click', () => {
-            editScanner.stopCamera();
-            scannerSection.style.display = 'none';
-        });
-}
-async function displayCurrentPhysicalEdition(userData) {
-    const physicalSection = document.getElementById('physical-edition-details');
-    const editableForm = document.getElementById('editablePhysicalForm');
-
-    if (userData.owned && userData.physicalCopies && userData.physicalCopies.length > 0) {
-        physicalSection.style.display = 'block';
-        editableForm.style.display = 'block';
-
-        // NEW: Load physical copy data from the physicalCopies collection
-        try {
-            const copyId = userData.physicalCopies[0]; // Show first copy for now
-            const copyDoc = await db.collection('physicalCopies').doc(copyId).get();
-            
-            if (copyDoc.exists) {
-                const copyData = copyDoc.data();
-                
-                // Populate form with physical copy data
-                document.getElementById('edition-format').value = copyData.format || '';
-                
-                // Handle edition types (convert string to checkboxes)
-                const editionTypes = (copyData.edition || '').split(',').map(e => e.trim());
-                document.querySelectorAll('input[id^="edition-"]').forEach(cb => {
-                    cb.checked = editionTypes.includes(cb.value);
-                });
-
-                // Set region radio button
-                const regionRadio = document.querySelector(`input[name="region"][value="${copyData.region || 'Region 1'}"]`);
-                if (regionRadio) regionRadio.checked = true;
-
-                // Set other fields
-                document.getElementById('edition-distributor').value = copyData.distributor || '';
-                
-                // Handle features
-                const features = Array.isArray(copyData.features) ? copyData.features : [];
-                document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
-                    cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
-                });
-
-                document.getElementById('upc-code').value = copyData.barcode || '';
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                loadMovieData(user.uid, movieId);
+                initializeEditScanner();
+                checkEditPermissions(movieId);
             } else {
-                console.warn('Physical copy not found:', copyId);
-                // Fall back to old data structure
-                displayLegacyPhysicalEdition(userData);
+                window.location.href = 'auth.html';
             }
-        } catch (error) {
-            console.error('Error loading physical copy:', error);
-            // Fall back to old data structure
-            displayLegacyPhysicalEdition(userData);
+        });
+
+        editionSelect.addEventListener('change', toggleOtherEditionField);
+
+        watchedToggle.addEventListener('click', () => {
+            const isActive = watchedToggle.dataset.active === 'true';
+            watchedToggle.dataset.active = !isActive;
+            document.getElementById('watched-date-group').style.display = !isActive ? 'block' : 'none';
+        });
+
+        ownedToggle.addEventListener('click', () => {
+            const isActive = ownedToggle.dataset.active === 'true';
+            ownedToggle.dataset.active = !isActive;
+            physicalDetailsSection.style.display = !isActive ? 'block' : 'none';
+        });
+
+    // Single, correct 'submit' event listener
+    editMovieForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const user = auth.currentUser;
+        if (!user) return;
+        saveBtn.classList.add('saving');
+
+        const watchedDateValue = document.getElementById('watched-date').value || null;
+        const updatedData = {
+            movieId: movieId,
+            rating: currentRating,
+            watched: watchedToggle.dataset.active === 'true',
+            owned: ownedToggle.dataset.active === 'true',
+            review: document.getElementById('comments').value.trim(),
+            interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+            watchedDate: watchedDateValue
+        };
+
+        if (updatedData.owned) {
+            let finalEditionValue = editionSelect.value;
+            if (finalEditionValue === 'other') {
+                finalEditionValue = document.getElementById('other-edition-text').value.trim();
+            }
+            const region = document.getElementById('region').value.trim();
+            const features = Array.from(document.querySelectorAll('input[id^="feature-"]:checked')).map(cb => cb.value);
+
+            const newPhysicalData = {
+                format: document.getElementById('edition-format').value,
+                edition: finalEditionValue,
+                region: region,
+                distributor: document.getElementById('edition-distributor').value.trim(),
+                features: features,
+                barcode: document.getElementById('upc-code').value.trim()
+            };
+
+            let physicalCopyId = null;
+            if (newPhysicalData.barcode) {
+                const uniqueId = MediaLookupUtils.generateUniqueIdentifier(newPhysicalData.barcode, newPhysicalData.format, newPhysicalData.edition, newPhysicalData.region);
+                const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+                physicalCopyId = existingCopy ? existingCopy.id : await MediaLookupUtils.createPhysicalCopy(movieId, newPhysicalData, user.uid);
+            }
+
+            if (physicalCopyId) {
+                const interactionDoc = await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).get();
+                const physicalCopiesArray = interactionDoc.exists ? (interactionDoc.data().physicalCopies || []) : [];
+                if (!physicalCopiesArray.includes(physicalCopyId)) {
+                    physicalCopiesArray.push(physicalCopyId);
+                }
+                updatedData.physicalCopies = physicalCopiesArray;
+            }
+            updatedData.physicalEdition = newPhysicalData;
+            updatedData.upc = newPhysicalData.barcode;
         }
-    } else if (userData.owned) {
-        // User owns but no physical copies reference - check legacy data
-        displayLegacyPhysicalEdition(userData);
-    } else {
-        physicalSection.style.display = 'none';
-    }
-}
-// Helper function for backward compatibility
-function displayLegacyPhysicalEdition(userData) {
-    const physicalSection = document.getElementById('physical-edition-details');
-    const editableForm = document.getElementById('editablePhysicalForm');
-    
-    physicalSection.style.display = 'block';
-    editableForm.style.display = 'block';
 
-    const edition = userData.physicalEdition || {};
-
-    // Populate dropdown
-    document.getElementById('edition-format').value = edition.format || userData.editionFormat || '';
-
-    // Populate edition checkboxes
-    const editionTypes = (edition.edition || userData.editionTitle || '').split(',').map(e => e.trim());
-    document.querySelectorAll('input[id^="edition-"]').forEach(cb => {
-        cb.checked = editionTypes.includes(cb.value);
+        try {
+            await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(updatedData, { merge: true });
+            LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');
+            setTimeout(() => window.location.href = `movie-details.html?id=${movieId}`, 1500);
+        } catch (error) {
+            console.error("Error updating movie:", error);
+            LibraryUtils.ui.showStatusMessage('Error saving changes.', 'error');
+        } finally {
+            saveBtn.classList.remove('saving');
+        }
     });
 
-    // Populate region radio button
-    const regionValue = edition.region || 'Region 1';
-    const regionRadio = document.querySelector(`input[name="region"][value="${regionValue}"]`);
-    if (regionRadio) regionRadio.checked = true;
-
-    // Populate distributor
-    document.getElementById('edition-distributor').value = edition.distributor || '';
-
-    // Populate features checkboxes
-    const features = Array.isArray(edition.features) ? edition.features : 
-                    (edition.features || '').split(',').map(f => f.trim());
-    document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
-        cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
+    // Single, correct 'delete' event listener
+    deleteBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to delete this movie from your collection? This cannot be undone.')) return;
+        const user = auth.currentUser;
+        if (!user) return;
+        deleteBtn.classList.add('loading');
+        try {
+            await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).delete();
+            const otherInteractions = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).limit(1).get();
+            if (otherInteractions.empty) {
+                await db.collection('movies').doc(movieId).delete();
+            }
+            LibraryUtils.ui.showStatusMessage('Movie deleted from your collection.', 'success');
+            setTimeout(() => window.location.href = 'index.html', 1500);
+        } catch (error) {
+            console.error('Error deleting movie:', error);
+            LibraryUtils.ui.showStatusMessage('Failed to delete movie.', 'error');
+        } finally {
+            deleteBtn.classList.remove('loading');
+        }
     });
-
-    // Populate barcode
-    document.getElementById('upc-code').value = userData.upc || '';
-}
-function savePhysicalEditionChanges() {
-    const format = document.getElementById('edition-format').value.trim();
-    const edition = document.getElementById('edition-type').value.trim();
-    const region = document.getElementById('edition-region').value.trim();
-    const distributor = document.getElementById('edition-distributor').value.trim();
-    const featuresText = document.getElementById('edition-features').value.trim();
-    const features = featuresText ? featuresText.split(',').map(f => f.trim()).filter(f => f) : [];
-    const barcode = document.getElementById('upc-code').value.trim();
-    
-    // Update physical edition data
-    physicalEditionData = {
-        format: format || 'Unknown',
-        edition: edition || 'Standard', 
-        region: region || 'Unknown',
-        distributor: distributor || 'Unknown',
-        features: features,
-        barcode: barcode
-    };
-    document.getElementById('currentEditionFormat').textContent = physicalEditionData.format;
-    document.getElementById('currentEditionType').textContent = physicalEditionData.edition;
-    document.getElementById('currentEditionRegion').textContent = physicalEditionData.region;
-    document.getElementById('currentEditionDistributor').textContent = physicalEditionData.distributor;
-    document.getElementById('currentEditionBarcode').textContent = physicalEditionData.barcode || 'None';
-    
-    const featuresRow = document.getElementById('currentEditionFeaturesRow');
-    const featuresSpan = document.getElementById('currentEditionFeatures');
-    if (features.length > 0) {
-        featuresRow.style.display = 'flex';
-        featuresSpan.textContent = features.join(', ');
-    } else {
-        featuresRow.style.display = 'none';
-    }
-    
-    // Switch back to display mode
-    togglePhysicalEditMode();
-    
-    LibraryUtils.ui.showStatusMessage('Physical edition details updated locally. Save the form to persist changes.', 'info');
-}
-
+ });
 // Mobile-friendly status message improvements
 function showStatusMessage(message, type) {
     const statusDiv = document.getElementById('statusMessage');
@@ -1389,114 +1109,114 @@ async function startScanner() {
     }
 }
 
-        // Improved form validation for mobile
-        function validateFormOnMobile() {
-            const titleValue = document.getElementById('title').value.trim();
-            if (!titleValue) {
-                showStatusMessage('Please search for and select a movie first.', 'error');
-                
-                // Scroll to search section on mobile
-                if (window.innerWidth <= 768) {
-                    document.querySelector('.search-section').scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                }
-                return false;
-            }
-            return true;
+// Improved form validation for mobile
+function validateFormOnMobile() {
+    const titleValue = document.getElementById('title').value.trim();
+    if (!titleValue) {
+        showStatusMessage('Please search for and select a movie first.', 'error');
+        
+        // Scroll to search section on mobile
+        if (window.innerWidth <= 768) {
+            document.querySelector('.search-section').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
         }
+        return false;
+    }
+    return true;
+}
 
-        // Mobile-friendly modal improvements
-        function showTimedRedirectModal(title, message, redirectUrl, duration = 5) {
-            const modal = document.getElementById('alertModal');
-            if (!modal) {
-                alert(message);
-                setTimeout(() => { window.location.href = redirectUrl; }, 100);
-                return;
-            }
+// Mobile-friendly modal improvements
+function showTimedRedirectModal(title, message, redirectUrl, duration = 5) {
+    const modal = document.getElementById('alertModal');
+    if (!modal) {
+        alert(message);
+        setTimeout(() => { window.location.href = redirectUrl; }, 100);
+        return;
+    }
 
-            const titleEl = modal.querySelector('#alertModalTitle');
-            const messageEl = modal.querySelector('#alertModalMessage');
-            const okBtn = modal.querySelector('#alertModalOk');
-            const closeBtn = modal.querySelector('#alertModalClose');
+    const titleEl = modal.querySelector('#alertModalTitle');
+    const messageEl = modal.querySelector('#alertModalMessage');
+    const okBtn = modal.querySelector('#alertModalOk');
+    const closeBtn = modal.querySelector('#alertModalClose');
 
-            titleEl.textContent = title;
-            okBtn.style.display = 'inline-flex';
-            closeBtn.style.display = 'flex';
+    titleEl.textContent = title;
+    okBtn.style.display = 'inline-flex';
+    closeBtn.style.display = 'flex';
 
-            let countdown = duration;
-            const isMobile = window.innerWidth <= 768;
-            
+    let countdown = duration;
+    const isMobile = window.innerWidth <= 768;
+    
+    messageEl.innerHTML = isMobile 
+        ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
+        : `${message}<br><br>Redirecting in ${countdown} seconds...`;
+    
+    modal.classList.add('active');
+
+    const interval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
             messageEl.innerHTML = isMobile 
                 ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
                 : `${message}<br><br>Redirecting in ${countdown} seconds...`;
-            
-            modal.classList.add('active');
-
-            const interval = setInterval(() => {
-                countdown--;
-                if (countdown > 0) {
-                    messageEl.innerHTML = isMobile 
-                        ? `${message}<br><br><strong>Redirecting in ${countdown}s...</strong>`
-                        : `${message}<br><br>Redirecting in ${countdown} seconds...`;
-                } else {
-                    clearInterval(interval);
-                    window.location.href = redirectUrl;
-                }
-            }, 1000);
-
-            const cleanup = () => {
-                clearInterval(interval);
-                modal.classList.remove('active');
-            };
-            
-            okBtn.onclick = () => {
-                cleanup();
-                window.location.href = redirectUrl;
-            };
-
-            closeBtn.onclick = cleanup;
-            
-            // Close modal on background tap for mobile
-            modal.onclick = (e) => {
-                if (e.target === modal) {
-                    cleanup();
-                }
-            };
+        } else {
+            clearInterval(interval);
+            window.location.href = redirectUrl;
         }
+    }, 1000);
 
-        // Add touch event improvements for mobile
-        document.addEventListener('DOMContentLoaded', () => {
-            // Improve touch targets on mobile
-            if (window.innerWidth <= 768) {
-                const style = document.createElement('style');
-                style.textContent = `
-                    .search-result {
-                        min-height: 60px;
-                        touch-action: manipulation;
-                    }
-                    .btn {
-                        touch-action: manipulation;
-                    }
-                    .star-rating-interactive .star {
-                        touch-action: manipulation;
-                        padding: var(--space-xs);
-                    }
-                `;
-                document.head.appendChild(style);
+    const cleanup = () => {
+        clearInterval(interval);
+        modal.classList.remove('active');
+    };
+    
+    okBtn.onclick = () => {
+        cleanup();
+        window.location.href = redirectUrl;
+    };
+
+    closeBtn.onclick = cleanup;
+    
+    // Close modal on background tap for mobile
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            cleanup();
+        }
+    };
+}
+
+// Add touch event improvements for mobile
+document.addEventListener('DOMContentLoaded', () => {
+    // Improve touch targets on mobile
+    if (window.innerWidth <= 768) {
+        const style = document.createElement('style');
+        style.textContent = `
+            .search-result {
+                min-height: 60px;
+                touch-action: manipulation;
             }
-            
-            // Prevent zoom on input focus for iOS
-            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-                const inputs = document.querySelectorAll('input, textarea, select');
-                inputs.forEach(input => {
-                    if (parseFloat(getComputedStyle(input).fontSize) < 16) {
-                        input.style.fontSize = '16px';
-                    }
-                });
+            .btn {
+                touch-action: manipulation;
+            }
+            .star-rating-interactive .star {
+                touch-action: manipulation;
+                padding: var(--space-xs);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Prevent zoom on input focus for iOS
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        const inputs = document.querySelectorAll('input, textarea, select');
+        inputs.forEach(input => {
+            if (parseFloat(getComputedStyle(input).fontSize) < 16) {
+                input.style.fontSize = '16px';
             }
         });
+    }
+})
         
     </script>
     <footer id="footer-placeholder"></footer>

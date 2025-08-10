@@ -1683,7 +1683,7 @@ margin: 0;
 
 /* Enhanced Physical Copy Styling */
 .copy-format {
-  background: var(--color-brand-cyan);
+  background: var(--color-brand-primary);
   color: var(--color-primary-bg);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -1692,7 +1692,7 @@ margin: 0;
 }
 
 .copy-edition {
-  background: var(--color-brand-green);
+  background: var(--color-brand-yellow);
   color: var(--color-primary-bg);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -1701,7 +1701,7 @@ margin: 0;
 }
 
 .copy-region {
-  background: var(--color-brand-blue);
+  background: var(--color-brand-yellow);
   color: var(--color-primary-bg);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -2659,6 +2659,12 @@ input.error {
   max-width: var(--container-width-lg);
   margin: 0 auto;
   padding: var(--space-xl);
+  justify-content: center;
+  text-align: center;
+}
+
+.bulkScantitle{
+  text-align: center;
 }
 
 .hero-subtitle {
@@ -2713,6 +2719,7 @@ input.error {
   display: flex;
   gap: var(--space-xl);
   align-items: center;
+  justify-content: center;
 }
 
 .scanner-section {
@@ -2825,12 +2832,6 @@ input.error {
   margin: 0;
   font-family: var(--font-family-heading);
   font-size: var(--font-size-3xl);
-}
-
-/* Mobile responsive */
-@media (max-width: 768px) {
-
-  }
 }
 
 /* Needs Review highlighting */
@@ -3082,8 +3083,8 @@ input.error {
 }
 
 .copy-format {
-  background: var(--color-success);
-  color: var(--color-surface);
+  background: var(--color-brand-primary);
+  color: var(--color-brand-yellow);
   padding: 2px 6px;
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-xs);
@@ -3092,8 +3093,8 @@ input.error {
 }
 
 .copy-edition {
-  background: var(--color-warning);
-  color: var(--color-surface);
+  background: var(--color-brand-primary);
+  color: var(--color-brand-yellow);
   padding: 2px 6px;
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-xs);
@@ -3102,8 +3103,8 @@ input.error {
 }
 
 .copy-region {
-  background: var(--color-info);
-  color: var(--color-surface);
+  background: var(--color-brand-primary);
+  color: var(--color-brand-yellow);
   padding: 2px 6px;
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-xs);
@@ -3112,8 +3113,8 @@ input.error {
 }
 
 .copy-distributor {
-  background: var(--color-secondary);
-  color: var(--color-surface);
+  background: var(--color-brand-primary);
+  color: var(--color-brand-yellow);
   padding: 2px 6px;
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-xs);
@@ -3145,19 +3146,8 @@ input.error {
   font-weight: 500;
 }
 
-.copy-owner a:hover {
-  text-decoration: underline;
-}
-
 /* Bulk Scan Result Updates */
-.bulk-result-item.status-skipped {
-  border-left: 4px solid var(--color-info);
-  background: var(--color-info-light);
-}
 
-.bulk-result-item.status-skipped .bulk-result-title {
-  color: var(--color-info-dark);
-}
 
 .bulk-result-skipped {
   color: var(--color-info);
@@ -3182,53 +3172,6 @@ input.error {
   min-width: 120px;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-  .duplicate-copy-details {
-      padding: var(--space-md);
-  }
-  
-  .modal-buttons {
-      flex-direction: column;
-      gap: var(--space-sm);
-  }
-  
-  .modal-buttons .btn {
-    width: 100%;
-    min-width: unset;
-    .results-section .section-title {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-sm);
-  }
-
-  .compact-stats {
-    font-size: var(--font-size-xs);
-    gap: var(--space-sm);
-  }
-}
-  
-  .copy-format,
-  .copy-edition,
-  .copy-region,
-  .copy-distributor,
-  .copy-quantity {
-      display: inline-block;
-      margin: 2px;
-      font-size: 10px;
-      padding: 1px 4px;
-  }
-}
-
-/* Filter tab update for skipped items */
-.filter-btn[data-filter="skipped"] {
-  background: var(--color-info);
-  color: var(--color-surface);
-}
-
-.filter-btn[data-filter="skipped"]:hover {
-  background: var(--color-info-dark);
-}
 
 /* No physical copies state */
 .no-physical-copies {
@@ -3482,30 +3425,6 @@ input.error {
   flex-wrap: wrap;
 }
 
-/* Mobile responsive */
-@media (max-width: 768px) {
-    .review-container {
-        padding: 1rem 0.5rem;
-    }
-
-    .item-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .title-input-group {
-        flex-direction: column;
-    }
-
-    .review-actions {
-        flex-direction: column;
-    }
-
-    .completion-actions {
-        flex-direction: column;
-    }
-}
-
 /* Loading States */
 .loading-spinner {
   display: inline-block;
@@ -3618,37 +3537,93 @@ input.error {
     min-height: 44px;
     padding: var(--space-md) var(--space-lg);
   }
-}
-.bulk-scan-container {
-  padding: var(--space-lg) var(--space-md);
+  .bulk-scan-container {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .scan-stats {
+    gap: var(--space-xl);
+  }
+
+  .stat-card {
+    min-width: 100px;
+    padding: var(--space-lg) var(--space-xl);
+  }
+
+  .bulk-results-grid {
+    grid-template-columns: 1fr;
+    gap: var(--grid-gap-md);
+  }
+
+  .bulk-result-item {
+    padding: var(--space-md);
+    gap: var(--space-md);
+  }
+
+  .scanner-viewport-bulk video {
+    height: 280px;
+  }
+
+  .section-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+    .review-container {
+    padding: 1rem 0.5rem;
+  }
+
+  .item-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .title-input-group {
+    flex-direction: column;
+  }
+
+  .review-actions {
+    flex-direction: column;
+  }
+
+  .completion-actions {
+    flex-direction: column;
+  }
+
+  .duplicate-copy-details {
+    padding: var(--space-md);
 }
 
-.scan-stats {
-  gap: var(--space-xl);
-}
+  .modal-buttons {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
 
-.stat-card {
-  min-width: 100px;
-  padding: var(--space-lg) var(--space-xl);
-}
+  .modal-buttons .btn {
+  width: 100%;
+  min-width: unset;
+  }
 
-.bulk-results-grid {
-  grid-template-columns: 1fr;
-  gap: var(--grid-gap-md);
-}
-
-.bulk-result-item {
-  padding: var(--space-md);
-  gap: var(--space-md);
-}
-
-.scanner-viewport-bulk video {
-  height: 280px;
-}
-
-.section-title {
+  .results-section .section-title {
   flex-direction: column;
   align-items: flex-start;
+  gap: var(--space-sm);
+  }
+
+  .compact-stats {
+  font-size: var(--font-size-xs);
+  gap: var(--space-sm);
+  }
+
+  .copy-format,
+  .copy-edition,
+  .copy-region,
+  .copy-distributor,
+  .copy-quantity {
+    display: inline-block;
+    margin: 2px;
+    font-size: 10px;
+    padding: 1px 4px;
+  }
 }
 
 
