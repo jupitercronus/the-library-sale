@@ -934,19 +934,49 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newPhysicalData.barcode) {
                 const uniqueId = MediaLookupUtils.generateUniqueIdentifier(newPhysicalData.barcode, newPhysicalData.format, newPhysicalData.edition, newPhysicalData.region);
                 const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-                physicalCopyId = existingCopy ? existingCopy.id : await MediaLookupUtils.createPhysicalCopy(movieId, newPhysicalData, user.uid);
+                
+                if (existingCopy) {
+                    physicalCopyId = existingCopy.id;
+                    // UPDATE the existing physical copy document with new data
+                    await db.collection('physicalCopies').doc(physicalCopyId).update({
+                        format: newPhysicalData.format,
+                        edition: newPhysicalData.edition,
+                        region: newPhysicalData.region,
+                        distributor: newPhysicalData.distributor,
+                        features: newPhysicalData.features,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } else {
+                    physicalCopyId = await MediaLookupUtils.createPhysicalCopy(movieId, newPhysicalData, user.uid);
+                }
             }
 
             if (physicalCopyId) {
-                const interactionDoc = await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).get();
-                const physicalCopiesArray = interactionDoc.exists ? (interactionDoc.data().physicalCopies || []) : [];
+            const interactionDoc = await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).get();
+            const existingData = interactionDoc.exists ? interactionDoc.data() : {};
+            let physicalCopiesArray = existingData.physicalCopies || [];
+            
+            // Check if this is actually a NEW barcode or just an update
+            const oldBarcode = existingData.upc || '';
+            const isNewBarcode = newPhysicalData.barcode && newPhysicalData.barcode !== oldBarcode;
+            
+            if (isNewBarcode) {
+                // This is a genuinely new barcode, add to array if not already there
                 if (!physicalCopiesArray.includes(physicalCopyId)) {
                     physicalCopiesArray.push(physicalCopyId);
                 }
-                updatedData.physicalCopies = physicalCopiesArray;
+            } else {
+                // Same barcode - just ensure it's in the array once (don't add duplicates)
+                if (!physicalCopiesArray.includes(physicalCopyId)) {
+                    // Replace the old physicalCopyId if format/edition changed
+                    // Remove any old IDs that match this movie but different edition
+                    physicalCopiesArray = [physicalCopyId]; // Or keep existing if you want multiple copies
+                }
+                // If it's already there, we're just updating the physicalCopy document itself
             }
-            updatedData.physicalEdition = newPhysicalData;
-            updatedData.upc = newPhysicalData.barcode;
+            
+            updatedData.physicalCopies = physicalCopiesArray;
+        }
         }
 
         try {

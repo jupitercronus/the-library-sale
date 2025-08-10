@@ -282,14 +282,17 @@ async function initializePage() {
         resultCountId: 'resultCount',
         loadMoreBtnId: 'loadMoreBtn',
         onSelect: (id, type, element) => {
-            // This is the page-specific logic for what happens on select
             selectMedia(id, type, element); 
         }
     });
 
-    ScannerUI.createManualEntryModal(async (barcode) => {
-        await movieScanner.addManualBarcode(barcode); 
-        return true; 
+    // Initialize the manual entry modal with proper callback
+    ScannerUI.initialize(async (barcode) => {
+        // Let the scanner manager handle it through its normal flow
+        if (movieScanner) {
+            return await movieScanner.addManualBarcode(barcode);
+        }
+        return false;
     });
 
     document.getElementById('manualBarcodeBtn').addEventListener('click', () => {
@@ -637,7 +640,7 @@ async function initializeMovieScanner() {
         
         const contentType = tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie');
         updateContentTypeToggle(contentType);
-                
+
         const confidence = tmdbData.matchScore || 0;
             const needsReview = MediaLookupUtils.needsManualReview(tmdbData, upcData.originalTitle, null);
             
