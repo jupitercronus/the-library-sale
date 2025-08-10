@@ -22,12 +22,44 @@
 <body class="home-page">
     <header id="navbar-placeholder"></header>
     <main class="container">
-        <section class="hero-section" style="text-align: center; margin-bottom: var(--space-4xl);">
-            <h1>activity feed</h1>
+        <section class="quick-access-section">
+            <div class="quick-access-grid">
+                <a href="my-stacks.html" class="action-card-link">
+                    <div class="action-card">
+                        <span class="action-card-icon icon icon-poster"></span>
+                        <div class="action-card-text">
+                            <h3 class="action-card-title">my stacks</h3>
+                            <p class="action-card-subtitle">explore your collection</p>
+                        </div>
+                    </div>
+                </a>
+        
+                <a href="lists.html" class="action-card-link">
+                    <div class="action-card">
+                        <span class="action-card-icon icon icon-list"></span>
+                        <div class="action-card-text">
+                            <h3 class="action-card-title">my lists</h3>
+                            <p class="action-card-subtitle">organize and share favorites</p>
+                        </div>
+                    </div>
+                </a>
+        
+                <button type="button" id="addMediaBtn" class="action-card-link">
+                    <div class="action-card">
+                        <span class="action-card-icon icon icon-add"></span>
+                        <div class="action-card-text">
+                            <h3 class="action-card-title">Add Media</h3>
+                            <p class="action-card-subtitle">Scan a barcode or search</p>
+                        </div>
+                    </div>
+                </button>
+            </div>
         </section>
-    
+        <!-- Main Two-Column Layout -->
         <div class="home-layout">
+            <!-- Activity Feed Column -->
             <div id="activityFeedContainer">
+                <h1 class="activity-feed-title">recent activity</h1>
                 <div class="activity-item-skeleton">
                     <div class="skeleton activity-skeleton-header"></div>
                     <div class="activity-skeleton-body">
@@ -85,6 +117,28 @@
 
     <footer id="footer-placeholder"></footer>
 
+    <div class="modal" id="addMediaModal">
+        <div class="modal-content" style="text-align: center;">
+            <h3>do u have one or many?</h3>
+            <p class="section-subtitle">choose the best method for you.</p>
+            <div class="modal-buttons" style="flex-direction: grid; align-items: center;">
+                <a href="add-movie.html" class="btn btn-lg btn-primary">
+                    <span class="icon icon-add"></span>
+                </a>
+                <span class="modal-button-text">one thing</span>
+                <a href="bulk-scan.html" class="btn btn-lg btn-primary">
+                    <span class="icon icon-bulk"></span>
+                </a>
+                <span class="modal-button-text">many things </span>
+                </a>
+            </div>
+            <button class="btn-danger modal-close-btn" id="closeAddMediaModal" title="Close">
+                <span class="icon icon-close"></span>
+            </button>
+        </div>
+    </div>
+
+
     <script>
         // --- Firebase & Globals ---
         const firebaseConfig = {
@@ -108,6 +162,30 @@
                 loadLatestComments(); 
                 loadLatestRatings();
             });
+
+            // --- ADD THIS NEW LOGIC FOR THE MODAL ---
+            const addMediaBtn = document.getElementById('addMediaBtn');
+            const addMediaModal = document.getElementById('addMediaModal');
+            const closeAddMediaModal = document.getElementById('closeAddMediaModal');
+
+            if (addMediaBtn && addMediaModal && closeAddMediaModal) {
+                // Show the modal when the "Add Media" card is clicked
+                addMediaBtn.addEventListener('click', () => {
+                    addMediaModal.classList.add('active');
+                });
+
+                // Hide the modal when the close button is clicked
+                closeAddMediaModal.addEventListener('click', () => {
+                    addMediaModal.classList.remove('active');
+                });
+
+                // Hide the modal when clicking on the background overlay
+                addMediaModal.addEventListener('click', (e) => {
+                    if (e.target === addMediaModal) {
+                        addMediaModal.classList.remove('active');
+                    }
+                });
+            }
         });
 
         async function loadActivityFeed() {
@@ -156,7 +234,7 @@
 
         function renderActivityFeed(interactions, userMap, movieMap) {
         const feedContainer = document.getElementById('activityFeedContainer');
-        feedContainer.innerHTML = ''; // Clear skeleton
+        feedContainer.innerHTML = '<h1 class="activity-feed-title">recent activity</h1>';
 
         for (const interaction of interactions) {
             const user = userMap.get(interaction.userId);

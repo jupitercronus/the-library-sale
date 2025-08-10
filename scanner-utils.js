@@ -483,6 +483,12 @@ const MediaLookupUtils = {
     async _fetchUPCData(barcode) {
         try {
             const response = await fetch(`${this.UPC_BASE_URL}?upc=${encodeURIComponent(barcode)}`);
+
+            //Add this check for rate limiting
+            if (response.status === 429) {
+            console.warn('API Rate Limit Hit! Pausing queue...');
+            throw new Error('RATE_LIMIT'); 
+            }
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -611,6 +617,11 @@ const MediaLookupUtils = {
                 try {
                     const searchUrl = `${this.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(strategy.query)}`;
                     const response = await fetch(searchUrl);
+
+                    if (response.status === 429) {
+                        console.warn('API Rate Limit Hit during TMDB search! Pausing queue...');
+                        throw new Error('RATE_LIMIT'); 
+                    }
                     
                     if (!response.ok) continue;
                     
@@ -642,6 +653,10 @@ const MediaLookupUtils = {
                     }
                     
                 } catch (strategyError) {
+                    // Re-throw the rate limit error so the queue can catch it
+                    if (strategyError.message === 'RATE_LIMIT') {
+                        throw strategyError;
+                    }
                     console.warn(`Strategy "${strategy.query}" failed:`, strategyError);
                     continue;
                 }

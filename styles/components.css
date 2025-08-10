@@ -254,6 +254,7 @@
 .icon-list { -webkit-mask-image: var(--icon-list); mask-image: var(--icon-list); }
 .icon-bulk { -webkit-mask-image: var(--icon-bulk); mask-image: var(--icon-bulk); }
 .icon-person { -webkit-mask-image: var(--icon-person); mask-image: var(--icon-person); }
+.icon-poster {-webkit-mask-image: var(--icon-poster); mask-image: var(--icon-poster); }
 
 /* ===== STAR RATING SYSTEM ===== */
 /* Your star rating components */

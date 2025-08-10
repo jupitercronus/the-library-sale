@@ -26,21 +26,35 @@
     <main class="main-container">
         <!-- Profile Header Card -->
         <section class="profile-header-card">
+            <!-- Profile Header with avatar and badges -->
             <div class="profile-header-content">
-                <!-- Avatar Section -->
                 <div class="profile-avatar-section">
                     <div class="profile-avatar" id="profileAvatar" title="Click to change avatar (coming soon)">
                         <span class="icon icon-person"></span>
                     </div>
                     <h1 class="username-display" id="usernameDisplay">Loading...</h1>
-                    <!-- Add this new badges section -->
-                    <div class="profile-badges">
-                        <div class="badges-grid" id="badgesGrid">
-                            <!-- Badges will be populated by JavaScript -->
+            
+                    <div class="profile-actions">
+                        <div class="profile-action-item">
+                            <a href="my-stacks.html" class="btn btn-lg btn-secondary" title="my stacks">
+                                <span class="icon icon-poster"></span>
+                            </a>
+                            <span class="action-subtitle">my stacks</span>
+                        </div>
+                    
+                        <div class="profile-action-item">
+                            <a href="lists.html" class="btn btn-lg btn-secondary" title="my lists">
+                                <span class="icon icon-list"></span>
+                            </a>
+                            <span class="action-subtitle">my lists</span>
                         </div>
                     </div>
+                    
+                    <div class="profile-badges">
+                        <div class="badges-grid" id="badgesGrid">
+                            </div>
+                    </div>
                 </div>
-                
                 <!-- Main Profile Info -->
                 <div class="profile-main-info">
                     <!-- Movie Quote Section -->
@@ -237,18 +251,29 @@
             const urlParams = new URLSearchParams(window.location.search);
             viewedUserId = urlParams.get('id');
 
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                if (!viewedUserId && user) {
-                    viewedUserId = user.uid;
-                }
+            auth.onAuthStateChanged(async user => {
+            currentUser = user;
+            
+            if (user) {
+                viewedUserId = urlParams.get('id') || user.uid;
                 
-                if (viewedUserId) {
-                    loadProfileHeader(viewedUserId);
-                } else {
-                    window.location.href = 'auth.html';
+                // Load profile data
+                await loadProfileHeader(viewedUserId);
+                
+                // Preload collection explorer page for faster navigation
+                if (viewedUserId === user.uid) { // Only preload for own profile
+                    // Preload the HTML
+                    fetch('/my-stacks.html').then(() => {
+                        console.log('Collection explorer preloaded');
+                    }).catch(() => {}); // Silent fail
+                    
+                    // Optional: Also prefetch the user's collection data
+                    preloadCollectionData(user.uid);
                 }
-            });
+            } else {
+                window.location.href = 'auth.html';
+            }
+        });
 
             setupQuoteEditing();
         });
@@ -297,6 +322,42 @@
             }
         }
 
+        async function preloadCollectionData(userId) {
+            try {
+                // Fetch and cache the collection data
+                const snapshot = await db.collection('users')
+                    .doc(userId)
+                    .collection('movieInteractions')
+                    .where('owned', '==', true)
+                    .get();
+                
+                if (!snapshot.empty) {
+                    // Store in localStorage for the collection page to use
+                    const CACHE_KEY = 'dvd_collection_cache';
+                    const CACHE_EXPIRY_KEY = 'dvd_collection_cache_expiry';
+                    const CACHE_DURATION = 30 * 60 * 1000;
+                    
+                    // Process the data (simplified version)
+                    const movieIds = snapshot.docs.map(doc => doc.id);
+                    const interactions = {};
+                    snapshot.docs.forEach(doc => {
+                        interactions[doc.id] = doc.data();
+                    });
+                    
+                    // You could cache just the interactions for now
+                    localStorage.setItem(CACHE_KEY + '_preview', JSON.stringify({
+                        userId: userId,
+                        movieIds: movieIds,
+                        interactions: interactions,
+                        timestamp: new Date().getTime()
+                    }));
+                    
+                    console.log('Collection data pre-cached');
+                }
+            } catch (error) {
+                console.error('Preload failed:', error);
+            }
+        }
         // Updated loadLastWatched - uses watchedDate instead of interactionDate
     async function loadLastWatched(interactions) {
         // Filter for interactions that have a watchedDate

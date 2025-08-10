@@ -171,6 +171,12 @@
         let scanResults = [];
         let currentFilter = 'all';
         let processedBarcodes = new Set(); // Prevent duplicates
+
+        //Add a processing queue
+        const scanQueue = [];
+        let isProcessingQueue = false;
+        const PROCESS_INTERVAL = 500; // Process one item every .5 seconds (500ms). Adjust as needed.
+
         
         const apiCache = new CacheManager('bulk_scan_cache_', 50, 2); // 2 hour cache for bulk scanning
         const TMDB_BASE_URL = '/api/tmdb';
@@ -269,6 +275,47 @@ async function initializeBulkScanner() {
                 indicator.className = 'scan-result-indicator';
             }, 2800); // Slightly less than the 3000ms pause
     }
+//Create a function to process the queue
+async function processScanQueue() {
+    if (isProcessingQueue || scanQueue.length === 0) {
+        isProcessingQueue = false;
+        return; // Stop if nothing to process or already running
+    }
+
+    isProcessingQueue = true;
+    const barcode = scanQueue.shift(); // Get the oldest barcode from the queue
+
+    // Update the UI to show that we are processing from the queue
+    updateScannerStatus(`Processing ${barcode} from queue... (${scanQueue.length} left)`, 'processing');
+    
+    // The entire logic should be inside the try...catch block
+    try {
+        // This is the single call to our lookup function
+        await processBarcodeLookup(barcode);
+        
+        // If successful, continue at the normal speed
+        setTimeout(processScanQueue, PROCESS_INTERVAL);
+
+    } catch (error) {
+        if (error.message === 'RATE_LIMIT') {
+            // WHOOPS! We hit the limit.
+            // 1. Put the barcode back at the front of the queue to be retried.
+            scanQueue.unshift(barcode); 
+            
+            // 2. Wait for a longer "penalty" period (e.g., 10 seconds).
+            const PENALTY_BOX_TIME = 10000;
+            updateScannerStatus(`Rate limit hit. Pausing for 10s...`, 'warning');
+            
+            // 3. Resume the queue after the pause.
+            setTimeout(processScanQueue, PENALTY_BOX_TIME);
+
+        } else {
+            // For any other error, log it and continue the queue normally.
+            console.error("An error occurred during barcode lookup:", error);
+            setTimeout(processScanQueue, PROCESS_INTERVAL);
+        }
+    }    
+}
 
     async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
@@ -451,6 +498,39 @@ function startOver() {
         LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
     }
 }
+//Function to show a toast notification
+function showToastNotification(message, status = 'info') {
+    // Create the toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${status}`;
+
+    // Create an icon
+    const icon = document.createElement('span');
+    const iconName = {
+        success: 'icon-confirm',
+        error: 'icon-close',
+        warning: 'icon-info', // Using info icon for warning
+        info: 'icon-info'
+    }[status];
+    icon.className = `icon ${iconName}`;
+
+    // Create the text
+    const text = document.createElement('p');
+    text.textContent = message;
+
+    // Assemble the toast
+    toast.appendChild(icon);
+    toast.appendChild(text);
+
+    // Add it to the page
+    document.body.appendChild(toast);
+
+    // The toast will remove itself after the CSS animation finishes (4 seconds)
+    toast.addEventListener('animationend', () => {
+        toast.remove();
+    });
+}
+
         // Enhanced keyboard shortcuts with hints
         document.addEventListener('keydown', (e) => {
             // Check the scanner's state directly from the manager object
@@ -547,7 +627,7 @@ function startOver() {
         const video = document.getElementById('scanner-video');
         await bulkScanner.startCamera(video, 'scannerStatus');
         }
-        async function processBarcodeResult(barcode) {
+async function processBarcodeLookup(barcode) {
     if (scanResults.some(r => r.barcode === barcode)) {
         console.log(`Barcode ${barcode} already in results, skipping`);
         showScanIndicator('warning', 'Already processed');
@@ -558,12 +638,12 @@ function startOver() {
     updateStats();
 
     try {
-        showScanIndicator('processing', 'Looking up...');
+        // The "Looking up..." indicator on the scanner is fine to keep, as it's brief.
+        updateScannerStatus(`Looking up ${barcode}...`, 'processing');
         
         const lookupResult = await MediaLookupUtils.completeMovieLookup(barcode);
         const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
 
-        // Try to add to database - this will show duplicate confirmation if needed
         try {
             await addMovieToDatabase(lookupResult);
             
@@ -589,9 +669,9 @@ function startOver() {
             scanResults.push(scanResult);
             
             if (status === 'needs_review') {
-                showScanIndicator('warning', `Needs Review: ${scanResult.title}`);
+                showToastNotification(`Needs Review: ${scanResult.title}`, 'warning');
             } else {
-                showScanIndicator('success', scanResult.title);
+                showToastNotification(`Found: ${scanResult.title}`, 'success');
             }
             
         } catch (addError) {
@@ -613,8 +693,8 @@ function startOver() {
                 };
 
                 scanResults.push(skipResult);
-                showScanIndicator('info', `Skipped: ${skipResult.title}`);
-            } else {
+                showToastNotification(`Skipped Duplicate: ${skipResult.title}`, 'info');
+                } else {
                 throw addError; // Re-throw other errors
             }
         }
@@ -634,14 +714,33 @@ function startOver() {
         };
         
         scanResults.push(failedResult);
-        showScanIndicator('error', `Failed: ${error.message}`);
-    }
+        showToastNotification(`Failed: ${error.message}`, 'error');
+        }
 
     updateStats();
     renderResults();
     saveProgressOnAction();
 }
-        function updateScannerStatus(message, type = 'info') {
+async function processBarcodeResult(barcode) {
+    // 1. Check if barcode has already been queued or processed
+    if (processedBarcodes.has(barcode) || scanQueue.includes(barcode)) {
+        console.log(`Barcode ${barcode} already in queue/results, skipping.`);
+        showScanIndicator('warning', 'Already queued');
+        return;
+    }
+
+    // 2. Add the new barcode to our records and the queue
+    processedBarcodes.add(barcode);
+    scanQueue.push(barcode);
+    showScanIndicator('success', `Queued (${scanQueue.length})`);
+    updateScannerStatus(`${scanQueue.length} item(s) in queue`, 'info');
+    
+    // 3. Start the queue processor if it's not already running
+    if (!isProcessingQueue) {
+        processScanQueue();
+    }
+}        
+function updateScannerStatus(message, type = 'info') {
             const statusEl = document.getElementById('scannerStatus');
             statusEl.textContent = message;
             statusEl.className = `scanner-status status-${type}`;
