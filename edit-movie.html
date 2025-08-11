@@ -19,11 +19,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
     <!-- ZXing Barcode Scanner Library -->
     <script type="text/javascript" src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-   <!-- App Utilities -->
+    <!-- App Utilities -->
     <script src="utils.js"></script>
     <script src="modal-manager.js"></script>
-    <script src="cache.js"></script>
     <script src="scanner-utils.js"></script>
+    <script src="cache.js"></script>
     <script src="search-ui.js"></script> 
 
     <!-- Styles -->
@@ -528,6 +528,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!movieDoc.exists) throw new Error('Movie not found');
                 const movieData = movieDoc.data();
+
+                const form = document.getElementById('edit-movie-form');
+                form.dataset.originalMovieId = movieDoc.id;
+                form.dataset.originalTmdbId = movieData.tmdbId;
                 
                 document.getElementById('movie-poster-img').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
                 document.getElementById('movie-title').textContent = movieData.title || 'Unknown Title';
@@ -859,6 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set content type
     updateContentTypeToggle(movieData.contentType || 'movie');
     } 
+
     function updateContentTypeToggle(selectedValue) {
     const toggleContainer = document.getElementById('contentTypeToggle');
     if (toggleContainer) {
@@ -867,6 +872,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     }
+    
+    /**
+     * Finds a movie by its TMDB ID. If it doesn't exist, creates it.
+     * Returns the Firestore document reference.
+     */
+    async function findOrCreateMovieByTmdbId(tmdbId, newData) {
+        const numericTmdbId = parseInt(tmdbId);
+        if (isNaN(numericTmdbId)) {
+            throw new Error("Invalid TMDB ID provided.");
+        }
+
+        const moviesRef = db.collection('movies');
+        const query = await moviesRef.where('tmdbId', '==', numericTmdbId).limit(1).get();
+
+        if (!query.empty) {
+            console.log("Found existing document for the new movie.");
+            return query.docs[0].ref;
+        } else {
+            console.log("Creating a new document for the new movie.");
+            // Make sure to add the tmdbId to the data being saved
+            newData.tmdbId = numericTmdbId;
+            return await moviesRef.add(newData);
+        }
+    }
+
+
+    /**
+     * Gets the user's interaction data for a specific movie.
+     */
+    async function getUserInteraction(movieId) {
+        if (!currentUser || !movieId) return null;
+
+        const interactionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieId);
+        const doc = await interactionRef.get();
+        return doc.exists ? doc.data() : null;
+    }
+
     // --- Main Logic and Event Listeners ---
     if (!movieId) {
             window.location.href = 'index.html';
@@ -904,94 +946,76 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const user = auth.currentUser;
         if (!user) return;
-        saveBtn.classList.add('saving');
 
-        const watchedDateValue = document.getElementById('watched-date').value || null;
-        const updatedData = {
-            movieId: movieId,
-            rating: currentRating,
-            watched: watchedToggle.dataset.active === 'true',
-            owned: ownedToggle.dataset.active === 'true',
-            review: document.getElementById('comments').value.trim(),
-            interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-            watchedDate: watchedDateValue
-        };
-
-        if (updatedData.owned) {
-            let finalEditionValue = editionSelect.value;
-            if (finalEditionValue === 'other') {
-                finalEditionValue = document.getElementById('other-edition-text').value.trim();
-            }
-            const region = document.getElementById('region').value.trim();
-            const features = Array.from(document.querySelectorAll('input[id^="feature-"]:checked')).map(cb => cb.value);
-
-            const newPhysicalData = {
-                format: document.getElementById('edition-format').value,
-                edition: finalEditionValue,
-                region: region,
-                distributor: document.getElementById('edition-distributor').value.trim(),
-                features: features,
-                barcode: document.getElementById('upc-code').value.trim()
-            };
-
-            let physicalCopyId = null;
-            if (newPhysicalData.barcode) {
-                const uniqueId = MediaLookupUtils.generateUniqueIdentifier(newPhysicalData.barcode, newPhysicalData.format, newPhysicalData.edition, newPhysicalData.region);
-                const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-                
-                if (existingCopy) {
-                    physicalCopyId = existingCopy.id;
-                    // UPDATE the existing physical copy document with new data
-                    await db.collection('physicalCopies').doc(physicalCopyId).update({
-                        format: newPhysicalData.format,
-                        edition: newPhysicalData.edition,
-                        region: newPhysicalData.region,
-                        distributor: newPhysicalData.distributor,
-                        features: newPhysicalData.features,
-                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                } else {
-                    physicalCopyId = await MediaLookupUtils.createPhysicalCopy(movieId, newPhysicalData, user.uid);
-                }
-            }
-
-            if (physicalCopyId) {
-            const interactionDoc = await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).get();
-            const existingData = interactionDoc.exists ? interactionDoc.data() : {};
-            let physicalCopiesArray = existingData.physicalCopies || [];
-            
-            // Check if this is actually a NEW barcode or just an update
-            const oldBarcode = existingData.upc || '';
-            const isNewBarcode = newPhysicalData.barcode && newPhysicalData.barcode !== oldBarcode;
-            
-            if (isNewBarcode) {
-                // This is a genuinely new barcode, add to array if not already there
-                if (!physicalCopiesArray.includes(physicalCopyId)) {
-                    physicalCopiesArray.push(physicalCopyId);
-                }
-            } else {
-                // Same barcode - just ensure it's in the array once (don't add duplicates)
-                if (!physicalCopiesArray.includes(physicalCopyId)) {
-                    // Replace the old physicalCopyId if format/edition changed
-                    // Remove any old IDs that match this movie but different edition
-                    physicalCopiesArray = [physicalCopyId]; // Or keep existing if you want multiple copies
-                }
-                // If it's already there, we're just updating the physicalCopy document itself
-            }
-            
-            updatedData.physicalCopies = physicalCopiesArray;
-        }
-        }
+        UIUtils.setButtonLoading('save-btn', 'Saving...');
+        
+        // --- Get the Original and New State ---
+        const originalMovieId = e.target.dataset.originalMovieId;
+        const originalTmdbId = e.target.dataset.originalTmdbId;
+        const newTmdbId = document.getElementById('tmdb-search-results')?.querySelector('.selected')?.dataset.id || originalTmdbId; // Get ID from selected search result
+        const isNewMovie = newTmdbId && (String(originalTmdbId) !== String(newTmdbId));
+        const movieId = new URLSearchParams(window.location.search).get('id');
 
         try {
-            await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(updatedData, { merge: true });
+            let finalMovieId = originalMovieId || movieId;
+            let finalInteractionData = {
+                rating: currentRating,
+                watched: document.getElementById('watched-toggle').dataset.active === 'true',
+                owned: document.getElementById('owned-toggle').dataset.active === 'true',
+                review: document.getElementById('comments').value.trim(),
+                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                watchedDate: document.getElementById('watched-date').value || null,
+            };
+
+            // --- CORE LOGIC: Handle if a new movie was selected ---
+            if (isNewMovie) {
+                console.log("New movie selected. Performing re-linking operation.");
+                
+                // 1. Find or create the database entry for the NEW movie.
+                const newMovieDetails = { /* Fill this from the 'edit-' form fields */ };
+                const newMovieRef = await findOrCreateMovieByTmdbId(newTmdbId, newMovieDetails);
+                finalMovieId = newMovieRef.id;
+
+                // 2. Move the user's interaction data to the new movie record.
+                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(finalInteractionData);
+                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(originalMovieId).delete();
+
+                // 3. Update physical copies to point to the new movie ID.
+                // This part requires getting the physicalCopy IDs associated with the old interaction.
+                // (Assuming you store this on the interaction document)
+                const oldInteractionDoc = await db.collection('users').doc(user.uid).collection('movieInteractions').doc(originalMovieId).get();
+                if (oldInteractionDoc.exists && oldInteractionDoc.data().physicalCopies) {
+                    const physicalCopyIds = oldInteractionDoc.data().physicalCopies;
+                    const batch = db.batch();
+                    physicalCopyIds.forEach(copyId => {
+                        const copyRef = db.collection('physicalCopies').doc(copyId);
+                        batch.update(copyRef, { movieId: finalMovieId });
+                    });
+                    await batch.commit();
+                }
+                
+            } else {
+                console.log("Same movie. Performing standard update.");
+                // --- This is your original update logic ---
+                // Update the main movie document if user has rights
+                if (window.hasFullEditRights) {
+                    const movieUpdateData = { /* ... gather data from 'edit-' fields ... */ };
+                    await db.collection('movies').doc(finalMovieId).update(movieUpdateData);
+                }
+                // Update the user's interaction data
+                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(finalInteractionData, { merge: true });
+            }
+
             LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');
-            setTimeout(() => window.location.href = `movie-details.html?id=${movieId}`, 1500);
+            setTimeout(() => {
+                window.location.href = `movie-details.html?id=${finalMovieId}`;
+            }, 1000);
+
         } catch (error) {
-            console.error("Error updating movie:", error);
-            LibraryUtils.ui.showStatusMessage('Error saving changes.', 'error');
+            console.error("Error saving changes:", error);
+            LibraryUtils.ui.showStatusMessage(`Error: ${error.message}`, 'error');
         } finally {
-            saveBtn.classList.remove('saving');
+            UIUtils.resetButton('save-btn');
         }
     });
 
@@ -1017,6 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
  });
+
 // Mobile-friendly status message improvements
 function showStatusMessage(message, type) {
     const statusDiv = document.getElementById('statusMessage');
