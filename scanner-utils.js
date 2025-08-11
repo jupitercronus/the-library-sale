@@ -542,7 +542,7 @@ const MediaLookupUtils = {
         
     },
 
- async searchTMDBForTitle(title, year = null, exactMatch = false) {
+    async searchTMDBForTitle(title, year = null, exactMatch = false) {
         // AGGRESSIVE CACHING - Check cache first
         const cacheKey = `tmdb_search_${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${year || 'noyear'}_${exactMatch}`;
         const cached = localStorage.getItem(cacheKey);
@@ -558,78 +558,27 @@ const MediaLookupUtils = {
             }
         }
 
-        console.log(`🔍 Fresh TMDB search: ${title} (${year || 'no year'})`);// Create more specific cache keys based on search strategy
-
-        const searchStrategy = exactMatch ? 'exact' : (year ? 'with_year' : 'broad');
-        const sessionCacheKey = `tmdb_search_${title}_${year}_${searchStrategy}`;
+        console.log(`🔍 Fresh TMDB search: ${title} (${year || 'no year'})`);
         
-        // Check session cache
-        if (this.sessionCache.has(sessionCacheKey)) {
-            return this.sessionCache.get(sessionCacheKey);
-        }
-        
+        // Use your existing _searchTMDB method for the actual search
         try {
-            // Build search URL
-            let searchUrl = `${this.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(title)}`;
+            const result = await this._searchTMDB(title, year, exactMatch);
             
-            if (year && !exactMatch) {
-                searchUrl += `&year=${year}`;
-            }
-            
-            const response = await fetch(searchUrl);
-            if (!response.ok) {
-                throw new Error(`TMDB search failed: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (!data.results || data.results.length === 0) {
-                throw new Error('No TMDB results found');
-            }
-            
-            // Find best match
-            let bestMatch = this.findBestTMDBMatch(data.results, title, year, exactMatch);
-            
-            if (!bestMatch) {
-                throw new Error('No suitable TMDB match found');
-            }
-            
-            // Get detailed data if needed
-            if (!bestMatch.credits) {
-                const detailsUrl = `${this.TMDB_BASE_URL}/${bestMatch.media_type || (bestMatch.first_air_date ? 'tv' : 'movie')}/${bestMatch.id}?append_to_response=credits`;
-                const detailsResponse = await fetch(detailsUrl);
-                if (detailsResponse.ok) {
-                    bestMatch = await detailsResponse.json();
-                    bestMatch.media_type = bestMatch.media_type || (bestMatch.first_air_date ? 'tv' : 'movie');
-                }
-            }
-            
-            // Cache both in session and localStorage
-            this.sessionCache.set(sessionCacheKey, bestMatch);
-            
-            // CACHE IN LOCALSTORAGE for persistence
+            // CACHE THE RESULT
             try {
-                localStorage.setItem(cacheKey, JSON.stringify(bestMatch));
+                localStorage.setItem(cacheKey, JSON.stringify(result));
                 console.log(`💾 Cached TMDB result: ${title}`);
             } catch (e) {
                 console.warn('Could not cache TMDB result:', e);
-                // Clear some space and try again
-                this.clearOldTMDBCache();
-                try {
-                    localStorage.setItem(cacheKey, JSON.stringify(bestMatch));
-                } catch (e2) {
-                    console.error('Still cannot cache TMDB result:', e2);
-                }
             }
             
-            return bestMatch;
+            return result;
             
         } catch (error) {
             console.error(`TMDB search failed for "${title}":`, error);
             throw error;
         }
     },
-
     /* Internal TMDB search with optimized queries */
     async _searchTMDB(title, year = null, exactMatch = false) {
         try {
@@ -1885,10 +1834,9 @@ const CachedFirestore = {
 
 // ===== DEVELOPMENT HELPERS =====
 
-const EnhancedDevHelpersDevHelpers = {
+const DevHelpers= {
     // Cache statistics
     getCacheStats() {
-        
         let totalItems = 0;
         let totalSize = 0;
         const categories = {};
@@ -1915,6 +1863,23 @@ const EnhancedDevHelpersDevHelpers = {
             quota: Math.round((totalSize / (5 * 1024 * 1024)) * 100) + '% of 5MB localStorage quota'
         };
     },
+
+    // Clear all cache
+    clearAllCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('dvd_cache_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`🧹 Cleared all cache (${cleared} items)`);
+    }
+}
+
+const EnhancedDevHelpers= {
+    // Cache statistics
     getAllCacheStats() {
         const stats = {
             movies: 0,
@@ -1941,19 +1906,6 @@ const EnhancedDevHelpersDevHelpers = {
         
         stats.totalSize = Math.round(stats.totalSize / 1024) + ' KB';
         return stats;
-    },
-
-    // Clear all cache
-    clearAllCache() {
-        let cleared = 0;
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('dvd_cache_')) {
-                localStorage.removeItem(key);
-                cleared++;
-            }
-        }
-        console.log(`🧹 Cleared all cache (${cleared} items)`);
     },
 
     // Skip Firestore reads in development

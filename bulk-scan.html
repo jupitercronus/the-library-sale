@@ -330,7 +330,7 @@ function saveReviewQueue() {
         console.warn('Could not save review queue:', e);
     }
 }
-async function addMovieToDatabaseCached(result) {
+async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
     try {
@@ -465,7 +465,7 @@ async function addMovieToDatabaseCached(result) {
         return { movieDocRef, physicalCopyId: null };
         
     } catch (error) {
-        console.error('Error in addMovieToDatabaseCached:', error);
+        console.error('Error in addMovieToDatabase:', error);
         throw error;
     }
 }
