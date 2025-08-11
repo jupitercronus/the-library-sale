@@ -897,7 +897,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     /**
      * Gets the user's interaction data for a specific movie.
      */
@@ -908,6 +907,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const doc = await interactionRef.get();
         return doc.exists ? doc.data() : null;
     }
+
+/**
+ * Gathers the core movie details from the editable form fields.
+ */
+function getMovieDataFromForm() {
+    const posterImg = document.getElementById('movie-poster-img');
+    const contentTypeToggle = document.getElementById('contentTypeToggle');
+
+    const movieData = {
+        title: document.getElementById('edit-title').value.trim(),
+        year: parseInt(document.getElementById('edit-year').value) || null,
+        director: document.getElementById('edit-director').value.trim(),
+        genre: document.getElementById('edit-genre').value.trim(),
+        cast: document.getElementById('edit-cast').value.split(',').map(c => c.trim()).filter(c => c),
+        overview: document.getElementById('edit-summary').value.trim(),
+        posterUrl: posterImg ? posterImg.src : null,
+        contentType: contentTypeToggle ? contentTypeToggle.querySelector('.active').dataset.value : 'movie'
+    };
+    return movieData;
+}
 
     // --- Main Logic and Event Listeners ---
     if (!movieId) {
@@ -941,7 +960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             physicalDetailsSection.style.display = !isActive ? 'block' : 'none';
         });
 
-    // Single, correct 'submit' event listener
+    // REPLACE the existing 'submit' listener with this one.
     editMovieForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = auth.currentUser;
@@ -952,13 +971,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Get the Original and New State ---
         const originalMovieId = e.target.dataset.originalMovieId;
         const originalTmdbId = e.target.dataset.originalTmdbId;
-        const newTmdbId = document.getElementById('tmdb-search-results')?.querySelector('.selected')?.dataset.id || originalTmdbId; // Get ID from selected search result
+        // Get ID from the element that has the 'selected' class after a TMDB search
+        const selectedResult = document.getElementById('tmdb-results')?.querySelector('.selected');
+        const newTmdbId = selectedResult ? selectedResult.dataset.id : originalTmdbId;
         const isNewMovie = newTmdbId && (String(originalTmdbId) !== String(newTmdbId));
-        const movieId = new URLSearchParams(window.location.search).get('id');
 
         try {
-            let finalMovieId = originalMovieId || movieId;
-            let finalInteractionData = {
+            let finalMovieId = originalMovieId;
+            
+            // --- FIX: Gather all interaction data and movie data from the form first ---
+            const interactionData = {
                 rating: currentRating,
                 watched: document.getElementById('watched-toggle').dataset.active === 'true',
                 owned: document.getElementById('owned-toggle').dataset.active === 'true',
@@ -966,28 +988,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
                 watchedDate: document.getElementById('watched-date').value || null,
             };
+            const movieDataFromForm = getMovieDataFromForm();
+
 
             // --- CORE LOGIC: Handle if a new movie was selected ---
             if (isNewMovie) {
                 console.log("New movie selected. Performing re-linking operation.");
                 
-                // 1. Find or create the database entry for the NEW movie.
-                const newMovieDetails = { /* Fill this from the 'edit-' form fields */ };
-                const newMovieRef = await findOrCreateMovieByTmdbId(newTmdbId, newMovieDetails);
+                // 1. Find or create the database entry for the NEW movie using data from the form.
+                const newMovieRef = await findOrCreateMovieByTmdbId(newTmdbId, movieDataFromForm);
                 finalMovieId = newMovieRef.id;
 
                 // 2. Move the user's interaction data to the new movie record.
-                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(finalInteractionData);
+                // Also add the physical copy IDs from the old interaction.
+                const oldInteraction = await getUserInteraction(originalMovieId);
+                if (oldInteraction) {
+                    interactionData.physicalCopies = oldInteraction.physicalCopies || [];
+                }
+                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(interactionData);
                 await db.collection('users').doc(user.uid).collection('movieInteractions').doc(originalMovieId).delete();
 
                 // 3. Update physical copies to point to the new movie ID.
-                // This part requires getting the physicalCopy IDs associated with the old interaction.
-                // (Assuming you store this on the interaction document)
-                const oldInteractionDoc = await db.collection('users').doc(user.uid).collection('movieInteractions').doc(originalMovieId).get();
-                if (oldInteractionDoc.exists && oldInteractionDoc.data().physicalCopies) {
-                    const physicalCopyIds = oldInteractionDoc.data().physicalCopies;
+                if (interactionData.physicalCopies && interactionData.physicalCopies.length > 0) {
                     const batch = db.batch();
-                    physicalCopyIds.forEach(copyId => {
+                    interactionData.physicalCopies.forEach(copyId => {
                         const copyRef = db.collection('physicalCopies').doc(copyId);
                         batch.update(copyRef, { movieId: finalMovieId });
                     });
@@ -996,14 +1020,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } else {
                 console.log("Same movie. Performing standard update.");
-                // --- This is your original update logic ---
-                // Update the main movie document if user has rights
+                // --- This is your original update logic, now with data ---
                 if (window.hasFullEditRights) {
-                    const movieUpdateData = { /* ... gather data from 'edit-' fields ... */ };
-                    await db.collection('movies').doc(finalMovieId).update(movieUpdateData);
+                    await db.collection('movies').doc(finalMovieId).update(movieDataFromForm);
                 }
                 // Update the user's interaction data
-                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(finalInteractionData, { merge: true });
+                await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(interactionData, { merge: true });
             }
 
             LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');

@@ -338,14 +338,14 @@ async function addMovieToDatabase(result) {
     try {
         let movieDocRef;
         
-        // FIXED: Use CachedFirestore instead of direct calls
+        //
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
-            if (existingDoc.exists) {
+            // Check if existingDoc is not null BEFORE checking if it exists
+            if (existingDoc && existingDoc.exists) {
                 movieDocRef = { id: existingDoc.id };
             }
         }
-
         // Create new movie if doesn't exist
         if (!movieDocRef) {
             const movieData = {

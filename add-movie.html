@@ -404,14 +404,14 @@ async function addMedia() {
         const tmdbId = form.dataset.tmdbId;
         let movieDocRef;
 
-        // FIXED: Use CachedFirestore instead of direct query
         if (tmdbId && tmdbId !== `upc_${form.dataset.upcCode}`) {
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbId);
-            if (existingDoc.exists) {
+            // Check if existingDoc is not null BEFORE checking if it exists
+            if (existingDoc && existingDoc.exists) {
                 movieDocRef = { id: existingDoc.id };
                 console.log('Found existing movie in database');
             }
-        }
+        }        
 
         if (!movieDocRef) {
             const mainMediaData = {
@@ -590,11 +590,23 @@ function populateFormWithData(data) {
     isPublicFieldsEditable = false;
 }
 function togglePublicFieldsReadonly(isReadonly) {
-    const fields = ['title', 'year', 'director', 'genre', 'summary', 'cast', 'contentType'];
+    //  Corrected 'contentType' to 'contentTypeToggle'
+    const fields = ['title', 'year', 'director', 'genre', 'summary', 'cast', 'contentTypeToggle'];
+
     fields.forEach(id => {
         const el = document.getElementById(id);
-        if (el.tagName === 'SELECT') el.disabled = isReadonly;
-        else el.readOnly = isReadonly;
+        if (!el) {
+            console.warn(`Element with ID '${id}' not found for toggling readonly state.`);
+            return; // Skip if element doesn't exist
+        }
+
+        //  Add special handling for the toggle div
+        if (id === 'contentTypeToggle') {
+            el.style.pointerEvents = isReadonly ? 'none' : 'auto';
+            el.style.opacity = isReadonly ? '0.7' : '1';
+        } else {
+            el.readOnly = isReadonly;
+        }
     });
 }
 // Simple debounce function to replace LibraryUtils dependency

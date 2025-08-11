@@ -369,6 +369,7 @@
   color: var(--color-text-primary);
   font-weight: bold;
 }
+
 .activity-movie-link {
   color: var(--color-brand-cyan);
   font-weight: bold;
@@ -466,6 +467,10 @@
   position: sticky; /* Makes the sidebar stick as you scroll */
   top: var(--space-xl);
 }
+
+
+/* ===== HOME PAGE (Comments FEED) ===== */
+
 
 /* On screens 1024px or less, stack the columns */
 @media (max-width: 400px) {
@@ -4770,6 +4775,10 @@ input.error {
   gap: var(--space-lg);
   margin-bottom: var(--space-xl);
   justify-content: center;
+}
+
+#tmdb-search {
+    color: var(--color-text-primary);
 }
 
 .tmdb-search-results {
