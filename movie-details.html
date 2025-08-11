@@ -167,7 +167,7 @@
 
         try {
             const movieDocRef = db.collection('movies').doc(movieId);
-            const movieDoc = await movieDocRef.get();
+            const movieDoc = await CachedFirestore.getMovieByDocId(movieId);
             if (!movieDoc.exists) 
                 throw new Error("This movie could not be found in the main library.");
             
@@ -237,7 +237,37 @@
         renderStars(document.getElementById('averageRating'), avgRating); 
         renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
     }
-
+    
+    async function loadUserInteraction(userId, movieId) {
+        // Check cache first
+        const cacheKey = `interaction_${userId}_${movieId}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                console.log(`👤 Using cached interaction`);
+                return { exists: true, data: () => data };
+            } catch (e) {
+                localStorage.removeItem(cacheKey);
+            }
+        }
+        
+        // Not cached, query Firestore
+        const doc = await db.collection('users').doc(userId)
+            .collection('movieInteractions').doc(movieId).get();
+        
+        if (doc.exists) {
+            // Cache for 5 minutes (interactions change more frequently)
+            const data = doc.data();
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(data));
+            } catch (e) {
+                console.warn('Could not cache interaction:', e);
+            }
+        }
+        
+        return doc;
+    }
     async function loadCommentsWithUserData(interactions) {
         const commentsContainer = document.getElementById('commentsContainer');
         commentsContainer.innerHTML = '';

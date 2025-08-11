@@ -398,7 +398,7 @@
         
         try {
             // Get movie data
-            const movieDoc = await db.collection('movies').doc(lastWatched.id).get();
+            const movieDoc = await CachedFirestore.getMovieByDocId(movieId);
             if (!movieDoc.exists) {
                 document.getElementById('lastWatchedSection').innerHTML = 
                     '<div class="last-watched-empty">Last watched movie not found</div>';

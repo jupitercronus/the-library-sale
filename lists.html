@@ -132,6 +132,57 @@
             setupEventListeners();
         });
 
+        const ListCache = {
+            cache: new Map(),
+            
+            // Cache list data with movie posters
+            cacheList(listId, listData) {
+                this.cache.set(listId, {
+                    data: listData,
+                    timestamp: Date.now()
+                });
+                
+                // Also cache in localStorage
+                const cacheKey = `list_${listId}`;
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({
+                        data: listData,
+                        timestamp: Date.now()
+                    }));
+                } catch (e) {
+                    console.warn('Could not cache list:', e);
+                }
+            },
+
+             getCachedList(listId) {
+        const maxAge = 60 * 60 * 1000; // 1 hour
+        
+        // Check memory cache first
+        const memCached = this.cache.get(listId);
+        if (memCached && Date.now() - memCached.timestamp < maxAge) {
+            return memCached.data;
+        }
+        
+        // Check localStorage
+        const cacheKey = `list_${listId}`;
+        try {
+            const stored = localStorage.getItem(cacheKey);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Date.now() - parsed.timestamp < maxAge) {
+                    // Refresh memory cache
+                    this.cache.set(listId, parsed);
+                    return parsed.data;
+                }
+            }
+        } catch (e) {
+            localStorage.removeItem(cacheKey);
+        }
+        
+        return null;
+    }
+};
+
         function setupEventListeners() {
             document.getElementById('listSearchInput').addEventListener('input', renderLists);
             document.getElementById('sortDropdown').addEventListener('change', renderLists);
@@ -152,46 +203,61 @@
 
         async function loadLists() {
             SkeletonUI.showListGridSkeleton(9);
+            const grid = document.getElementById('listGrid');
+    
+                try {
+                    // Check cache first
+                    const cacheKey = 'all_lists';
+                    const cached = ListCache.getCachedList(cacheKey);
+                    if (cached) {
+                        console.log('📋 Using cached lists');
+                        allLists = cached;
+                        renderLists();
+                        return; // Skip Firestore query!
+                    }
+        
+                    console.log('🔍 Loading lists from Firestore');
+
+                    const listsRef = db.collection('lists');
+                    let query = listsRef.where('isPublic', '==', true);
+                    
+                    if (currentView === 'my' && currentUser) {
+                        query = listsRef.where('creatorId', '==', currentUser.uid);
+                    }
             
-            try {
-                const listsRef = db.collection('lists');
-                let query = listsRef.where('isPublic', '==', true);
-                
-                if (currentView === 'my' && currentUser) {
-                    query = listsRef.where('creatorId', '==', currentUser.uid);
-                }
-                
-                const [listSnapshots] = await Promise.all([
-                    query.get(),
-                    new Promise(resolve => setTimeout(resolve, 800))
-                ]);
-                
-                const listDocs = listSnapshots.docs;
+                    const listSnapshot = await db.collection('lists')
+                        .where('isPublic', '==', true)
+                        .orderBy('createdAt', 'desc')
+                        .get();
+        
+                    const listDocs = listSnapshot.docs;
 
-                // Gather all unique movie IDs from the lists
-                const allMovieIds = new Set();
-                listDocs.forEach(doc => {
-                    const mediaIds = doc.data().mediaIds;
-                    if (mediaIds && mediaIds.length > 0) {
-                        mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
-                    }
-                });
-
-                // Fetch all required movie documents in batches
-                const movieDataMap = new Map();
-                if (allMovieIds.size > 0) {
-                    const movieIdsArray = Array.from(allMovieIds);
-                    const moviePromises = [];
-                    for (let i = 0; i < movieIdsArray.length; i += 10) {
-                        const chunk = movieIdsArray.slice(i, i + 10);
-                        moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
-                    }
-                    const movieSnapshots = await Promise.all(moviePromises);
-                    movieSnapshots.forEach(snapshot => {
-                        snapshot.forEach(doc => {
-                            movieDataMap.set(doc.id, doc.data());
-                        });
+                    // Gather all unique movie IDs from the lists
+                    const allMovieIds = new Set();
+                    listDocs.forEach(doc => {
+                        const mediaIds = doc.data().mediaIds;
+                        if (mediaIds && mediaIds.length > 0) {
+                            mediaIds.slice(0, 3).forEach(id => allMovieIds.add(id));
+                        }
                     });
+
+                    // Fetch all required movie documents in batches
+                    const movieDataMap = new Map();
+                    if (allMovieIds.size > 0) {
+                        const movieIdsArray = Array.from(allMovieIds);
+                        const moviePromises = [];
+                        for (let i = 0; i < movieIdsArray.length; i += 10) {
+                            const chunk = movieIdsArray.slice(i, i + 10);
+                            moviePromises.push(db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get());
+                        }
+                        const movieSnapshots = await Promise.all(moviePromises);
+                        movieSnapshots.forEach(snapshot => {
+                            snapshot.forEach(doc => {
+                                movieDataMap.set(doc.id, doc.data());
+                            });
+                        });
+
+
                 }
 
                 // Combine list data with poster data
@@ -211,6 +277,8 @@
                 allLists = Object.values(combinedLists);
                 renderLists();
 
+            ListCache.cacheList(cacheKey, allLists);
+            
             } catch (error) {
                 console.error("Error loading lists:", error);
                 const grid = document.getElementById('listGrid');

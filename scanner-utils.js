@@ -337,11 +337,31 @@ const MediaLookupUtils = {
     /* Enhanced UPC lookup with better caching and deduplication */
     async lookupUPCData(barcode) {
         const cacheKey = `upc_${barcode}`;
+        // Check localStorage first (persistent across sessions)
+        const localCached = localStorage.getItem(cacheKey);
+        if (localCached) {
+            try {
+                const cachedData = JSON.parse(localCached);
+                console.log(`📦 Using persistent UPC cache: ${barcode}`);
+                
+                // Also add to session cache for faster access
+                this.sessionCache.set(cacheKey, cachedData);
+                return cachedData;
+            } catch (e) {
+                localStorage.removeItem(cacheKey);
+            }
+        }
         
-        // Check session cache first (fastest)
+        // Check session cache
         if (this.sessionCache.has(cacheKey)) {
             console.log(`📦 Using session cache for UPC ${barcode}`);
             return this.sessionCache.get(cacheKey);
+        }
+        
+        // Check if we're already fetching this UPC
+        if (this.pendingRequests.has(cacheKey)) {
+            console.log(`⏳ UPC request already pending: ${barcode}`);
+            return await this.pendingRequests.get(cacheKey);
         }
         
         // Check persistent cache
@@ -365,19 +385,22 @@ const MediaLookupUtils = {
         this.pendingRequests.set(cacheKey, requestPromise);
         
         try {
-            const result = await requestPromise;
-            
-            // Cache the result in both caches
-            this.sessionCache.set(cacheKey, result);
-            if (this.persistentCache) {
-                this.persistentCache.set('upc', cacheKey, result);
+                const result = await requestPromise;
+                
+                // Cache in both session and localStorage
+                this.sessionCache.set(cacheKey, result);
+                
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify(result));
+                    console.log(`💾 Cached UPC data: ${barcode}`);
+                } catch (e) {
+                    console.warn('Could not persist UPC cache:', e);
+                }
+                
+                return result;
+            } finally {
+                this.pendingRequests.delete(cacheKey);
             }
-            
-            return result;
-        } finally {
-            // Clean up pending request
-            this.pendingRequests.delete(cacheKey);
-        }
     },
 
     /**
@@ -520,54 +543,90 @@ const MediaLookupUtils = {
     },
 
  async searchTMDBForTitle(title, year = null, exactMatch = false) {
-        // Create more specific cache keys based on search strategy
-        const searchStrategy = exactMatch ? 'exact' : 'fuzzy';
-        const cacheKey = `tmdb_${searchStrategy}_${title.toLowerCase().replace(/\s+/g, '_')}_${year || 'no_year'}`;
-
-
+        // AGGRESSIVE CACHING - Check cache first
+        const cacheKey = `tmdb_search_${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${year || 'noyear'}_${exactMatch}`;
+        const cached = localStorage.getItem(cacheKey);
         
-        // Check session cache
-        if (this.sessionCache.has(cacheKey)) {
-            console.log(`🎬 Using session cache for TMDB: "${title}"`);
-            return this.sessionCache.get(cacheKey);
-        }
-        
-        // Check persistent cache
-        if (this.persistentCache) {
-            const cached = this.persistentCache.get('tmdb', cacheKey);
-            if (cached) {
-                console.log(`💾 Using persistent cache for TMDB: "${title}"`);
-                this.sessionCache.set(cacheKey, cached);
-                return cached;
+        if (cached) {
+            try {
+                const cachedResult = JSON.parse(cached);
+                console.log(`🎬 Using cached TMDB search: ${title}`);
+                return cachedResult;
+            } catch (e) {
+                // Invalid cache, remove it
+                localStorage.removeItem(cacheKey);
             }
         }
+
+        console.log(`🔍 Fresh TMDB search: ${title} (${year || 'no year'})`);// Create more specific cache keys based on search strategy
+
+        const searchStrategy = exactMatch ? 'exact' : (year ? 'with_year' : 'broad');
+        const sessionCacheKey = `tmdb_search_${title}_${year}_${searchStrategy}`;
         
-        // Check pending requests
-        if (this.pendingRequests.has(cacheKey)) {
-            console.log(`⏳ Waiting for pending TMDB request: "${title}"`);
-            return this.pendingRequests.get(cacheKey);
+        // Check session cache
+        if (this.sessionCache.has(sessionCacheKey)) {
+            return this.sessionCache.get(sessionCacheKey);
         }
         
-        // Make new request
-        const requestPromise = this._searchTMDB(title, year, exactMatch);
-        this.pendingRequests.set(cacheKey, requestPromise);
-        
         try {
-            const result = await requestPromise;
+            // Build search URL
+            let searchUrl = `${this.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(title)}`;
             
-            // Cache successful results
-            if (result) {
-                // NEW: Make sure we cache the result WITH the matchScore preserved
-                // The matchScore should already be on the result from _searchTMDB()
-                this.sessionCache.set(cacheKey, result);
-                if (this.persistentCache) {
-                    this.persistentCache.set('tmdb', cacheKey, result);
+            if (year && !exactMatch) {
+                searchUrl += `&year=${year}`;
+            }
+            
+            const response = await fetch(searchUrl);
+            if (!response.ok) {
+                throw new Error(`TMDB search failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.results || data.results.length === 0) {
+                throw new Error('No TMDB results found');
+            }
+            
+            // Find best match
+            let bestMatch = this.findBestTMDBMatch(data.results, title, year, exactMatch);
+            
+            if (!bestMatch) {
+                throw new Error('No suitable TMDB match found');
+            }
+            
+            // Get detailed data if needed
+            if (!bestMatch.credits) {
+                const detailsUrl = `${this.TMDB_BASE_URL}/${bestMatch.media_type || (bestMatch.first_air_date ? 'tv' : 'movie')}/${bestMatch.id}?append_to_response=credits`;
+                const detailsResponse = await fetch(detailsUrl);
+                if (detailsResponse.ok) {
+                    bestMatch = await detailsResponse.json();
+                    bestMatch.media_type = bestMatch.media_type || (bestMatch.first_air_date ? 'tv' : 'movie');
                 }
             }
             
-            return result;
-        } finally {
-            this.pendingRequests.delete(cacheKey);
+            // Cache both in session and localStorage
+            this.sessionCache.set(sessionCacheKey, bestMatch);
+            
+            // CACHE IN LOCALSTORAGE for persistence
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(bestMatch));
+                console.log(`💾 Cached TMDB result: ${title}`);
+            } catch (e) {
+                console.warn('Could not cache TMDB result:', e);
+                // Clear some space and try again
+                this.clearOldTMDBCache();
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify(bestMatch));
+                } catch (e2) {
+                    console.error('Still cannot cache TMDB result:', e2);
+                }
+            }
+            
+            return bestMatch;
+            
+        } catch (error) {
+            console.error(`TMDB search failed for "${title}":`, error);
+            throw error;
         }
     },
 
@@ -1600,6 +1659,375 @@ const ScannerUI = {
         }
 }
 
+// Development mode detection
+const isDevelopment = window.location.hostname === 'localhost' || 
+                     window.location.hostname.includes('vercel.app') ||
+                     window.location.search.includes('dev=true');
+
+// Enhanced Cache Manager with localStorage
+class EnhancedCacheManager {
+    constructor(prefix = 'dvd_cache_', ttlHours = 24) {
+        this.prefix = prefix;
+        this.ttl = ttlHours * 60 * 60 * 1000; // Convert to milliseconds
+    }
+
+    // Store data with timestamp
+    set(category, key, data) {
+        const cacheKey = `${this.prefix}${category}_${key}`;
+        const cacheData = {
+            data: data,
+            timestamp: Date.now(),
+            ttl: this.ttl
+        };
+        
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            console.log(`💾 Cached ${category}:${key}`);
+        } catch (error) {
+            console.warn('localStorage full, clearing old cache:', error);
+            this.clearOldCache();
+            // Try again after clearing
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            } catch (e) {
+                console.error('Still cannot cache after clearing:', e);
+            }
+        }
+    }
+
+    // Get data if not expired
+    get(category, key) {
+        const cacheKey = `${this.prefix}${category}_${key}`;
+        
+        try {
+            const cached = localStorage.getItem(cacheKey);
+            if (!cached) return null;
+
+            const cacheData = JSON.parse(cached);
+            const now = Date.now();
+            
+            // Check if expired
+            if (now - cacheData.timestamp > cacheData.ttl) {
+                localStorage.removeItem(cacheKey);
+                console.log(`🗑️ Expired cache removed: ${category}:${key}`);
+                return null;
+            }
+
+            console.log(`✅ Cache hit: ${category}:${key}`);
+            return cacheData.data;
+        } catch (error) {
+            console.error('Cache read error:', error);
+            localStorage.removeItem(cacheKey);
+            return null;
+        }
+    }
+
+    // Clear old cache entries
+    clearOldCache() {
+        const now = Date.now();
+        let cleared = 0;
+        
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(this.prefix)) {
+                try {
+                    const cached = JSON.parse(localStorage.getItem(key));
+                    if (now - cached.timestamp > cached.ttl) {
+                        localStorage.removeItem(key);
+                        cleared++;
+                    }
+                } catch (e) {
+                    // Invalid cache entry, remove it
+                    localStorage.removeItem(key);
+                    cleared++;
+                }
+            }
+        }
+        
+        console.log(`🧹 Cleared ${cleared} old cache entries`);
+    }
+}
+// ===== MOVIE DATA CACHING =====
+// Cache Firestore movie queries to avoid repeated reads
+
+const MovieCache = {
+    cache: new EnhancedCacheManager('movie_', 48), // 48 hour cache for movies
+    
+    // Cache a movie by TMDB ID
+    cacheMovieByTmdbId(tmdbId, movieData) {
+        if (tmdbId && movieData) {
+            this.cache.set('tmdb', tmdbId.toString(), movieData);
+        }
+    },
+
+    // Get cached movie by TMDB ID
+    getCachedMovieByTmdbId(tmdbId) {
+        if (!tmdbId) return null;
+        return this.cache.get('tmdb', tmdbId.toString());
+    },
+
+    // Cache movie by Firestore document ID
+    cacheMovieByDocId(docId, movieData) {
+        if (docId && movieData) {
+            this.cache.set('doc', docId, movieData);
+        }
+    },
+
+    // Get cached movie by Firestore document ID  
+    getCachedMovieByDocId(docId) {
+        if (!docId) return null;
+        return this.cache.get('doc', docId);
+    },
+
+    // Cache user interaction data
+    cacheUserInteraction(userId, movieId, interactionData) {
+        const key = `${userId}_${movieId}`;
+        this.cache.set('interaction', key, interactionData);
+    },
+
+    // Get cached user interaction
+    getCachedUserInteraction(userId, movieId) {
+        const key = `${userId}_${movieId}`;
+        return this.cache.get('interaction', key);
+    }
+};
+
+// ===== ENHANCED FIRESTORE WRAPPER =====
+// Wrap Firestore calls with caching
+
+const CachedFirestore = {
+    // Get movie by TMDB ID with caching
+    async getMovieByTmdbId(tmdbId) {
+        // Check cache first
+        const cached = MovieCache.getCachedMovieByTmdbId(tmdbId);
+        if (cached) {
+            console.log(`🎬 Using cached movie for TMDB ID: ${tmdbId}`);
+            return { exists: true, data: () => cached, id: cached.firestoreId };
+        }
+
+        // Not in cache, query Firestore
+        console.log(`🔍 Firestore query for TMDB ID: ${tmdbId}`);
+        const query = await db.collection('movies')
+            .where('tmdbId', '==', parseInt(tmdbId))
+            .limit(1)
+            .get();
+
+        if (!query.empty) {
+            const doc = query.docs[0];
+            const data = doc.data();
+            data.firestoreId = doc.id; // Store the document ID
+            
+            // Cache for next time
+            MovieCache.cacheMovieByTmdbId(tmdbId, data);
+            MovieCache.cacheMovieByDocId(doc.id, data);
+            
+            return doc;
+        }
+
+        return null;
+    },
+
+    // Get movie by document ID with caching
+    async getMovieByDocId(docId) {
+        // Check cache first
+        const cached = MovieCache.getCachedMovieByDocId(docId);
+        if (cached) {
+            console.log(`🎬 Using cached movie for doc ID: ${docId}`);
+            return { exists: true, data: () => cached, id: docId };
+        }
+
+        // Not in cache, query Firestore
+        console.log(`🔍 Firestore query for doc ID: ${docId}`);
+        const doc = await db.collection('movies').doc(docId).get();
+
+        if (doc.exists) {
+            const data = doc.data();
+            data.firestoreId = doc.id;
+            
+            // Cache for next time
+            MovieCache.cacheMovieByDocId(docId, data);
+            if (data.tmdbId) {
+                MovieCache.cacheMovieByTmdbId(data.tmdbId, data);
+            }
+            
+            return doc;
+        }
+
+        return null;
+    },
+
+    // Get user interaction with caching
+    async getUserInteraction(userId, movieId) {
+        // Check cache first
+        const cached = MovieCache.getCachedUserInteraction(userId, movieId);
+        if (cached) {
+            console.log(`👤 Using cached interaction: ${userId}/${movieId}`);
+            return { exists: true, data: () => cached };
+        }
+
+        // Not in cache, query Firestore
+        console.log(`🔍 Firestore query for interaction: ${userId}/${movieId}`);
+        const doc = await db.collection('users').doc(userId)
+            .collection('movieInteractions').doc(movieId).get();
+
+        if (doc.exists) {
+            const data = doc.data();
+            
+            // Cache for next time
+            MovieCache.cacheUserInteraction(userId, movieId, data);
+            
+            return doc;
+        }
+
+        return null;
+    }
+};
+
+// ===== DEVELOPMENT HELPERS =====
+
+const EnhancedDevHelpersDevHelpers = {
+    // Cache statistics
+    getCacheStats() {
+        
+        let totalItems = 0;
+        let totalSize = 0;
+        const categories = {};
+        
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('dvd_cache_')) {
+                const category = key.split('_')[2];
+                categories[category] = (categories[category] || 0) + 1;
+                totalItems++;
+                
+                try {
+                    totalSize += localStorage.getItem(key).length;
+                } catch (e) {
+                    // Skip invalid entries
+                }
+            }
+        }
+        
+        return {
+            totalItems,
+            totalSize: Math.round(totalSize / 1024) + ' KB',
+            categories,
+            quota: Math.round((totalSize / (5 * 1024 * 1024)) * 100) + '% of 5MB localStorage quota'
+        };
+    },
+    getAllCacheStats() {
+        const stats = {
+            movies: 0,
+            tmdb: 0,
+            upc: 0,
+            lists: 0,
+            dashboard: 0,
+            other: 0,
+            totalSize: 0
+        };
+        
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            stats.totalSize += value.length;
+            
+            if (key.startsWith('dvd_cache_movie_')) stats.movies++;
+            else if (key.startsWith('tmdb_search_')) stats.tmdb++;
+            else if (key.startsWith('upc_')) stats.upc++;
+            else if (key.startsWith('list_')) stats.lists++;
+            else if (key.startsWith('dashboard_')) stats.dashboard++;
+            else stats.other++;
+        }
+        
+        stats.totalSize = Math.round(stats.totalSize / 1024) + ' KB';
+        return stats;
+    },
+
+    // Clear all cache
+    clearAllCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('dvd_cache_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`🧹 Cleared all cache (${cleared} items)`);
+    },
+
+    // Skip Firestore reads in development
+    enableFirestoreSkipping() {
+        window.SKIP_FIRESTORE_READS = true;
+        console.log('🚧 Development mode: Firestore reads disabled');
+    },
+    clearTMDBCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('tmdb_search_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`🎬 Cleared ${cleared} TMDB cache entries`);
+    },
+    
+    clearUPCCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('upc_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`📦 Cleared ${cleared} UPC cache entries`);
+    },
+
+      async preloadPopularMovies() {
+        console.log('🚀 Preloading popular movies...');
+        const popularTitles = [
+            'The Matrix', 'Inception', 'The Dark Knight', 'Pulp Fiction',
+            'Fight Club', 'Forrest Gump', 'The Godfather', 'Goodfellas'
+        ];
+        
+        for (const title of popularTitles) {
+            try {
+                await MediaLookupUtils.searchTMDBForTitle(title);
+                console.log(`✅ Preloaded: ${title}`);
+            } catch (e) {
+                console.log(`❌ Failed to preload: ${title}`);
+            }
+        }
+        console.log('✅ Preloading complete!');
+    }
+};
+
+
+
+// ===== AUTO-INITIALIZATION =====
+
+if (isDevelopment) {
+    console.log('🔧 Development mode detected - Enhanced caching enabled');
+    
+    // Show cache stats every 30 seconds in dev
+    setInterval(() => {
+        const stats = DevHelpers.getCacheStats();
+        console.log('📊 Cache Stats:', stats);
+    }, 30000);
+    
+    // Make dev helpers available in console
+    window.DevHelpers = EnhancedDevHelpers;
+    window.MovieCache = MovieCache;
+    window.CachedFirestore = CachedFirestore;
+    
+    console.log('🛠️ Dev tools available: DevHelpers, MovieCache, CachedFirestore');
+}
+
+// Make available globally
+window.MovieCache = MovieCache;
+window.CachedFirestore = CachedFirestore;
 
 // Usage example with cache monitoring:
 /*

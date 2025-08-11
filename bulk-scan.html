@@ -255,7 +255,6 @@ async function initializeBulkScanner() {
             ScannerUI.showManualEntryModal();
         });
     }
-
     function showScanIndicator(status, message) {
             const indicator = document.getElementById('scanResultIndicator');
             const icon = document.getElementById('scanResultIcon');
@@ -316,22 +315,32 @@ async function processScanQueue() {
         }
     }    
 }
-
-    async function addMovieToDatabase(result) {
+function saveReviewQueue() {
+    const queueData = {
+        queue: reviewQueue,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+    };
+    
+    try {
+        sessionStorage.setItem('reviewQueue', JSON.stringify(queueData));
+        // Also backup to localStorage for longer persistence
+        localStorage.setItem('reviewQueue_backup', JSON.stringify(queueData));
+    } catch (e) {
+        console.warn('Could not save review queue:', e);
+    }
+}
+async function addMovieToDatabaseCached(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
     try {
         let movieDocRef;
         
-        // Check if movie already exists
+        // USE CACHED VERSION - Check if movie already exists
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
-            const existingQuery = await db.collection('movies')
-                .where('tmdbId', '==', parseInt(tmdbData.id))
-                .limit(1)
-                .get();
-            
-            if (!existingQuery.empty) {
-                movieDocRef = existingQuery.docs[0].ref;
+            const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
+            if (existingDoc) {
+                movieDocRef = existingDoc;
             }
         }
 
@@ -355,6 +364,13 @@ async function processScanQueue() {
             };
             
             movieDocRef = await db.collection('movies').add(movieData);
+            
+            // CACHE THE NEW MOVIE
+            movieData.firestoreId = movieDocRef.id;
+            if (movieData.tmdbId) {
+                MovieCache.cacheMovieByTmdbId(movieData.tmdbId, movieData);
+            }
+            MovieCache.cacheMovieByDocId(movieDocRef.id, movieData);
         }
 
         // Handle physical copy creation
@@ -446,10 +462,10 @@ async function processScanQueue() {
             await userInteractionRef.set(userInteractionData);
         }
         
-        return { movieDocRef, physicalCopyId };
+        return { movieDocRef, physicalCopyId: null };
         
     } catch (error) {
-        console.error('Error in addMovieToDatabase:', error);
+        console.error('Error in addMovieToDatabaseCached:', error);
         throw error;
     }
 }

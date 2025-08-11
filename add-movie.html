@@ -401,11 +401,10 @@ async function initializeMovieScanner() {
         let movieDocRef;
 
         if (tmdbId && tmdbId !== `upc_${document.getElementById('movieForm').dataset.upcCode}`) {
-            const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbId)).limit(1).get();
-            if (!existingQuery.empty) {
-                movieDocRef = existingQuery.docs[0].ref;
-                console.log('Found existing movie in database');
-            }
+            const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
+                if (existingDoc) {
+                    movieDocRef = existingDoc;
+                }
         }
 
         if (!movieDocRef) {

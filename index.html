@@ -188,6 +188,41 @@
             }
         });
 
+        const DashboardCache = {
+        // Cache dashboard data for 30 minutes
+        cacheDashboard(key, data) {
+            const cacheData = {
+                data: data,
+                timestamp: Date.now()
+            };
+            
+            try {
+                localStorage.setItem(`dashboard_${key}`, JSON.stringify(cacheData));
+            } catch (e) {
+                console.warn('Could not cache dashboard:', e);
+            }
+        },
+        
+        getCachedDashboard(key) {
+            const maxAge = 30 * 60 * 1000; // 30 minutes
+            
+            try {
+                const stored = localStorage.getItem(`dashboard_${key}`);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (Date.now() - parsed.timestamp < maxAge) {
+                        console.log(`📊 Using cached dashboard: ${key}`);
+                        return parsed.data;
+                    }
+                }
+            } catch (e) {
+                localStorage.removeItem(`dashboard_${key}`);
+            }
+            
+            return null;
+            }   
+    };
+
         async function loadActivityFeed() {
             const feedContainer = document.getElementById('activityFeedContainer');
             
@@ -359,6 +394,14 @@
         }
         
         async function loadLatestRatings() {
+            const cached = DashboardCache.getCachedDashboard('latest_ratings');
+                if (cached) {
+                    renderLatestRatings(cached.ratings, cached.userMap, cached.movieMap);
+                    return;
+                }
+                
+                console.log('🔍 Loading latest ratings from Firestore');
+
             const ratingsContainer = document.getElementById('latestRatingsContainer');
             try {
                 // This query gets interactions where a rating has been given (rating > 0)
@@ -395,7 +438,14 @@
             } catch (error) {
                 console.error("Error loading latest ratings:", error);
             }
+            
+            DashboardCache.cacheDashboard('latest_ratings', {
+                ratings: ratingsData,
+                userMap: userMap,
+                movieMap: movieMap
+            });
         }
+        
 
         function renderLatestRatings(ratings, userMap, movieMap) {
             const ratingsContainer = document.getElementById('latestRatingsContainer');
