@@ -800,57 +800,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     }
     async function selectTMDBResult(id, type) {
-    if (!id || !type) return;
+        if (!id || !type) return;
 
-    try {
-        // Show a loading message
-        LibraryUtils.ui.showStatusMessage('Loading full details...', 'info');
+        try {
+            // Show a loading message
+            LibraryUtils.ui.showStatusMessage('Loading full details...', 'info');
 
-        // Get full details for the selected item
-        const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${type}/${id}?append_to_response=credits`;
-        const response = await fetch(detailsUrl);
-        const fullData = await response.json();
+            // Get full details for the selected item
+            const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${type}/${id}?append_to_response=credits`;
+            const response = await fetch(detailsUrl);
+            const fullData = await response.json();
 
-        if (!response.ok) {
-            throw new Error('Failed to load full details');
+            if (!response.ok) {
+                throw new Error('Failed to load full details');
+            }
+
+            // Populate the edit form with the new TMDB data
+            document.getElementById('edit-title').value = fullData.title || fullData.name || '';
+            document.getElementById('edit-year').value = (fullData.release_date || fullData.first_air_date || '').substring(0, 4);
+            document.getElementById('edit-director').value = fullData.credits?.crew?.find(c => c.job === 'Director')?.name || '';
+            document.getElementById('edit-genre').value = fullData.genres?.map(g => g.name).join(', ') || '';
+            document.getElementById('edit-cast').value = fullData.credits?.cast?.slice(0, 5).map(c => c.name).join(', ') || '';
+            
+            const posterUrl = fullData.poster_path 
+                ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${fullData.poster_path}` 
+                : 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
+
+            document.getElementById('movie-poster-img').src = posterUrl;
+            document.getElementById('edit-summary').value = fullData.overview || '';
+            
+            // Update content type toggle
+            updateContentTypeToggle(type);
+
+            // CRITICAL FIX: Clear the search results and remove all selected states IMMEDIATELY
+            // This prevents the form submission from thinking we're doing a movie replacement
+            const resultsContainer = document.getElementById('tmdb-results');
+            const searchInput = document.getElementById('tmdb-search');
+            
+            if (resultsContainer) {
+                // Remove selected class from all results
+                resultsContainer.querySelectorAll('.search-result').forEach(r => r.classList.remove('selected'));
+                // Hide and clear the results container
+                resultsContainer.style.display = 'none';
+                resultsContainer.innerHTML = '';
+            }
+            
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
+            LibraryUtils.ui.showStatusMessage('Form populated with TMDB data! Review and save when ready.', 'success');
+
+        } catch (error) {
+            console.error('Error loading TMDB details:', error);
+            LibraryUtils.ui.showStatusMessage('Failed to load full details. Please try again.', 'error');
         }
-
-        // Populate the edit form with the new TMDB data
-        document.getElementById('edit-title').value = fullData.title || fullData.name || '';
-        document.getElementById('edit-year').value = (fullData.release_date || fullData.first_air_date || '').substring(0, 4);
-        document.getElementById('edit-director').value = fullData.credits?.crew?.find(c => c.job === 'Director')?.name || '';
-        document.getElementById('edit-genre').value = fullData.genres?.map(g => g.name).join(', ') || '';
-        document.getElementById('edit-cast').value = fullData.credits?.cast?.slice(0, 5).map(c => c.name).join(', ') || '';
-        
-        const posterUrl = fullData.poster_path 
-            ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${fullData.poster_path}` 
-            : 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
-
-        document.getElementById('movie-poster-img').src = posterUrl;
-        document.getElementById('edit-summary').value = fullData.overview || '';
-        
-        // Update content type toggle
-        updateContentTypeToggle(type);
-
-        LibraryUtils.ui.showStatusMessage('Form populated with TMDB data! Review and save when ready.', 'success');
-
-    } catch (error) {
-        console.error('Error loading TMDB details:', error);
-        LibraryUtils.ui.showStatusMessage('Failed to load full details. Please try again.', 'error');
-    }
-
-    const resultsContainer = document.getElementById('tmdb-results');
-    const searchInput = document.getElementById('tmdb-search');
-        
-        if (resultsContainer) {
-            resultsContainer.style.display = 'none';
-            resultsContainer.innerHTML = '';
-        }
-        
-        if (searchInput) {
-            searchInput.value = '';
-        }
-    }
+}
     function populateMovieFields(movieData) {
     document.getElementById('edit-title').value = movieData.title || '';
     document.getElementById('edit-year').value = movieData.year || '';
