@@ -352,6 +352,7 @@ const CachedFirestore = {
     // Cache instances for different data types
     movieCache: null,
     userCache: null,
+
     
     // Initialize caches
     init() {
@@ -389,6 +390,71 @@ const CachedFirestore = {
         }
 
         return null;
+    },
+
+    /**
+     * Invalidate all cached data for a specific movie
+     * @param {string} movieId - The Firestore document ID of the movie
+     * @param {number|null} tmdbId - Optional TMDB ID if known
+     */
+    invalidateMovie(movieId, tmdbId = null) {
+        console.log(`🗑️ Invalidating cache for movie: ${movieId}`);
+        
+        // Remove from primary movie cache
+        if (this.movieCache) {
+            this.movieCache.remove('movies', `doc_${movieId}`);
+            
+            // Also remove TMDB cache if ID is provided
+            if (tmdbId) {
+                this.movieCache.remove('movies', `tmdb_${tmdbId}`);
+            }
+        }
+        
+        // Remove from MovieCache system
+        MovieCache.invalidateMovie(movieId, tmdbId);
+        
+        // Remove any user interaction caches for this movie
+        this.invalidateMovieInteractions(movieId);
+        
+        console.log(`✅ Cache invalidated for movie: ${movieId}`);
+    },
+
+    /**
+     * Invalidate user interaction caches for a specific movie
+     * @param {string} movieId - The movie ID
+     */
+    invalidateMovieInteractions(movieId) {
+        // Clear user interaction caches
+        if (this.userCache) {
+            // We need to find and remove all interaction caches for this movie
+            // Since we don't know all user IDs, we'll clear by pattern matching
+            const allCacheKeys = Object.keys(localStorage).filter(key => 
+                key.startsWith(this.userCache.prefix) && key.includes('interaction') && key.includes(movieId)
+            );
+            
+            allCacheKeys.forEach(key => {
+                localStorage.removeItem(key);
+            });
+        }
+        
+        // Also clear from MovieCache interaction system
+        MovieCache.invalidateMovieInteractions(movieId);
+    },
+
+    /**
+     * Invalidate cache when a movie is updated with new TMDB data
+     * @param {string} oldMovieId - The old movie document ID
+     * @param {string} newMovieId - The new movie document ID  
+     * @param {number} newTmdbId - The new TMDB ID
+     */
+    invalidateMovieReplacement(oldMovieId, newMovieId, newTmdbId) {
+        console.log(`🔄 Handling movie replacement: ${oldMovieId} -> ${newMovieId}`);
+        
+        // Invalidate old movie
+        this.invalidateMovie(oldMovieId);
+        
+        // Invalidate new movie (in case it was already cached)
+        this.invalidateMovie(newMovieId, newTmdbId);
     },
 
     // Get movie by document ID with caching
@@ -514,7 +580,65 @@ const MovieCache = {
     getCachedUserInteraction(userId, movieId) {
         const key = `${userId}_${movieId}`;
         return this.cache.get('interaction', key);
-    }
+    },
+
+       /**
+     * Invalidate all cached data for a specific movie
+     * @param {string} movieId - The Firestore document ID
+     * @param {number|null} tmdbId - Optional TMDB ID if known
+     */
+    invalidateMovie(movieId, tmdbId = null) {
+        console.log(`🗑️ MovieCache: Invalidating movie ${movieId}`);
+        
+        // Remove by document ID
+        if (movieId) {
+            this.cache.clearOldCache(); // This will remove expired entries
+            
+            // Remove specific entries
+            const docKey = `movie_doc_${movieId}`;
+            const tmdbKey = tmdbId ? `movie_tmdb_${tmdbId}` : null;
+            
+            // Clear localStorage entries manually since we know the patterns
+            Object.keys(localStorage).forEach(key => {
+                if (key.includes(`doc_${movieId}`) || 
+                    (tmdbId && key.includes(`tmdb_${tmdbId}`))) {
+                    localStorage.removeItem(key);
+                    console.log(`🗑️ Removed cache key: ${key}`);
+                }
+            });
+        }
+    },
+
+    /**
+     * Invalidate user interaction caches for a movie
+     * @param {string} movieId - The movie ID
+     */
+    invalidateMovieInteractions(movieId) {
+        console.log(`🗑️ MovieCache: Invalidating interactions for movie ${movieId}`);
+        
+        // Remove all interaction caches that include this movie ID
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('movie_interaction_') && key.includes(movieId)) {
+                localStorage.removeItem(key);
+                console.log(`🗑️ Removed interaction cache: ${key}`);
+            }
+        });
+    },
+
+    /**
+     * Clear all movie-related caches (useful for development/debugging)
+     */
+    clearAllMovieCache() {
+        console.log('🧹 Clearing all movie caches');
+        
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('movie_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        
+        console.log('✅ All movie caches cleared');
+    },
 };
 
 // Development mode detection
@@ -627,6 +751,54 @@ const EnhancedDevHelpers= {
             }
         }
         console.log(`📦 Cleared ${cleared} UPC cache entries`);
+    },
+
+    /**
+     * Manually invalidate a specific movie's cache
+     * @param {string} movieId - The movie document ID
+     * @param {number|null} tmdbId - Optional TMDB ID
+     */
+    invalidateMovieCache(movieId, tmdbId = null) {
+        console.log(`🛠️ DEV: Manually invalidating cache for movie ${movieId}`);
+        
+        if (window.CachedFirestore && typeof window.CachedFirestore.invalidateMovie === 'function') {
+            window.CachedFirestore.invalidateMovie(movieId, tmdbId);
+        }
+        
+        if (window.MovieCache && typeof window.MovieCache.invalidateMovie === 'function') {
+            window.MovieCache.invalidateMovie(movieId, tmdbId);
+        }
+        
+        console.log('✅ DEV: Cache invalidation complete');
+    },
+
+    /**
+     * Show all cached movies
+     */
+    showCachedMovies() {
+        const movieCaches = [];
+        
+        Object.keys(localStorage).forEach(key => {
+            if (key.includes('movie_') && (key.includes('doc_') || key.includes('tmdb_'))) {
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    movieCaches.push({
+                        key,
+                        title: data.data?.title || data.title || 'Unknown',
+                        cached: new Date(data.timestamp || Date.now()).toLocaleString()
+                    });
+                } catch (e) {
+                    movieCaches.push({
+                        key,
+                        title: 'Invalid Cache Entry',
+                        cached: 'Unknown'
+                    });
+                }
+            }
+        });
+        
+        console.table(movieCaches);
+        return movieCaches;
     },
 
       async preloadPopularMovies() {

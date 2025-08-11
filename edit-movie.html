@@ -965,7 +965,7 @@ function getMovieDataFromForm() {
             physicalDetailsSection.style.display = !isActive ? 'block' : 'none';
         });
 
-    // REPLACE the existing 'submit' listener with this one.
+    /// In the edit-movie.html form submission handler, add cache invalidation after saving changes
     editMovieForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = auth.currentUser;
@@ -973,10 +973,8 @@ function getMovieDataFromForm() {
 
         UIUtils.setButtonLoading('save-btn', 'Saving...');
         
-        // --- Get the Original and New State ---
         const originalMovieId = e.target.dataset.originalMovieId;
         const originalTmdbId = e.target.dataset.originalTmdbId;
-        // Get ID from the element that has the 'selected' class after a TMDB search
         const selectedResult = document.getElementById('tmdb-results')?.querySelector('.selected');
         const newTmdbId = selectedResult ? selectedResult.dataset.id : originalTmdbId;
         const isNewMovie = newTmdbId && (String(originalTmdbId) !== String(newTmdbId));
@@ -984,7 +982,6 @@ function getMovieDataFromForm() {
         try {
             let finalMovieId = originalMovieId;
             
-            // --- FIX: Gather all interaction data and movie data from the form first ---
             const interactionData = {
                 rating: currentRating,
                 watched: document.getElementById('watched-toggle').dataset.active === 'true',
@@ -995,17 +992,12 @@ function getMovieDataFromForm() {
             };
             const movieDataFromForm = getMovieDataFromForm();
 
-
-            // --- CORE LOGIC: Handle if a new movie was selected ---
             if (isNewMovie) {
                 console.log("New movie selected. Performing re-linking operation.");
                 
-                // 1. Find or create the database entry for the NEW movie using data from the form.
                 const newMovieRef = await findOrCreateMovieByTmdbId(newTmdbId, movieDataFromForm);
                 finalMovieId = newMovieRef.id;
 
-                // 2. Move the user's interaction data to the new movie record.
-                // Also add the physical copy IDs from the old interaction.
                 const oldInteraction = await getUserInteraction(originalMovieId);
                 if (oldInteraction) {
                     interactionData.physicalCopies = oldInteraction.physicalCopies || [];
@@ -1013,7 +1005,6 @@ function getMovieDataFromForm() {
                 await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(interactionData);
                 await db.collection('users').doc(user.uid).collection('movieInteractions').doc(originalMovieId).delete();
 
-                // 3. Update physical copies to point to the new movie ID.
                 if (interactionData.physicalCopies && interactionData.physicalCopies.length > 0) {
                     const batch = db.batch();
                     interactionData.physicalCopies.forEach(copyId => {
@@ -1025,17 +1016,32 @@ function getMovieDataFromForm() {
                 
             } else {
                 console.log("Same movie. Performing standard update.");
-                // --- This is your original update logic, now with data ---
                 if (window.hasFullEditRights) {
                     await db.collection('movies').doc(finalMovieId).update(movieDataFromForm);
                 }
-                // Update the user's interaction data
                 await db.collection('users').doc(user.uid).collection('movieInteractions').doc(finalMovieId).set(interactionData, { merge: true });
+            }
+
+            // 🔥 CRITICAL FIX: Clear the cache for this movie after saving changes
+            if (window.CachedFirestore && typeof window.CachedFirestore.invalidateMovie === 'function') {
+                console.log('Invalidating cache for movie:', finalMovieId);
+                window.CachedFirestore.invalidateMovie(finalMovieId);
+            } else if (window.cache && typeof window.cache.delete === 'function') {
+                // Alternative cache clearing method if using a different cache system
+                window.cache.delete('movies', finalMovieId);
+            } else {
+                // Fallback: clear all movie-related localStorage entries
+                console.log('Clearing movie cache via localStorage fallback');
+                Object.keys(localStorage).forEach(key => {
+                    if (key.includes('movie') && key.includes(finalMovieId)) {
+                        localStorage.removeItem(key);
+                    }
+                });
             }
 
             LibraryUtils.ui.showStatusMessage('Changes saved successfully!', 'success');
             setTimeout(() => {
-                window.location.href = `movie-details.html?id=${finalMovieId}`;
+                window.location.href = `movie-details.html?id=${finalMovieId}&from=edit`;
             }, 1000);
 
         } catch (error) {

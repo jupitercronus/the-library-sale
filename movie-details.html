@@ -175,35 +175,48 @@
     const db = firebase.firestore(); 
     const auth = firebase.auth();
 
-    async function loadMoviePage(user, movieId) {
-        document.getElementById('loadingState').style.display = 'block';
-        document.getElementById('detailsContainer').style.display = 'none';
+// In movie-details.html, modify the loadMoviePage function to bypass cache when coming from edit
+async function loadMoviePage(user, movieId) {
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('detailsContainer').style.display = 'none';
 
-        try {
-            // FIXED: Use CachedFirestore instead of direct call
-            const movieDoc = await CachedFirestore.getMovieByDocId(movieId);
-            if (!movieDoc.exists) {
+    try {
+        // Check if we're coming from an edit operation
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromEdit = urlParams.get('from') === 'edit' || document.referrer.includes('edit-movie.html');
+        
+        let movieDoc;
+        if (fromEdit) {
+            // Bypass cache and get fresh data directly from Firestore
+            console.log('Bypassing cache due to edit operation');
+            movieDoc = await db.collection('movies').doc(movieId).get();
+        } else {
+            // Use cached version for normal navigation
+            movieDoc = await CachedFirestore.getMovieByDocId(movieId);
+        }
+        
+        if (!movieDoc.exists) {
             throw new Error("This movie could not be found in the main library.");
-            }
-            
-            const movieData = { id: movieDoc.id, ...movieDoc.data() };
-            const interactionsSnapshot = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).get();
+        }
+        
+        const movieData = { id: movieDoc.id, ...movieDoc.data() };
+        const interactionsSnapshot = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).get();
 
-            const allInteractions = interactionsSnapshot.docs.map(doc => ({
-                userId: doc.ref.path.split('/')[1],
-                ...doc.data()
-            }));
-            
-            const myInteraction = allInteractions.find(interaction => user && interaction.userId === user.uid);
+        const allInteractions = interactionsSnapshot.docs.map(doc => ({
+            userId: doc.ref.path.split('/')[1],
+            ...doc.data()
+        }));
+        
+        const myInteraction = allInteractions.find(interaction => user && interaction.userId === user.uid);
 
-            populateMovieDetails(movieData, myInteraction, allInteractions);
-            await loadCommentsWithUserData(allInteractions);
-            await loadPhysicalCopies(allInteractions);
-            setupCommentForm(user, movieId, myInteraction);
-            setupEditButton(user, movieId);
+        populateMovieDetails(movieData, myInteraction, allInteractions);
+        await loadCommentsWithUserData(allInteractions);
+        await loadPhysicalCopies(allInteractions);
+        setupCommentForm(user, movieId, myInteraction);
+        setupEditButton(user, movieId);
 
-            document.getElementById('loadingState').style.display = 'none';
-            document.getElementById('detailsContainer').style.display = 'flex'; // Use flex for proper layout
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('detailsContainer').style.display = 'flex';
    
     } catch (error) {
         console.error("Error loading movie page:", error);
