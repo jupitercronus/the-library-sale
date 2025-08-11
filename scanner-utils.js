@@ -323,7 +323,6 @@ const MediaLookupUtils = {
     TMDB_IMAGE_BASE: 'https://image.tmdb.org/t/p/w500',
     
     // Enhanced caching with persistence and TTL
-    sessionCache: new Map(),
     persistentCache: null, // Will initialize with CacheManager
     
     // Request deduplication - prevent multiple simultaneous calls for same data
@@ -336,72 +335,41 @@ const MediaLookupUtils = {
 
     /* Enhanced UPC lookup with better caching and deduplication */
     async lookupUPCData(barcode) {
-        const cacheKey = `upc_${barcode}`;
-        // Check localStorage first (persistent across sessions)
-        const localCached = localStorage.getItem(cacheKey);
-        if (localCached) {
-            try {
-                const cachedData = JSON.parse(localCached);
-                console.log(`📦 Using persistent UPC cache: ${barcode}`);
-                
-                // Also add to session cache for faster access
-                this.sessionCache.set(cacheKey, cachedData);
-                return cachedData;
-            } catch (e) {
-                localStorage.removeItem(cacheKey);
-            }
+        const cacheKey = `upc_${barcode}`; // We use this for pending requests key
+
+        // 1. Check the central cache first.
+        // The 'upc' is the cacheType, and barcode is the unique key.
+        const cached = this.persistentCache.get('upc', barcode);
+        if (cached) {
+            console.log(`💾 Using persistent cache for UPC ${barcode}`);
+            return cached;
         }
         
-        // Check session cache
-        if (this.sessionCache.has(cacheKey)) {
-            console.log(`📦 Using session cache for UPC ${barcode}`);
-            return this.sessionCache.get(cacheKey);
-        }
-        
-        // Check if we're already fetching this UPC
+            // 2. Check for pending requests to prevent simultaneous fetches.
         if (this.pendingRequests.has(cacheKey)) {
-            console.log(`⏳ UPC request already pending: ${barcode}`);
-            return await this.pendingRequests.get(cacheKey);
-        }
-        
-        // Check persistent cache
-        if (this.persistentCache) {
-            const cached = this.persistentCache.get('upc', cacheKey);
-            if (cached) {
-                console.log(`💾 Using persistent cache for UPC ${barcode}`);
-                this.sessionCache.set(cacheKey, cached);
-                return cached;
-            }
-        }
-        
-        // Check if request is already pending (prevent duplicate API calls)
-        if (this.pendingRequests.has(cacheKey)) {
-            console.log(`⏳ Waiting for pending UPC request ${barcode}`);
+            console.log(`⏳ Waiting for pending UPC request for ${barcode}`);
             return this.pendingRequests.get(cacheKey);
         }
-        
-        // Make new request
+
+        // 3. Make the new request.
         const requestPromise = this._fetchUPCData(barcode);
         this.pendingRequests.set(cacheKey, requestPromise);
-        
+
         try {
-                const result = await requestPromise;
-                
-                // Cache in both session and localStorage
-                this.sessionCache.set(cacheKey, result);
-                
-                try {
-                    localStorage.setItem(cacheKey, JSON.stringify(result));
-                    console.log(`💾 Cached UPC data: ${barcode}`);
-                } catch (e) {
-                    console.warn('Could not persist UPC cache:', e);
-                }
-                
-                return result;
-            } finally {
-                this.pendingRequests.delete(cacheKey);
-            }
+            const result = await requestPromise;
+
+            // 4. Store the result in our central cache.
+            // CacheManager handles serialization and localStorage.
+            this.persistentCache.set('upc', barcode, result);
+            console.log(`💾 Cached new UPC data via CacheManager: ${barcode}`);
+            
+            return result;
+        } finally {
+            // 5. Always remove the request from the pending map.
+            this.pendingRequests.delete(cacheKey);
+        }
     },
+
 
     /**
      * Generate unique identifier for physical copies
@@ -543,34 +511,25 @@ const MediaLookupUtils = {
     },
 
     async searchTMDBForTitle(title, year = null, exactMatch = false) {
-        // AGGRESSIVE CACHING - Check cache first
+        // Use the same robust key generation.
         const cacheKey = `tmdb_search_${title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${year || 'noyear'}_${exactMatch}`;
-        const cached = localStorage.getItem(cacheKey);
         
+        // 1. Check the central cache using 'tmdb' as the cacheType.
+        const cached = this.persistentCache.get('tmdb', cacheKey);
         if (cached) {
-            try {
-                const cachedResult = JSON.parse(cached);
-                console.log(`🎬 Using cached TMDB search: ${title}`);
-                return cachedResult;
-            } catch (e) {
-                // Invalid cache, remove it
-                localStorage.removeItem(cacheKey);
-            }
+            console.log(`🎬 Using persistent cache for TMDB search: ${title}`);
+            return cached;
         }
 
         console.log(`🔍 Fresh TMDB search: ${title} (${year || 'no year'})`);
         
-        // Use your existing _searchTMDB method for the actual search
         try {
+            // 2. Perform the search if not found in cache.
             const result = await this._searchTMDB(title, year, exactMatch);
             
-            // CACHE THE RESULT
-            try {
-                localStorage.setItem(cacheKey, JSON.stringify(result));
-                console.log(`💾 Cached TMDB result: ${title}`);
-            } catch (e) {
-                console.warn('Could not cache TMDB result:', e);
-            }
+            // 3. Store the new result in our central cache.
+            this.persistentCache.set('tmdb', cacheKey, result);
+            console.log(`💾 Cached new TMDB result via CacheManager: ${title}`);
             
             return result;
             
@@ -579,6 +538,7 @@ const MediaLookupUtils = {
             throw error;
         }
     },
+
     /* Internal TMDB search with optimized queries */
     async _searchTMDB(title, year = null, exactMatch = false) {
         try {
@@ -1257,313 +1217,52 @@ const MediaLookupUtils = {
     },
 };
 
-/**
- * SEARCH UI UTILITIES
- * Manages the TMDB search interface, results display, and selection.
- */
-const SearchUI = {
-    // Configuration properties
-    config: {
-        searchInputId: null,
-        searchBtnId: null,
-        resultsContainerId: null,
-        searchFooterId: null,
-        resultCountId: null,
-        loadMoreBtnId: null,
-        onSelect: () => {}, // Callback for when a media item is selected
-    },
-
-    // State properties
-    currentPage: 1,
-    totalPages: 1,
-    totalResults: 0,
-    currentQuery: '',
-    isLoading: false,
-
-    /**
-     * Initializes the search UI on a page.
-     * @param {object} config - Configuration object with element IDs and onSelect callback.
-     */
-    initialize(config) {
-        this.config = { ...this.config, ...config };
-
-        const searchInput = document.getElementById(this.config.searchInputId);
-        const searchBtn = document.getElementById(this.config.searchBtnId);
-        const loadMoreBtn = document.getElementById(this.config.loadMoreBtnId);
-
-        if (!searchInput || !searchBtn || !loadMoreBtn) {
-            console.error('SearchUI initialization failed: One or more required elements are missing.');
-            return;
-        }
-
-        const debouncedSearch = LibraryUtils.ui.debounce((query) => {
-            if (query.length > 2) this.performSearch(query, 1);
-        }, 300);
-
-        searchInput.addEventListener('input', () => debouncedSearch(searchInput.value.trim()));
-        searchBtn.addEventListener('click', () => this.performSearch(searchInput.value.trim(), 1));
-        loadMoreBtn.addEventListener('click', () => this.loadMore());
-    },
-
-    /**
-     * Performs the TMDB search and updates the UI.
-     * @param {string} query - The search query.
-     * @param {number} page - The page number to fetch.
-     */
-    async performSearch(query, page) {
-        if (!query || this.isLoading) return;
-
-        const isNewSearch = page === 1;
-        if (isNewSearch) {
-            this.currentQuery = query;
-            this.currentPage = 1;
-        }
-
-        this.isLoading = true;
-        this.updateLoadingState(true, isNewSearch);
-
-        try {
-            const searchUrl = `${MediaLookupUtils.TMDB_BASE_URL}/search/multi?query=${encodeURIComponent(query)}&page=${page}`;
-            const response = await fetch(searchUrl);
-            const data = await response.json();
-
-            if (!response.ok) throw new Error('Failed to fetch search results.');
-
-            this.currentPage = data.page;
-            this.totalPages = data.total_pages;
-            this.totalResults = data.total_results;
-
-            this.displayResults(data.results, isNewSearch);
-        } catch (error) {
-            console.error('TMDB Search Error:', error);
-            const resultsContainer = document.getElementById(this.config.resultsContainerId);
-            if (resultsContainer) {
-                resultsContainer.innerHTML = '<div class="error-state"><p>Search failed. Please try again.</p></div>';
-            }
-        } finally {
-            this.isLoading = false;
-            this.updateLoadingState(false, isNewSearch);
-            this.updateSearchFooter();
-        }
-    },
-
-    /**
-     * Displays the search results in the container.
-     * @param {Array} results - The array of media items from TMDB.
-     * @param {boolean} isNewSearch - Whether this is a new search or loading more.
-     */
-    displayResults(results, isNewSearch) {
-        const resultsContainer = document.getElementById(this.config.resultsContainerId);
-        if (!resultsContainer) return;
-
-        if (isNewSearch) resultsContainer.innerHTML = '';
-
-        if (results.length === 0 && isNewSearch) {
-            resultsContainer.innerHTML = '<div class="empty-state"><p>No results found.</p></div>';
-            return;
-        }
-
-        const validResults = results.filter(item => item.media_type === 'movie' || item.media_type === 'tv');
-
-        const resultsHTML = validResults.map(item => {
-            const title = item.title || item.name;
-            const year = (item.release_date || item.first_air_date || '').substring(0, 4);
-            const poster = item.poster_path ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${item.poster_path}` : 'https://placehold.co/50x75/2D194D/DEF0F7?text=N/A';
-            const overview = LibraryUtils.ui.truncateText(item.overview, 100);
-            const badgeHTML = item.media_type === 'tv' ?
-                `<span class="badge badge-tv"><span class="icon icon-tv icon-sm"></span></span>` :
-                `<span class="badge badge-movie"><span class="icon icon-movie icon-sm"></span></span>`;
-
-            return `
-                <div class="search-result" data-id="${item.id}" data-type="${item.media_type}">
-                    <img src="${poster}" class="search-result-poster" loading="lazy">
-                    <div class="search-result-info">
-                        <h4>${title} (${year}) ${badgeHTML}</h4>
-                        <p>${overview}</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        resultsContainer.insertAdjacentHTML('beforeend', resultsHTML);
-        this.attachResultClickHandlers(resultsContainer);
-    },
-    
-    /**
-     * Attaches click handlers to the search result items.
-     * @param {HTMLElement} container - The container with the search results.
-     */
-    attachResultClickHandlers(container) {
-        const results = container.querySelectorAll('.search-result');
-        results.forEach(result => {
-            // Remove old listeners to prevent duplicates
-            result.replaceWith(result.cloneNode(true));
-        });
-        
-        container.querySelectorAll('.search-result').forEach(result => {
-            result.addEventListener('click', (e) => {
-                const id = e.currentTarget.dataset.id;
-                const type = e.currentTarget.dataset.type;
-                
-                // Call the onSelect callback
-                this.config.onSelect(id, type, e.currentTarget);
-                
-                // Collapse search results after selection
-                this.collapseResults();
-            });
-        });
-    },
-    
-    /**
-     * Collapse search results and clear search input
-     */
-    collapseResults() {
-        const resultsContainer = document.getElementById(this.config.resultsContainerId);
-        const searchFooter = document.getElementById(this.config.searchFooterId);
-        const searchInput = document.getElementById(this.config.searchInputId);
-        
-        if (resultsContainer) {
-            resultsContainer.style.display = 'none';
-            resultsContainer.innerHTML = '';
-        }
-        
-        if (searchFooter) {
-            searchFooter.style.display = 'none';
-        }
-        
-        if (searchInput) {
-            searchInput.value = '';
-        }
-        
-        // Reset pagination state
-        this.currentPage = 1;
-        this.totalPages = 1;
-        this.totalResults = 0;
-    },
-
-    loadMore() {
-        if (this.currentPage < this.totalPages) {
-            this.performSearch(this.currentQuery, this.currentPage + 1);
-        }
-    },
-
-    updateLoadingState(isLoading, isNewSearch) {
-        const resultsContainer = document.getElementById(this.config.resultsContainerId);
-        const loadMoreBtn = document.getElementById(this.config.loadMoreBtnId);
-
-        if (isNewSearch && isLoading && resultsContainer) {
-            resultsContainer.innerHTML = '<div class="loading-container"><div class="loading-spinner" style="display: block;"></div></div>';
-        }
-        if (loadMoreBtn) {
-            loadMoreBtn.textContent = isLoading ? 'Loading...' : 'Load More';
-            loadMoreBtn.disabled = isLoading;
-        }
-    },
-
-    updateSearchFooter() {
-        const footer = document.getElementById(this.config.searchFooterId);
-        const countSpan = document.getElementById(this.config.resultCountId);
-        const loadMoreBtn = document.getElementById(this.config.loadMoreBtnId);
-
-        if (this.totalResults > 0 && footer && countSpan && loadMoreBtn) {
-            footer.style.display = 'flex';
-            const itemsShown = document.getElementById(this.config.resultsContainerId).children.length;
-            countSpan.textContent = `Showing ${itemsShown} of ${this.totalResults} results`;
-            loadMoreBtn.style.display = this.currentPage < this.totalPages ? 'block' : 'none';
-        } else if (footer) {
-            footer.style.display = 'none';
-        }
-    }
-};
-
 /* SCANNER UI HELPERS * Common UI functions for scanner interfaces */
 const ScannerUI = {
-    modal: null,
-    input: null,
+    _onSubmit: null, // To store the submit callback
 
-    /* Creates the modal and attaches listeners. Call this once on page load.*/
-    initialize(onSubmit, onCancel) {
-        // If modal already exists, do nothing.
-        if (document.getElementById('manualBarcodeModal')) {
-            return;
-        }
+    /**
+     * Stores the callback function for when a barcode is submitted.
+     * @param {function} onSubmit - The function to call with the barcode.
+     */
+    initialize(onSubmit) {
+        this._onSubmit = onSubmit;
+    },
 
-        const modalHtml = `
-            <div class="modal" id="manualBarcodeModal">
-                <div class="modal-content">
-                    <h3>Manual Barcode Entry</h3>
-                    <div class="form-group">
-                        <label for="manualBarcodeInput">Barcode (8-18 digits)</label>
-                        <input type="text" id="manualBarcodeInput" 
-                               placeholder="Enter 8-18 digit barcode" 
-                               pattern="[0-9]{8,18}" 
-                               maxlength="18">
-                    </div>
-                    <div class="modal-buttons">
-                        <button id="submitManualBarcodeBtn" class="btn btn-lg btn-success" title="Submit">
-                            <span class="icon icon-confirm icon-lg"></span>
-                        </button>
-                        <button id="cancelManualBarcodeBtn" class="btn btn-lg btn-secondary" title="Cancel">
-                            <span class="icon icon-close icon-lg"></span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-       
-        
-         // Store references to the elements
-         this.modal = document.getElementById('manualBarcodeModal');
-         this.input = document.getElementById('manualBarcodeInput');
-         const submitBtn = document.getElementById('submitManualBarcodeBtn');
-         const cancelBtn = document.getElementById('cancelManualBarcodeBtn');
-         
-         const handleSubmit = () => {
-             if (onSubmit(this.input.value.trim())) {
-                 this.hideManualEntryModal();
-             }
-         };
-         
-         const handleCancel = () => {
-             this.hideManualEntryModal();
-             if (onCancel) onCancel();
-         };
-         
-         submitBtn.addEventListener('click', handleSubmit);
-         cancelBtn.addEventListener('click', handleCancel);
-         this.input.addEventListener('keypress', (e) => {
-             if (e.key === 'Enter') {
-                 e.preventDefault();
-                 handleSubmit();
-             }
-         });
-         this.modal.addEventListener('click', (e) => {
-             if (e.target === this.modal) {
-                 handleCancel();
-             }
-         });
-     },
- 
-
-    /* Show the existing modal */
     showManualEntryModal() {
-        if (this.modal) {
-            this.modal.classList.add('active');
-            this.input.value = ''; // Clear previous input
-            this.input.focus();
-        }
+        ModalManager.show({
+            title: 'Manual Barcode Entry',
+            content: `
+                <div class="form-group">
+                    <label for="manualBarcodeInput">Barcode (8-18 digits)</label>
+                    <input type="text" id="manualBarcodeInput" 
+                           class="form-control"
+                           placeholder="Enter 8-18 digit barcode" 
+                           pattern="[0-9]{8,18}" 
+                           maxlength="18"
+                           autofocus>
+                </div>
+            `,
+            buttons: [
+                { text: 'Cancel', class: 'btn-secondary' },
+                {
+                    text: 'Submit',
+                    class: 'btn-primary',
+                    onClick: (modalBody) => {
+                        const input = modalBody.querySelector('#manualBarcodeInput');
+                        const barcode = input.value.trim();
+                        // Call the stored onSubmit function if it exists and a barcode was entered
+                        if (barcode && this._onSubmit) {
+                           if (this._onSubmit(barcode)) {
+                               // The callback can return false to prevent the modal from closing
+                           }
+                        }
+                    }
+                }
+            ]
+        });
     },
-
-    /* Hide the existing modal */
-    hideManualEntryModal() {
-        if (this.modal) {
-            this.modal.classList.remove('active');
-        }
-    },
-
-
+    
     /* Create scanner status display */
     createStatusDisplay(containerId) {
         const container = document.getElementById(containerId);
@@ -1584,402 +1283,21 @@ const ScannerUI = {
     }
 };
 
+    // Make utilities globally available immediately when script loads
     if (typeof window !== 'undefined') {
-        // Initialize MediaLookupUtils immediately
-        MediaLookupUtils.init();
-        
-        // Make utilities globally available
-        window.ScannerManager = ScannerManager;
+        // Make classes available first
         window.MediaLookupUtils = MediaLookupUtils;
         window.ScannerUI = ScannerUI;
-        window.SearchUI = SearchUI;
+
+        // Then initialize MediaLookupUtils
+        document.addEventListener('DOMContentLoaded', () => {
+            MediaLookupUtils.init();
+            console.log('🚀 Scanner utilities initialized successfully');
+        });
         
-        // For backward compatibility, also expose as mediaLookupUtils
+        // For backward compatibility
         window.mediaLookupUtils = MediaLookupUtils;
-        
-        console.log('🚀 Scanner utilities initialized successfully');
-        
-        // Optional: Log cache stats periodically in development
-        if (window.location.hostname === 'localhost') {
-            setInterval(() => {
-                const stats = MediaLookupUtils.getCacheStats();
-                console.log('📊 Cache Stats:', stats);
-            }, 30000); // Every 30 seconds
-        }
 }
-
-// Development mode detection
-const isDevelopment = window.location.hostname === 'localhost' || 
-                     window.location.hostname.includes('vercel.app') ||
-                     window.location.search.includes('dev=true');
-
-// Enhanced Cache Manager with localStorage
-class EnhancedCacheManager {
-    constructor(prefix = 'dvd_cache_', ttlHours = 24) {
-        this.prefix = prefix;
-        this.ttl = ttlHours * 60 * 60 * 1000; // Convert to milliseconds
-    }
-
-    // Store data with timestamp
-    set(category, key, data) {
-        const cacheKey = `${this.prefix}${category}_${key}`;
-        const cacheData = {
-            data: data,
-            timestamp: Date.now(),
-            ttl: this.ttl
-        };
-        
-        try {
-            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-            console.log(`💾 Cached ${category}:${key}`);
-        } catch (error) {
-            console.warn('localStorage full, clearing old cache:', error);
-            this.clearOldCache();
-            // Try again after clearing
-            try {
-                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-            } catch (e) {
-                console.error('Still cannot cache after clearing:', e);
-            }
-        }
-    }
-
-    // Get data if not expired
-    get(category, key) {
-        const cacheKey = `${this.prefix}${category}_${key}`;
-        
-        try {
-            const cached = localStorage.getItem(cacheKey);
-            if (!cached) return null;
-
-            const cacheData = JSON.parse(cached);
-            const now = Date.now();
-            
-            // Check if expired
-            if (now - cacheData.timestamp > cacheData.ttl) {
-                localStorage.removeItem(cacheKey);
-                console.log(`🗑️ Expired cache removed: ${category}:${key}`);
-                return null;
-            }
-
-            console.log(`✅ Cache hit: ${category}:${key}`);
-            return cacheData.data;
-        } catch (error) {
-            console.error('Cache read error:', error);
-            localStorage.removeItem(cacheKey);
-            return null;
-        }
-    }
-
-    // Clear old cache entries
-    clearOldCache() {
-        const now = Date.now();
-        let cleared = 0;
-        
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith(this.prefix)) {
-                try {
-                    const cached = JSON.parse(localStorage.getItem(key));
-                    if (now - cached.timestamp > cached.ttl) {
-                        localStorage.removeItem(key);
-                        cleared++;
-                    }
-                } catch (e) {
-                    // Invalid cache entry, remove it
-                    localStorage.removeItem(key);
-                    cleared++;
-                }
-            }
-        }
-        
-        console.log(`🧹 Cleared ${cleared} old cache entries`);
-    }
-}
-// ===== MOVIE DATA CACHING =====
-// Cache Firestore movie queries to avoid repeated reads
-
-const MovieCache = {
-    cache: new EnhancedCacheManager('movie_', 48), // 48 hour cache for movies
-    
-    // Cache a movie by TMDB ID
-    cacheMovieByTmdbId(tmdbId, movieData) {
-        if (tmdbId && movieData) {
-            this.cache.set('tmdb', tmdbId.toString(), movieData);
-        }
-    },
-
-    // Get cached movie by TMDB ID
-    getCachedMovieByTmdbId(tmdbId) {
-        if (!tmdbId) return null;
-        return this.cache.get('tmdb', tmdbId.toString());
-    },
-
-    // Cache movie by Firestore document ID
-    cacheMovieByDocId(docId, movieData) {
-        if (docId && movieData) {
-            this.cache.set('doc', docId, movieData);
-        }
-    },
-
-    // Get cached movie by Firestore document ID  
-    getCachedMovieByDocId(docId) {
-        if (!docId) return null;
-        return this.cache.get('doc', docId);
-    },
-
-    // Cache user interaction data
-    cacheUserInteraction(userId, movieId, interactionData) {
-        const key = `${userId}_${movieId}`;
-        this.cache.set('interaction', key, interactionData);
-    },
-
-    // Get cached user interaction
-    getCachedUserInteraction(userId, movieId) {
-        const key = `${userId}_${movieId}`;
-        return this.cache.get('interaction', key);
-    }
-};
-
-// ===== ENHANCED FIRESTORE WRAPPER =====
-// Wrap Firestore calls with caching
-
-const CachedFirestore = {
-    // Get movie by TMDB ID with caching
-    async getMovieByTmdbId(tmdbId) {
-        // Check cache first
-        const cached = MovieCache.getCachedMovieByTmdbId(tmdbId);
-        if (cached) {
-            console.log(`🎬 Using cached movie for TMDB ID: ${tmdbId}`);
-            return { exists: true, data: () => cached, id: cached.firestoreId };
-        }
-
-        // Not in cache, query Firestore
-        console.log(`🔍 Firestore query for TMDB ID: ${tmdbId}`);
-        const query = await db.collection('movies')
-            .where('tmdbId', '==', parseInt(tmdbId))
-            .limit(1)
-            .get();
-
-        if (!query.empty) {
-            const doc = query.docs[0];
-            const data = doc.data();
-            data.firestoreId = doc.id; // Store the document ID
-            
-            // Cache for next time
-            MovieCache.cacheMovieByTmdbId(tmdbId, data);
-            MovieCache.cacheMovieByDocId(doc.id, data);
-            
-            return doc;
-        }
-
-        return null;
-    },
-
-    // Get movie by document ID with caching
-    async getMovieByDocId(docId) {
-        // Check cache first
-        const cached = MovieCache.getCachedMovieByDocId(docId);
-        if (cached) {
-            console.log(`🎬 Using cached movie for doc ID: ${docId}`);
-            return { exists: true, data: () => cached, id: docId };
-        }
-
-        // Not in cache, query Firestore
-        console.log(`🔍 Firestore query for doc ID: ${docId}`);
-        const doc = await db.collection('movies').doc(docId).get();
-
-        if (doc.exists) {
-            const data = doc.data();
-            data.firestoreId = doc.id;
-            
-            // Cache for next time
-            MovieCache.cacheMovieByDocId(docId, data);
-            if (data.tmdbId) {
-                MovieCache.cacheMovieByTmdbId(data.tmdbId, data);
-            }
-            
-            return doc;
-        }
-
-        return null;
-    },
-
-    // Get user interaction with caching
-    async getUserInteraction(userId, movieId) {
-        // Check cache first
-        const cached = MovieCache.getCachedUserInteraction(userId, movieId);
-        if (cached) {
-            console.log(`👤 Using cached interaction: ${userId}/${movieId}`);
-            return { exists: true, data: () => cached };
-        }
-
-        // Not in cache, query Firestore
-        console.log(`🔍 Firestore query for interaction: ${userId}/${movieId}`);
-        const doc = await db.collection('users').doc(userId)
-            .collection('movieInteractions').doc(movieId).get();
-
-        if (doc.exists) {
-            const data = doc.data();
-            
-            // Cache for next time
-            MovieCache.cacheUserInteraction(userId, movieId, data);
-            
-            return doc;
-        }
-
-        return null;
-    }
-};
-
-// ===== DEVELOPMENT HELPERS =====
-
-const DevHelpers= {
-    // Cache statistics
-    getCacheStats() {
-        let totalItems = 0;
-        let totalSize = 0;
-        const categories = {};
-        
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('dvd_cache_')) {
-                const category = key.split('_')[2];
-                categories[category] = (categories[category] || 0) + 1;
-                totalItems++;
-                
-                try {
-                    totalSize += localStorage.getItem(key).length;
-                } catch (e) {
-                    // Skip invalid entries
-                }
-            }
-        }
-        
-        return {
-            totalItems,
-            totalSize: Math.round(totalSize / 1024) + ' KB',
-            categories,
-            quota: Math.round((totalSize / (5 * 1024 * 1024)) * 100) + '% of 5MB localStorage quota'
-        };
-    },
-
-    // Clear all cache
-    clearAllCache() {
-        let cleared = 0;
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('dvd_cache_')) {
-                localStorage.removeItem(key);
-                cleared++;
-            }
-        }
-        console.log(`🧹 Cleared all cache (${cleared} items)`);
-    }
-}
-
-const EnhancedDevHelpers= {
-    // Cache statistics
-    getAllCacheStats() {
-        const stats = {
-            movies: 0,
-            tmdb: 0,
-            upc: 0,
-            lists: 0,
-            dashboard: 0,
-            other: 0,
-            totalSize: 0
-        };
-        
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            const value = localStorage.getItem(key);
-            stats.totalSize += value.length;
-            
-            if (key.startsWith('dvd_cache_movie_')) stats.movies++;
-            else if (key.startsWith('tmdb_search_')) stats.tmdb++;
-            else if (key.startsWith('upc_')) stats.upc++;
-            else if (key.startsWith('list_')) stats.lists++;
-            else if (key.startsWith('dashboard_')) stats.dashboard++;
-            else stats.other++;
-        }
-        
-        stats.totalSize = Math.round(stats.totalSize / 1024) + ' KB';
-        return stats;
-    },
-
-    // Skip Firestore reads in development
-    enableFirestoreSkipping() {
-        window.SKIP_FIRESTORE_READS = true;
-        console.log('🚧 Development mode: Firestore reads disabled');
-    },
-    clearTMDBCache() {
-        let cleared = 0;
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('tmdb_search_')) {
-                localStorage.removeItem(key);
-                cleared++;
-            }
-        }
-        console.log(`🎬 Cleared ${cleared} TMDB cache entries`);
-    },
-    
-    clearUPCCache() {
-        let cleared = 0;
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('upc_')) {
-                localStorage.removeItem(key);
-                cleared++;
-            }
-        }
-        console.log(`📦 Cleared ${cleared} UPC cache entries`);
-    },
-
-      async preloadPopularMovies() {
-        console.log('🚀 Preloading popular movies...');
-        const popularTitles = [
-            'The Matrix', 'Inception', 'The Dark Knight', 'Pulp Fiction',
-            'Fight Club', 'Forrest Gump', 'The Godfather', 'Goodfellas'
-        ];
-        
-        for (const title of popularTitles) {
-            try {
-                await MediaLookupUtils.searchTMDBForTitle(title);
-                console.log(`✅ Preloaded: ${title}`);
-            } catch (e) {
-                console.log(`❌ Failed to preload: ${title}`);
-            }
-        }
-        console.log('✅ Preloading complete!');
-    }
-};
-
-
-
-// ===== AUTO-INITIALIZATION =====
-
-if (isDevelopment) {
-    console.log('🔧 Development mode detected - Enhanced caching enabled');
-    
-    // Show cache stats every 30 seconds in dev
-    setInterval(() => {
-        const stats = DevHelpers.getCacheStats();
-        console.log('📊 Cache Stats:', stats);
-    }, 30000);
-    
-    // Make dev helpers available in console
-    window.DevHelpers = EnhancedDevHelpers;
-    window.MovieCache = MovieCache;
-    window.CachedFirestore = CachedFirestore;
-    
-    console.log('🛠️ Dev tools available: DevHelpers, MovieCache, CachedFirestore');
-}
-
-// Make available globally
-window.MovieCache = MovieCache;
-window.CachedFirestore = CachedFirestore;
 
 // Usage example with cache monitoring:
 /*

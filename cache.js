@@ -263,10 +263,91 @@ class CacheManager {
     }
 }
 
-/**
- * CachedFirestore - High-performance cached wrapper for Firestore operations
- * Reduces database reads using intelligent caching with LRU eviction
- */
+// Enhanced Cache Manager with localStorage
+class EnhancedCacheManager {
+    constructor(prefix = 'dvd_cache_', ttlHours = 24) {
+        this.prefix = prefix;
+        this.ttl = ttlHours * 60 * 60 * 1000; // Convert to milliseconds
+    }
+
+    // Store data with timestamp
+    set(category, key, data) {
+        const cacheKey = `${this.prefix}${category}_${key}`;
+        const cacheData = {
+            data: data,
+            timestamp: Date.now(),
+            ttl: this.ttl
+        };
+        
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            console.log(`💾 Cached ${category}:${key}`);
+        } catch (error) {
+            console.warn('localStorage full, clearing old cache:', error);
+            this.clearOldCache();
+            // Try again after clearing
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            } catch (e) {
+                console.error('Still cannot cache after clearing:', e);
+            }
+        }
+    }
+
+    // Get data if not expired
+    get(category, key) {
+        const cacheKey = `${this.prefix}${category}_${key}`;
+        
+        try {
+            const cached = localStorage.getItem(cacheKey);
+            if (!cached) return null;
+
+            const cacheData = JSON.parse(cached);
+            const now = Date.now();
+            
+            // Check if expired
+            if (now - cacheData.timestamp > cacheData.ttl) {
+                localStorage.removeItem(cacheKey);
+                console.log(`🗑️ Expired cache removed: ${category}:${key}`);
+                return null;
+            }
+
+            console.log(`✅ Cache hit: ${category}:${key}`);
+            return cacheData.data;
+        } catch (error) {
+            console.error('Cache read error:', error);
+            localStorage.removeItem(cacheKey);
+            return null;
+        }
+    }
+
+    // Clear old cache entries
+    clearOldCache() {
+        const now = Date.now();
+        let cleared = 0;
+        
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(this.prefix)) {
+                try {
+                    const cached = JSON.parse(localStorage.getItem(key));
+                    if (now - cached.timestamp > cached.ttl) {
+                        localStorage.removeItem(key);
+                        cleared++;
+                    }
+                } catch (e) {
+                    // Invalid cache entry, remove it
+                    localStorage.removeItem(key);
+                    cleared++;
+                }
+            }
+        }
+        
+        console.log(`🧹 Cleared ${cleared} old cache entries`);
+    }
+}
+
+
 const CachedFirestore = {
     // Cache instances for different data types
     movieCache: null,
@@ -279,80 +360,91 @@ const CachedFirestore = {
         console.log('🔥 CachedFirestore initialized');
     },
 
-    /**
-     * Get movie by Firestore document ID with caching
-     */
-    async getMovieByDocId(movieId) {
-        const cacheKey = `doc_${movieId}`;
-        
-        // Check cache first
-        const cached = this.movieCache.get('movies', cacheKey);
-        if (cached) {
-            console.log(`📄 Using cached movie doc: ${movieId}`);
-            return {
-                exists: true,
-                id: movieId,
-                data: () => cached
-            };
-        }
-        
-        // Fetch from Firestore
-        console.log(`🔍 Fetching movie doc from Firestore: ${movieId}`);
-        const doc = await db.collection('movies').doc(movieId).get();
-        
-        if (doc.exists) {
-            // Cache the result
-            const data = doc.data();
-            this.movieCache.set('movies', cacheKey, data);
-            console.log(`💾 Cached movie doc: ${movieId}`);
-        }
-        
-        return doc;
-    },
-
-    /**
-     * Get movie by TMDB ID with caching
-     */
+    // Get movie by TMDB ID with caching
     async getMovieByTmdbId(tmdbId) {
-        const cacheKey = `tmdb_${tmdbId}`;
-        
         // Check cache first
-        const cached = this.movieCache.get('movies', cacheKey);
+        const cached = MovieCache.getCachedMovieByTmdbId(tmdbId);
         if (cached) {
-            console.log(`🎬 Using cached movie by TMDB ID: ${tmdbId}`);
-            return {
-                exists: true,
-                id: cached.firestoreId,
-                data: () => cached
-            };
+            console.log(`🎬 Using cached movie for TMDB ID: ${tmdbId}`);
+            return { exists: true, data: () => cached, id: cached.firestoreId };
         }
-        
-        // Query Firestore
-        console.log(`🔍 Querying movie by TMDB ID: ${tmdbId}`);
+
+        // Not in cache, query Firestore
+        console.log(`🔍 Firestore query for TMDB ID: ${tmdbId}`);
         const query = await db.collection('movies')
             .where('tmdbId', '==', parseInt(tmdbId))
             .limit(1)
             .get();
-        
+
         if (!query.empty) {
             const doc = query.docs[0];
-            const data = { firestoreId: doc.id, ...doc.data() };
+            const data = doc.data();
+            data.firestoreId = doc.id; // Store the document ID
             
-            // Cache using both the TMDB ID and doc ID
-            this.movieCache.set('movies', cacheKey, data);
-            this.movieCache.set('movies', `doc_${doc.id}`, data);
-            console.log(`💾 Cached movie by TMDB ID: ${tmdbId}`);
+            // Cache for next time
+            MovieCache.cacheMovieByTmdbId(tmdbId, data);
+            MovieCache.cacheMovieByDocId(doc.id, data);
             
-            return {
-                exists: true,
-                id: doc.id,
-                data: () => data
-            };
+            return doc;
         }
-        
-        return { exists: false };
+
+        return null;
     },
 
+    // Get movie by document ID with caching
+    async getMovieByDocId(docId) {
+        // Check cache first
+        const cached = MovieCache.getCachedMovieByDocId(docId);
+        if (cached) {
+            console.log(`🎬 Using cached movie for doc ID: ${docId}`);
+            return { exists: true, data: () => cached, id: docId };
+        }
+
+        // Not in cache, query Firestore
+        console.log(`🔍 Firestore query for doc ID: ${docId}`);
+        const doc = await db.collection('movies').doc(docId).get();
+
+        if (doc.exists) {
+            const data = doc.data();
+            data.firestoreId = doc.id;
+            
+            // Cache for next time
+            MovieCache.cacheMovieByDocId(docId, data);
+            if (data.tmdbId) {
+                MovieCache.cacheMovieByTmdbId(data.tmdbId, data);
+            }
+            
+            return doc;
+        }
+
+        return null;
+    },
+
+    // Get user interaction with caching
+    async getUserInteraction(userId, movieId) {
+        // Check cache first
+        const cached = MovieCache.getCachedUserInteraction(userId, movieId);
+        if (cached) {
+            console.log(`👤 Using cached interaction: ${userId}/${movieId}`);
+            return { exists: true, data: () => cached };
+        }
+
+        // Not in cache, query Firestore
+        console.log(`🔍 Firestore query for interaction: ${userId}/${movieId}`);
+        const doc = await db.collection('users').doc(userId)
+            .collection('movieInteractions').doc(movieId).get();
+
+        if (doc.exists) {
+            const data = doc.data();
+            
+            // Cache for next time
+            MovieCache.cacheUserInteraction(userId, movieId, data);
+            
+            return doc;
+        }
+
+        return null;
+    },
     /**
      * Cache movie data manually (useful when creating new movies)
      */
@@ -378,20 +470,207 @@ const CachedFirestore = {
             userCache: this.userCache?.getStats()
         };
     },
+}
 
-    /**
-     * Clear all caches
-     */
-    clearAll() {
-        this.movieCache?.clear();
-        this.userCache?.clear();
-        console.log('🗑️ All CachedFirestore caches cleared');
+// ===== MOVIE DATA CACHING =====
+// Cache Firestore movie queries to avoid repeated reads
+
+const MovieCache = {
+    cache: new EnhancedCacheManager('movie_', 48), // 48 hour cache for movies
+    
+    // Cache a movie by TMDB ID
+    cacheMovieByTmdbId(tmdbId, movieData) {
+        if (tmdbId && movieData) {
+            this.cache.set('tmdb', tmdbId.toString(), movieData);
+        }
+    },
+
+    // Get cached movie by TMDB ID
+    getCachedMovieByTmdbId(tmdbId) {
+        if (!tmdbId) return null;
+        return this.cache.get('tmdb', tmdbId.toString());
+    },
+
+    // Cache movie by Firestore document ID
+    cacheMovieByDocId(docId, movieData) {
+        if (docId && movieData) {
+            this.cache.set('doc', docId, movieData);
+        }
+    },
+
+    // Get cached movie by Firestore document ID  
+    getCachedMovieByDocId(docId) {
+        if (!docId) return null;
+        return this.cache.get('doc', docId);
+    },
+
+    // Cache user interaction data
+    cacheUserInteraction(userId, movieId, interactionData) {
+        const key = `${userId}_${movieId}`;
+        this.cache.set('interaction', key, interactionData);
+    },
+
+    // Get cached user interaction
+    getCachedUserInteraction(userId, movieId) {
+        const key = `${userId}_${movieId}`;
+        return this.cache.get('interaction', key);
     }
 };
 
+// Development mode detection
+const isDevelopment = 
+    window.location.hostname === 'localhost' || 
+    window.location.hostname.includes('vercel.app') ||
+    window.location.search.includes('dev=true');
+
+
+// ===== DEVELOPMENT HELPERS =====
+
+const DevHelpers= {
+    // Cache statistics
+    getCacheStats() {
+        let totalItems = 0;
+        let totalSize = 0;
+        const categories = {};
+        
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('dvd_cache_')) {
+                const category = key.split('_')[2];
+                categories[category] = (categories[category] || 0) + 1;
+                totalItems++;
+                
+                try {
+                    totalSize += localStorage.getItem(key).length;
+                } catch (e) {
+                    // Skip invalid entries
+                }
+            }
+        }
+        
+        return {
+            totalItems,
+            totalSize: Math.round(totalSize / 1024) + ' KB',
+            categories,
+            quota: Math.round((totalSize / (5 * 1024 * 1024)) * 100) + '% of 5MB localStorage quota'
+        };
+    },
+
+    // Clear all cache
+    clearAllCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('dvd_cache_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`🧹 Cleared all cache (${cleared} items)`);
+    }
+}
+
+const EnhancedDevHelpers= {
+    // Cache statistics
+    getAllCacheStats() {
+        const stats = {
+            movies: 0,
+            tmdb: 0,
+            upc: 0,
+            lists: 0,
+            dashboard: 0,
+            other: 0,
+            totalSize: 0
+        };
+        
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            stats.totalSize += value.length;
+            
+            if (key.startsWith('dvd_cache_movie_')) stats.movies++;
+            else if (key.startsWith('tmdb_search_')) stats.tmdb++;
+            else if (key.startsWith('upc_')) stats.upc++;
+            else if (key.startsWith('list_')) stats.lists++;
+            else if (key.startsWith('dashboard_')) stats.dashboard++;
+            else stats.other++;
+        }
+        
+        stats.totalSize = Math.round(stats.totalSize / 1024) + ' KB';
+        return stats;
+    },
+
+    // Skip Firestore reads in development
+    enableFirestoreSkipping() {
+        window.SKIP_FIRESTORE_READS = true;
+        console.log('🚧 Development mode: Firestore reads disabled');
+    },
+    clearTMDBCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('tmdb_search_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`🎬 Cleared ${cleared} TMDB cache entries`);
+    },
+    
+    clearUPCCache() {
+        let cleared = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('upc_')) {
+                localStorage.removeItem(key);
+                cleared++;
+            }
+        }
+        console.log(`📦 Cleared ${cleared} UPC cache entries`);
+    },
+
+      async preloadPopularMovies() {
+        console.log('🚀 Preloading popular movies...');
+        const popularTitles = [
+            'The Matrix', 'Inception', 'The Dark Knight', 'Pulp Fiction',
+            'Fight Club', 'Forrest Gump', 'The Godfather', 'Goodfellas'
+        ];
+        
+        for (const title of popularTitles) {
+            try {
+                await MediaLookupUtils.searchTMDBForTitle(title);
+                console.log(`✅ Preloaded: ${title}`);
+            } catch (e) {
+                console.log(`❌ Failed to preload: ${title}`);
+            }
+        }
+        console.log('✅ Preloading complete!');
+    }
+};
+
+// ===== AUTO-INITIALIZATION =====
+
+if (isDevelopment) {
+    console.log('🔧 Development mode detected - Enhanced caching enabled');
+    
+    // Show cache stats every 30 seconds in dev
+    setInterval(() => {
+        const stats = DevHelpers.getCacheStats();
+        console.log('📊 Cache Stats:', stats);
+    }, 30000);
+    
+    // Make dev helpers available in console
+    window.DevHelpers = EnhancedDevHelpers;
+    
+    console.log('🛠️ Dev tools available: DevHelpers, MovieCache, CachedFirestore');
+}
+
 // Initialize when page loads and make globally available
 if (typeof window !== 'undefined') {
+    window.ScannerManager = ScannerManager;
     window.CachedFirestore = CachedFirestore;
+    window.CacheManager = CacheManager;
+
     
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {
@@ -399,21 +678,9 @@ if (typeof window !== 'undefined') {
     } else {
         CachedFirestore.init();
     }
-    
-    // Backward compatibility aliases
-    window.MovieCache = {
-        cacheMovieByTmdbId: (tmdbId, movieData) => {
-            CachedFirestore.cacheMovie(movieData.firestoreId || movieData.id, movieData, tmdbId);
-        },
-        cacheMovieByDocId: (docId, movieData) => {
-            CachedFirestore.cacheMovie(docId, movieData);
-        }
-    };
-}
 
-// Make the CacheManager globally available
-if (typeof window !== 'undefined') {
-    window.CacheManager = CacheManager;
+    // Make MovieCache available globally
+    window.MovieCache = MovieCache;
 }
 
 

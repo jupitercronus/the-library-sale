@@ -195,7 +195,6 @@ const StarUtils = {
     }
 };
 
-
 /**
  * DATE FORMATTING UTILITIES
  */
@@ -481,40 +480,25 @@ const UIUtils = {
      * @param {function} onConfirm - Callback for confirm action
      * @param {function} onCancel - Callback for cancel action
      */
+
     showConfirmModal: (title, message, onConfirm, onCancel = null) => {
-        const modal = document.getElementById('confirmationModal');
-        if (!modal) {
-            if (confirm(`${title}\n\n${message}`)) {
-                onConfirm();
-            } else if (onCancel) {
-                onCancel();
-            }
-            return;
-        }
-
-        const titleEl = document.getElementById('confirmationModalTitle');
-        const messageEl = document.getElementById('confirmationModalMessage');
-        const yesBtn = document.getElementById('confirmModalYes');
-        const noBtn = document.getElementById('confirmModalNo');
-
-        if (titleEl) titleEl.textContent = title;
-        if (messageEl) messageEl.textContent = message;
-        
-        if (yesBtn) {
-            yesBtn.onclick = () => {
-                modal.style.display = 'none';
-                onConfirm();
-            };
-        }
-        
-        if (noBtn) {
-            noBtn.onclick = () => {
-                modal.style.display = 'none';
-                if (onCancel) onCancel();
-            };
-        }
-
-        modal.style.display = 'flex';
+        ModalManager.show({
+            title: title,
+            content: message,
+            buttons: [
+                {
+                    text: 'Cancel',
+                    class: 'btn-secondary',
+                    onClick: onCancel // The modal closes by default
+                },
+                {
+                    text: 'Confirm',
+                    class: 'btn-danger', // Or 'btn-primary'
+                    onClick: onConfirm
+                }
+            ],
+            onClose: onCancel // If the user clicks the background, treat it as a cancel
+        });
     },
 
     /**
@@ -557,42 +541,6 @@ const UIUtils = {
     } 
 };
 
-// Usage example:
-// const tracker = new PerformanceTracker('complete_movie_lookup');
-// tracker.checkpoint('upc_lookup_complete');
-// tracker.checkpoint('tmdb_search_complete');
-// tracker.finish(true, { barcode: barcode, confidence: result.confidence });
-
-// Dashboard Query Examples (run these in Firebase Console):
-/*
-// Get recent physical copy creation stats
-db.collection('physicalCopyLogs')
-  .where('operation', '==', 'CREATED')
-  .where('timestamp', '>', firebase.firestore.Timestamp.fromDate(new Date(Date.now() - 24*60*60*1000)))
-  .orderBy('timestamp', 'desc')
-  .get();
-
-// Get duplicate detection patterns
-db.collection('physicalCopyLogs')
-  .where('operation', '==', 'DUPLICATE_DETECTED')
-  .orderBy('timestamp', 'desc')
-  .limit(100)
-  .get();
-
-// Get performance metrics for slow operations
-db.collection('physicalCopyLogs')
-  .where('operation', '==', 'PERFORMANCE_METRIC')
-  .where('data.value', '>', 5000) // Operations taking more than 5 seconds
-  .orderBy('data.value', 'desc')
-  .get();
-
-// Get error patterns
-db.collection('physicalCopyLogs')
-  .where('operation', '==', 'FUNCTION_ERROR')
-  .orderBy('timestamp', 'desc')
-  .limit(50)
-  .get();
-*/
 
 /**
  * SKELETON LOADING UTILITIES
@@ -683,33 +631,6 @@ const SkeletonUtils = {
     }
 };
 
-const SearchUtils = {
-    /**
-     * Creates a debounced function that delays invoking `searchFunction` until after `delay`
-     * milliseconds have elapsed since the last time the debounced function was invoked.
-     * The debounced function comes with a `cancel` method to cancel delayed `searchFunction`
-     * invocations.
-     * @param {Function} searchFunction The function to debounce.
-     * @param {number} delay The number of milliseconds to delay.
-     * @returns {{run: Function, cancel: Function}} An object with the debounced function and a cancel method.
-     */
-    createDebouncedSearch: (searchFunction, delay = 300) => {
-        let timeoutId;
-
-        const run = (...args) => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => {
-                searchFunction(...args);
-            }, delay);
-        };
-
-        const cancel = () => {
-            clearTimeout(timeoutId);
-        };
-
-        return { run, cancel };
-    }
-};
 
 /**
  * GLOBAL UTILITIES OBJECT
@@ -722,7 +643,6 @@ const LibraryUtils = {
     validation: ValidationUtils,
     ui: UIUtils,
     skeleton: SkeletonUtils,
-    search: SearchUtils
 };
 
 // Make utilities globally available

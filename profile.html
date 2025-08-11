@@ -12,12 +12,20 @@
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
-    <!-- App Scripts -->
-    <script src="utils.js" defer></script>
+    <!-- App Utilities -->
+    <script src="utils.js"></script>
+    <script src="modal-manager.js"></script>
+    <script src="cache.js"></script>
+    <script src="scanner-utils.js"></script>
+    <script src="search-ui.js"></script> 
+
+    <!-- Styles -->
     <link rel="stylesheet" href="styles/variables.css">
     <link rel="stylesheet" href="styles/base.css">  
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/pages.css">
+    
+    <!-- Main Script -->
     <script src="main.js" defer></script>
 </head>
 <body>
@@ -323,43 +331,43 @@
         }
 
         async function preloadCollectionData(userId) {
-            try {
-                // Fetch and cache the collection data
-                const snapshot = await db.collection('users')
-                    .doc(userId)
-                    .collection('movieInteractions')
-                    .where('owned', '==', true)
-                    .get();
-                
-                if (!snapshot.empty) {
-                    // Store in localStorage for the collection page to use
-                    const CACHE_KEY = 'dvd_collection_cache';
-                    const CACHE_EXPIRY_KEY = 'dvd_collection_cache_expiry';
-                    const CACHE_DURATION = 30 * 60 * 1000;
+                try {
+                    // Fetch and cache the collection data
+                    const snapshot = await db.collection('users')
+                        .doc(userId)
+                        .collection('movieInteractions')
+                        .where('owned', '==', true)
+                        .get();
                     
-                    // Process the data (simplified version)
-                    const movieIds = snapshot.docs.map(doc => doc.id);
-                    const interactions = {};
-                    snapshot.docs.forEach(doc => {
-                        interactions[doc.id] = doc.data();
-                    });
-                    
-                    // You could cache just the interactions for now
-                    localStorage.setItem(CACHE_KEY + '_preview', JSON.stringify({
-                        userId: userId,
-                        movieIds: movieIds,
-                        interactions: interactions,
-                        timestamp: new Date().getTime()
-                    }));
-                    
-                    console.log('Collection data pre-cached');
+                    if (!snapshot.empty) {
+                        // Store in localStorage for the collection page to use
+                        const CACHE_KEY = 'dvd_collection_cache';
+                        const CACHE_EXPIRY_KEY = 'dvd_collection_cache_expiry';
+                        const CACHE_DURATION = 30 * 60 * 1000;
+                        
+                        // Process the data (simplified version)
+                        const movieIds = snapshot.docs.map(doc => doc.id);
+                        const interactions = {};
+                        snapshot.docs.forEach(doc => {
+                            interactions[doc.id] = doc.data();
+                        });
+                        
+                        // You could cache just the interactions for now
+                        localStorage.setItem(CACHE_KEY + '_preview', JSON.stringify({
+                            userId: userId,
+                            movieIds: movieIds,
+                            interactions: interactions,
+                            timestamp: new Date().getTime()
+                        }));
+                        
+                        console.log('Collection data pre-cached');
+                    }
+                } catch (error) {
+                    console.error('Preload failed:', error);
                 }
-            } catch (error) {
-                console.error('Preload failed:', error);
             }
-        }
-        // Updated loadLastWatched - uses watchedDate instead of interactionDate
-    async function loadLastWatched(interactions) {
+            
+        async function loadLastWatched(interactions) {
         // Filter for interactions that have a watchedDate
         const watchedInteractions = interactions.filter(i => 
             i.watchedDate && (typeof i.watchedDate === 'string' || i.watchedDate.seconds || i.watchedDate.toDate)
@@ -370,6 +378,7 @@
                 '<div class="last-watched-empty">No movies watched yet</div>';
             return;
         }
+        
         // Sort by watchedDate (most recent first)
         watchedInteractions.sort((a, b) => {
             let aTime = 0;
@@ -395,9 +404,10 @@
         });
         
         const lastWatched = watchedInteractions[0];
+        const movieId = lastWatched.movieId || lastWatched.id; // Handle both formats
         
         try {
-            // Get movie data
+            // FIXED: Use CachedFirestore.getMovieByDocId instead of calling it directly
             const movieDoc = await CachedFirestore.getMovieByDocId(movieId);
             if (!movieDoc.exists) {
                 document.getElementById('lastWatchedSection').innerHTML = 
@@ -407,37 +417,40 @@
             
             const movieData = movieDoc.data();
             let watchedDate = null;
-                if (lastWatched.watchedDate) {
-                    if (typeof lastWatched.watchedDate === 'string') {
-                        // String date like "2025-07-27"
-                        watchedDate = new Date(lastWatched.watchedDate);
-                    } else if (lastWatched.watchedDate.toDate) {
-                        // Firestore Timestamp
-                        watchedDate = lastWatched.watchedDate.toDate();
-                    } else if (lastWatched.watchedDate.seconds) {
-                        // Firestore Timestamp object
-                        watchedDate = new Date(lastWatched.watchedDate.seconds * 1000);
-                    }
+            
+            if (lastWatched.watchedDate) {
+                if (typeof lastWatched.watchedDate === 'string') {
+                    // String date like "2025-07-27"
+                    watchedDate = new Date(lastWatched.watchedDate);
+                } else if (lastWatched.watchedDate.toDate) {
+                    // Firestore Timestamp
+                    watchedDate = lastWatched.watchedDate.toDate();
+                } else if (lastWatched.watchedDate.seconds) {
+                    // Firestore Timestamp object
+                    watchedDate = new Date(lastWatched.watchedDate.seconds * 1000);
                 }
+            }
+            
             const formattedDate = watchedDate ? watchedDate.toLocaleDateString() : 'Unknown date';
 
             document.getElementById('lastWatchedSection').innerHTML = `
-            <img src="${movieData.posterUrl || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A'}" 
-                 class="last-watched-poster" 
-                 alt="${movieData.title || 'Unknown Title'}"
-                 loading="lazy"
-                 onerror="this.src='https://placehold.co/60x90/2D194D/DEF0F7?text=N/A'">
-            <div class="last-watched-info">
-                <h4>${movieData.title || 'Unknown Title'}</h4>
-                <p class="last-watched-date">Watched ${formattedDate}</p>
-            </div>
-                `;
-            } catch (error) {
-                console.error('Error loading last watched movie:', error);
-                document.getElementById('lastWatchedSection').innerHTML = 
-                    '<div class="last-watched-empty">Error loading last watched</div>';
-            }
+                <img src="${movieData.posterUrl || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A'}" 
+                    class="last-watched-poster" 
+                    alt="${movieData.title || 'Unknown Title'}"
+                    loading="lazy"
+                    onerror="this.src='https://placehold.co/60x90/2D194D/DEF0F7?text=N/A'">
+                <div class="last-watched-info">
+                    <h4>${movieData.title || 'Unknown Title'}</h4>
+                    <p class="last-watched-date">Watched ${formattedDate}</p>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading last watched movie:', error);
+            document.getElementById('lastWatchedSection').innerHTML = 
+                '<div class="last-watched-empty">Error loading last watched</div>';
+        }
     }
+  
     // Enhanced calculateAndDisplayStats with favorites logic
     async function calculateAndDisplayStats(interactions, userId) {
         // Get movie data for interactions
