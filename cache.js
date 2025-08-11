@@ -263,7 +263,157 @@ class CacheManager {
     }
 }
 
+/**
+ * CachedFirestore - High-performance cached wrapper for Firestore operations
+ * Reduces database reads using intelligent caching with LRU eviction
+ */
+const CachedFirestore = {
+    // Cache instances for different data types
+    movieCache: null,
+    userCache: null,
+    
+    // Initialize caches
+    init() {
+        this.movieCache = new CacheManager('movie_cache_', 50, 2); // 2 hour cache for movies
+        this.userCache = new CacheManager('user_cache_', 20, 1); // 1 hour cache for users
+        console.log('🔥 CachedFirestore initialized');
+    },
+
+    /**
+     * Get movie by Firestore document ID with caching
+     */
+    async getMovieByDocId(movieId) {
+        const cacheKey = `doc_${movieId}`;
+        
+        // Check cache first
+        const cached = this.movieCache.get('movies', cacheKey);
+        if (cached) {
+            console.log(`📄 Using cached movie doc: ${movieId}`);
+            return {
+                exists: true,
+                id: movieId,
+                data: () => cached
+            };
+        }
+        
+        // Fetch from Firestore
+        console.log(`🔍 Fetching movie doc from Firestore: ${movieId}`);
+        const doc = await db.collection('movies').doc(movieId).get();
+        
+        if (doc.exists) {
+            // Cache the result
+            const data = doc.data();
+            this.movieCache.set('movies', cacheKey, data);
+            console.log(`💾 Cached movie doc: ${movieId}`);
+        }
+        
+        return doc;
+    },
+
+    /**
+     * Get movie by TMDB ID with caching
+     */
+    async getMovieByTmdbId(tmdbId) {
+        const cacheKey = `tmdb_${tmdbId}`;
+        
+        // Check cache first
+        const cached = this.movieCache.get('movies', cacheKey);
+        if (cached) {
+            console.log(`🎬 Using cached movie by TMDB ID: ${tmdbId}`);
+            return {
+                exists: true,
+                id: cached.firestoreId,
+                data: () => cached
+            };
+        }
+        
+        // Query Firestore
+        console.log(`🔍 Querying movie by TMDB ID: ${tmdbId}`);
+        const query = await db.collection('movies')
+            .where('tmdbId', '==', parseInt(tmdbId))
+            .limit(1)
+            .get();
+        
+        if (!query.empty) {
+            const doc = query.docs[0];
+            const data = { firestoreId: doc.id, ...doc.data() };
+            
+            // Cache using both the TMDB ID and doc ID
+            this.movieCache.set('movies', cacheKey, data);
+            this.movieCache.set('movies', `doc_${doc.id}`, data);
+            console.log(`💾 Cached movie by TMDB ID: ${tmdbId}`);
+            
+            return {
+                exists: true,
+                id: doc.id,
+                data: () => data
+            };
+        }
+        
+        return { exists: false };
+    },
+
+    /**
+     * Cache movie data manually (useful when creating new movies)
+     */
+    cacheMovie(movieId, movieData, tmdbId = null) {
+        // Cache by document ID
+        this.movieCache.set('movies', `doc_${movieId}`, movieData);
+        
+        // Also cache by TMDB ID if available
+        if (tmdbId) {
+            const dataWithFirestoreId = { firestoreId: movieId, ...movieData };
+            this.movieCache.set('movies', `tmdb_${tmdbId}`, dataWithFirestoreId);
+        }
+        
+        console.log(`💾 Manually cached movie: ${movieId}`);
+    },
+
+    /**
+     * Get cache statistics
+     */
+    getStats() {
+        return {
+            movieCache: this.movieCache?.getStats(),
+            userCache: this.userCache?.getStats()
+        };
+    },
+
+    /**
+     * Clear all caches
+     */
+    clearAll() {
+        this.movieCache?.clear();
+        this.userCache?.clear();
+        console.log('🗑️ All CachedFirestore caches cleared');
+    }
+};
+
+// Initialize when page loads and make globally available
+if (typeof window !== 'undefined') {
+    window.CachedFirestore = CachedFirestore;
+    
+    // Auto-initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => CachedFirestore.init());
+    } else {
+        CachedFirestore.init();
+    }
+    
+    // Backward compatibility aliases
+    window.MovieCache = {
+        cacheMovieByTmdbId: (tmdbId, movieData) => {
+            CachedFirestore.cacheMovie(movieData.firestoreId || movieData.id, movieData, tmdbId);
+        },
+        cacheMovieByDocId: (docId, movieData) => {
+            CachedFirestore.cacheMovie(docId, movieData);
+        }
+    };
+}
+
 // Make the CacheManager globally available
 if (typeof window !== 'undefined') {
     window.CacheManager = CacheManager;
 }
+
+

@@ -166,14 +166,15 @@
         document.getElementById('detailsContainer').style.display = 'none';
 
         try {
-            const movieDocRef = db.collection('movies').doc(movieId);
+            // FIXED: Use CachedFirestore instead of direct call
             const movieDoc = await CachedFirestore.getMovieByDocId(movieId);
-            if (!movieDoc.exists) 
-                throw new Error("This movie could not be found in the main library.");
+            if (!movieDoc.exists) {
+            throw new Error("This movie could not be found in the main library.");
+            }
             
             const movieData = { id: movieDoc.id, ...movieDoc.data() };
             const interactionsSnapshot = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).get();
-            
+
             const allInteractions = interactionsSnapshot.docs.map(doc => ({
                 userId: doc.ref.path.split('/')[1],
                 ...doc.data()
@@ -189,54 +190,54 @@
 
             document.getElementById('loadingState').style.display = 'none';
             document.getElementById('detailsContainer').style.display = 'flex'; // Use flex for proper layout
+   
+    } catch (error) {
+        console.error("Error loading movie page:", error);
+        const container = document.getElementById('detailsContainer');
+        container.innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p></div>`;
+        container.style.display = 'block';
+        document.getElementById('loadingState').style.display = 'none';
+    }
+}
 
-        } catch (error) {
-            console.error("Error loading movie page:", error);
-            const container = document.getElementById('detailsContainer');
-            container.innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p></div>`;
-            container.style.display = 'block';
-            document.getElementById('loadingState').style.display = 'none';
-        }
+function populateMovieDetails(movieData, myInteraction, allInteractions) {
+    document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
+    document.getElementById('movieYear').textContent = movieData.year || 'N/A';
+    const contentType = movieData.contentType || 'movie';
+        const badgeElement = document.getElementById('contentTypeBadge');
+        const iconClass = contentType === 'tv' ? 'icon-tv' : 'icon-movie';
+            badgeElement.innerHTML = `<span class="icon ${iconClass}"></span>`;
+            
+    document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
+    document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
+    document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
+    document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
+    document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
+    
+    const overviewElement = document.getElementById('movieOverview');
+    const readMoreBtn = document.getElementById('readMoreBtn');
+    const summaryGroup = document.getElementById('summaryGroup');
+    const overview = movieData.overview || 'No description available.';
+    
+    overviewElement.textContent = overview;
+    
+    if (overview.length > 250) { // Adjusted threshold
+        summaryGroup.classList.add('collapsed');
+        readMoreBtn.style.display = 'inline-flex';
+        readMoreBtn.onclick = () => {
+            summaryGroup.classList.toggle('collapsed');
+            readMoreBtn.textContent = summaryGroup.classList.contains('collapsed') ? 'Read more' : 'Read less';
+        };
+    } else {
+            readMoreBtn.style.display = 'none';
     }
 
-    function populateMovieDetails(movieData, myInteraction, allInteractions) {
-        document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
-        document.getElementById('movieYear').textContent = movieData.year || 'N/A';
-        const contentType = movieData.contentType || 'movie';
-            const badgeElement = document.getElementById('contentTypeBadge');
-            const iconClass = contentType === 'tv' ? 'icon-tv' : 'icon-movie';
-                badgeElement.innerHTML = `<span class="icon ${iconClass}"></span>`;
-             
-        document.getElementById('moviePoster').src = movieData.posterUrl || 'https://placehold.co/300x450/2D194D/DEF0F7?text=No+Poster';
-        document.getElementById('moviePoster').alt = `Poster for ${movieData.title}`;
-        document.getElementById('movieDirector').textContent = movieData.director || 'N/A';
-        document.getElementById('movieCast').textContent = Array.isArray(movieData.cast) ? movieData.cast.join(', ') : 'N/A';
-        document.getElementById('movieGenre').textContent = movieData.genre || 'N/A';
-        
-        const overviewElement = document.getElementById('movieOverview');
-        const readMoreBtn = document.getElementById('readMoreBtn');
-        const summaryGroup = document.getElementById('summaryGroup');
-        const overview = movieData.overview || 'No description available.';
-        
-        overviewElement.textContent = overview;
-        
-        if (overview.length > 250) { // Adjusted threshold
-            summaryGroup.classList.add('collapsed');
-            readMoreBtn.style.display = 'inline-flex';
-            readMoreBtn.onclick = () => {
-                summaryGroup.classList.toggle('collapsed');
-                readMoreBtn.textContent = summaryGroup.classList.contains('collapsed') ? 'Read more' : 'Read less';
-            };
-        } else {
-             readMoreBtn.style.display = 'none';
-        }
+    const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
+    const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
-        const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
-        const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
-
-        renderStars(document.getElementById('averageRating'), avgRating); 
-        renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
-    }
+    renderStars(document.getElementById('averageRating'), avgRating); 
+    renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
+}
     
     async function loadUserInteraction(userId, movieId) {
         // Check cache first

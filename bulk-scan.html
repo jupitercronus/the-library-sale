@@ -336,11 +336,11 @@ async function addMovieToDatabase(result) {
     try {
         let movieDocRef;
         
-        // USE CACHED VERSION - Check if movie already exists
+        // FIXED: Use CachedFirestore instead of direct calls
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
-            if (existingDoc) {
-                movieDocRef = existingDoc;
+            if (existingDoc.exists) {
+                movieDocRef = { id: existingDoc.id };
             }
         }
 
@@ -365,12 +365,8 @@ async function addMovieToDatabase(result) {
             
             movieDocRef = await db.collection('movies').add(movieData);
             
-            // CACHE THE NEW MOVIE
-            movieData.firestoreId = movieDocRef.id;
-            if (movieData.tmdbId) {
-                MovieCache.cacheMovieByTmdbId(movieData.tmdbId, movieData);
-            }
-            MovieCache.cacheMovieByDocId(movieDocRef.id, movieData);
+            //Cache the new movie
+            CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
         }
 
         // Handle physical copy creation
@@ -385,7 +381,7 @@ async function addMovieToDatabase(result) {
 
             // Check if physical copy exists
             const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-            
+
             if (existingCopy) {
                 physicalCopyId = existingCopy.id;
             } else {
@@ -399,75 +395,99 @@ async function addMovieToDatabase(result) {
                     currentUser.uid
                 );
             }
+        }
+        
+        return { 
+            movieDocRef, 
+            physicalCopyId,
+            processed: true
+        };
+        
+    } catch (error) {
+        console.error('Error in addMovieToDatabase:', error);
+        throw error;
+    }
+}
 
-            // Check for duplicate ownership
+// Function to handle final bulk save with proper duplicate detection
+async function saveFoundItemsToUserLibrary(foundResults) {
+    let successCount = 0;
+    let duplicateCount = 0;
+    let errorCount = 0;
+    
+    for (const result of foundResults) {
+        try {
+            // Get the movie that was already created during scanning
+            const movieId = result.movieDocRef?.id;
+            if (!movieId) {
+                throw new Error('Movie reference missing');
+            }
+            
+            // Check for existing user interaction
             const userInteractionRef = db.collection('users').doc(currentUser.uid)
-                .collection('movieInteractions').doc(movieDocRef.id);
+                .collection('movieInteractions').doc(movieId);
             const existingInteraction = await userInteractionRef.get();
             
             if (existingInteraction.exists) {
                 const existingData = existingInteraction.data();
                 const currentPhysicalCopies = existingData.physicalCopies || [];
                 
-                if (currentPhysicalCopies.includes(physicalCopyId)) {
+                // Check if user already owns this physical copy
+                if (result.physicalCopyId && currentPhysicalCopies.includes(result.physicalCopyId)) {
                     // Ask user about duplicate
-                    const currentCount = currentPhysicalCopies.filter(id => id === physicalCopyId).length;
+                    const currentCount = currentPhysicalCopies.filter(id => id === result.physicalCopyId).length;
                     const shouldAddAnyway = await showDuplicateConfirmation(
-                        tmdbData.title || tmdbData.name,
-                        physicalEdition.format,
-                        physicalEdition.edition,
+                        result.tmdbData.title || result.tmdbData.name,
+                        result.physicalEdition.format,
+                        result.physicalEdition.edition,
                         currentCount
                     );
                     
                     if (!shouldAddAnyway) {
-                        throw new Error('DUPLICATE_SKIPPED');
+                        duplicateCount++;
+                        continue; // Skip this item
                     }
                 }
-            }
-        }
-        
-        // Update/create user interaction
-        const userInteractionRef = db.collection('users').doc(currentUser.uid)
-            .collection('movieInteractions').doc(movieDocRef.id);
-        const existingInteraction = await userInteractionRef.get();
-        
-        if (existingInteraction.exists) {
-            const existingData = existingInteraction.data();
-            let physicalCopiesArray = existingData.physicalCopies || [];
-            
-            if (physicalCopyId) {
-                physicalCopiesArray.push(physicalCopyId);
-            }
-            
-            await userInteractionRef.update({
-                physicalCopies: physicalCopiesArray,
-                owned: true,
-                upc: upcData?.barcode || existingData.upc || '',
-                physicalEdition: physicalEdition || existingData.physicalEdition || {},
-            });
-        } else {
-            const userInteractionData = {
-                movieId: movieDocRef.id,
-                rating: 0,
-                review: "",
-                watched: false,
-                watchedDate: null,
-                owned: true,
-                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                physicalCopies: physicalCopyId ? [physicalCopyId] : [],
-                physicalEdition: physicalEdition || {},
-                upc: upcData?.barcode || '',
-            };
+                
+                // Update existing interaction - add physical copy
+                const updatedPhysicalCopies = [...currentPhysicalCopies];
+                if (result.physicalCopyId) {
+                    updatedPhysicalCopies.push(result.physicalCopyId);
+                }
+                
+                await userInteractionRef.update({
+                    physicalCopies: updatedPhysicalCopies,
+                    owned: true,
+                    upc: result.upcData?.barcode || existingData.upc || '',
+                    physicalEdition: result.physicalEdition || existingData.physicalEdition || {}
+                });
+            } else {
+                // Create new user interaction
+                const userInteractionData = {
+                    movieId: movieId,
+                    rating: 0,
+                    review: "",
+                    watched: false,
+                    watchedDate: null,
+                    owned: true,
+                    interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    physicalCopies: result.physicalCopyId ? [result.physicalCopyId] : [],
+                    upc: result.upcData?.barcode || '',
+                    physicalEdition: result.physicalEdition || {}
+                };
 
-            await userInteractionRef.set(userInteractionData);
+                await userInteractionRef.set(userInteractionData);
+            }
+            
+            successCount++;
+            
+        } catch (error) {
+            console.error('Failed to save item to user library:', error);
+            errorCount++;
         }
-        
-        return { movieDocRef, physicalCopyId: null };
-        
-    } catch (error) {
-        console.error('Error in addMovieToDatabase:', error);
-        throw error;
     }
+    
+    return { successCount, duplicateCount, errorCount };
 }
 async function addMovieToDatabase_WithDuplicateHandling(result) {
     try {
@@ -654,70 +674,45 @@ async function processBarcodeLookup(barcode) {
     updateStats();
 
     try {
-        // The "Looking up..." indicator on the scanner is fine to keep, as it's brief.
         updateScannerStatus(`Looking up ${barcode}...`, 'processing');
         
         const lookupResult = await MediaLookupUtils.completeMovieLookup(barcode);
         const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
 
-        try {
-            await addMovieToDatabase(lookupResult);
+        const dbResult = await addMovieToDatabase(lookupResult);
             
-            let status = 'found';
-            if (needsReview) {
-                status = 'needs_review';
-            }
-
-            const scanResult = {
-                id: Date.now() + Math.random(),
-                barcode: barcode,
-                status: status,
-                timestamp: new Date(),
-                upcData,
-                tmdbData,
-                title: tmdbData.title || tmdbData.name,
-                year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
-                poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
-                physicalEdition,
-                confidence: confidence || 0
-            };
-
-            scanResults.push(scanResult);
-            
-            if (status === 'needs_review') {
-                showToastNotification(`Needs Review: ${scanResult.title}`, 'warning');
-            } else {
-                showToastNotification(`Found: ${scanResult.title}`, 'success');
-            }
-            
-        } catch (addError) {
-            if (addError.message === 'DUPLICATE_SKIPPED') {
-                // User chose to skip duplicate - show as info, not error
-                const skipResult = {
-                    id: Date.now() + Math.random(),
-                    barcode: barcode,
-                    status: 'skipped',
-                    timestamp: new Date(),
-                    upcData,
-                    tmdbData,
-                    title: tmdbData.title || tmdbData.name,
-                    year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
-                    poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
-                    physicalEdition,
-                    confidence: confidence || 0,
-                    skipReason: 'Duplicate copy skipped by user'
-                };
-
-                scanResults.push(skipResult);
-                showToastNotification(`Skipped Duplicate: ${skipResult.title}`, 'info');
-                } else {
-                throw addError; // Re-throw other errors
-            }
+        let status = 'found';
+        if (needsReview) {
+            status = 'needs_review';
         }
 
+        const scanResult = {
+            id: Date.now() + Math.random(),
+            barcode: barcode,
+            status: status,
+            timestamp: new Date(),
+            upcData,
+            tmdbData,
+            title: tmdbData.title || tmdbData.name,
+            year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
+            poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+            physicalEdition,
+            confidence: confidence || 0,
+            movieDocRef: dbResult.movieDocRef,
+            physicalCopyId: dbResult.physicalCopyId
+        };
+
+
+        scanResults.push(scanResult);
+        
+        if (status === 'needs_review') {
+            showToastNotification(`Needs Review: ${scanResult.title}`, 'warning');
+        } else {
+            showToastNotification(`Found: ${scanResult.title}`, 'success');
+        }
+        
     } catch (error) {
         console.error('Failed to process barcode:', barcode, error);
-        
         const failedResult = {
             id: Date.now() + Math.random(),
             barcode: barcode,
@@ -731,7 +726,7 @@ async function processBarcodeLookup(barcode) {
         
         scanResults.push(failedResult);
         showToastNotification(`Failed: ${error.message}`, 'error');
-        }
+    }
 
     updateStats();
     renderResults();
@@ -808,12 +803,12 @@ function updateScannerStatus(message, type = 'info') {
 }
 
 
-// NEW: Helper function to count how many of the same copy type user has
+// Helper function to count how many of the same copy type user has
 function getCurrentCopyCount(physicalCopiesArray, targetCopyId) {
-    return physicalCopiesArray.filter(copyId => copyId === targetCopyId).length;
+return physicalCopiesArray.filter(copyId => copyId === targetCopyId).length;
 }
 
-// NEW: Show duplicate confirmation modal
+// Show duplicate confirmation modal
 async function showDuplicateConfirmation(movieTitle, format, edition, currentCount) {
     return new Promise((resolve) => {
         const modal = document.createElement('div');
@@ -869,86 +864,69 @@ async function showDuplicateConfirmation(movieTitle, format, edition, currentCou
     });
 }
 
-        // Updated addAllToLibrary to handle only found items (skip the skipped ones)
-        async function addAllToLibrary() {
-            const foundResults = scanResults.filter(r => r.status === 'found');
-            
-            if (foundResults.length === 0) {
-                LibraryUtils.ui.showStatusMessage('No items found to add', 'warning');
-                return;
-            }
-            
-            const addAllBtn = document.getElementById('addAllBtn');
-            addAllBtn.classList.add('saving');
-            addAllBtn.disabled = true;
-            
-            let successCount = 0;
-            let errorCount = 0;
-            
-            // Show progress during bulk add
-            for (let i = 0; i < foundResults.length; i++) {
-                const result = foundResults[i];
-                updateProgressBar(i + 1, foundResults.length);
-                
-                try {
-                    // Note: These items were already added to database during scanning
-                    // This function might need to be renamed or refactored
-                    successCount++;
-                    
-                    // Update progress message
-                    LibraryUtils.ui.showStatusMessage(`Processing ${successCount}/${foundResults.length} items...`, 'info');
-                } catch (error) {
-                    console.error('Failed to process item:', result.title, error);
-                    errorCount++;
-                }
-            }
-            // Hide progress bar
-            updateProgressBar(0, 0);
-            
-            addAllBtn.classList.remove('saving');
-            addAllBtn.disabled = false;
-            
-            // Clear localStorage progress
-            localStorage.removeItem('bulkScanProgress');
-            
-            const skippedCount = scanResults.filter(r => r.status === 'skipped').length;
-            let message = `Processed ${successCount} items successfully.`;
-            
-            if (skippedCount > 0) {
-                message += ` ${skippedCount} duplicates were skipped.`;
-            }
-            if (errorCount > 0) {
-                message += ` ${errorCount} failed.`;
-            }
-            
-            LibraryUtils.ui.showStatusMessage(message, errorCount > 0 ? 'warning' : 'success');
-            
-            // Redirect to library with success parameter
-            setTimeout(() => {
-                window.location.href = `index.html?bulk_imported=${successCount}`;
-            }, 2000);
-        }
+// addAllToLibrary to handle only found items (skip the skipped ones)
+async function addAllToLibrary() {
+    const foundResults = scanResults.filter(r => r.status === 'found');
+    
+    if (foundResults.length === 0) {
+        LibraryUtils.ui.showStatusMessage('No items found to add', 'warning');
+        return;
+    }
+    
+    const addAllBtn = document.getElementById('addAllBtn');
+    addAllBtn.classList.add('saving');
+    addAllBtn.disabled = true;
+    
+    try {
+        // Use the new save function that handles duplicates properly
+        const results = await saveFoundItemsToUserLibrary(foundResults);
+        const { successCount, duplicateCount, errorCount } = results;
+        
+        // Clear localStorage progress
+        localStorage.removeItem('bulkScanProgress');
 
-        function setResultFilter(filter) {
-            currentFilter = filter;
-            
-            // Update active tab
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.filter === filter);
-            });
-            
-            renderResults();
+        let message = `Added ${successCount} items to your library.`;
+        if (duplicateCount > 0) {
+            message += ` ${duplicateCount} duplicates were skipped.`;
         }
+        if (errorCount > 0) {
+            message += ` ${errorCount} failed.`;
+        }
+        
+        LibraryUtils.ui.showStatusMessage(message, errorCount > 0 ? 'warning' : 'success');
 
-        function removeResult(resultId) {
-            scanResults = scanResults.filter(r => r.id !== resultId);
-            const barcode = scanResults.find(r => r.id === resultId)?.barcode;
-            if (barcode) {
-                processedBarcodes.delete(barcode);
-            }
-            updateStats();
-            renderResults();
-        }
+    // Redirect to library with success parameter
+    setTimeout(() => {
+        window.location.href = `index.html?bulk_imported=${successCount}`;
+    }, 2000);
+        
+    } catch (error) {
+        console.error('Failed to add items to library:', error);
+        LibraryUtils.ui.showStatusMessage('Failed to save items. Please try again.', 'error');
+    } finally {
+        addAllBtn.classList.remove('saving');
+        addAllBtn.disabled = false;
+    }
+}
+function setResultFilter(filter) {
+    currentFilter = filter;
+    
+    // Update active tab
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    
+    renderResults();
+}
+function removeResult(resultId) {
+    scanResults = scanResults.filter(r => r.id !== resultId);
+    const barcode = scanResults.find(r => r.id === resultId)?.barcode;
+    if (barcode) {
+        processedBarcodes.delete(barcode);
+    }
+    updateStats();
+    renderResults();
+}
 // Updated renderResults function to handle skipped items
 function renderResults() {
             const grid = document.getElementById('resultsGrid');
@@ -1019,60 +997,9 @@ function renderResults() {
                 `;
             }).join('');
         }
-        function skipCurrent() {
-            updateScannerStatus('Skipped. Ready for next barcode...', 'info');
-        }
-
-async function addAllToLibrary() {
-            const foundResults = scanResults.filter(r => r.status === 'found');
-            
-            if (foundResults.length === 0) {
-                LibraryUtils.ui.showStatusMessage('No items found to add', 'warning');
-                return;
-            }
-            
-            const addAllBtn = document.getElementById('addAllBtn');
-            addAllBtn.classList.add('saving');
-            addAllBtn.disabled = true;
-            
-            let successCount = 0;
-            let errorCount = 0;
-            
-            // Show progress during bulk add
-            for (let i = 0; i < foundResults.length; i++) {
-                const result = foundResults[i];
-                updateProgressBar(i + 1, foundResults.length);
-                
-                try {
-                    await addMovieToDatabase(result);
-                    successCount++;
-                    
-                    // Update progress message
-                    LibraryUtils.ui.showStatusMessage(`Added ${successCount}/${foundResults.length} items...`, 'info');
-                } catch (error) {
-                    console.error('Failed to add movie:', result.title, error);
-                    errorCount++;
-                }
-            }
-            // Hide progress bar
-            updateProgressBar(0, 0);
-            
-            addAllBtn.classList.remove('saving');
-            addAllBtn.disabled = false;
-            
-            // Clear localStorage progress
-            localStorage.removeItem('bulkScanProgress');
-            
-            LibraryUtils.ui.showStatusMessage(
-                `Added ${successCount} items to library. ${errorCount > 0 ? `${errorCount} failed.` : ''}`, 
-                errorCount > 0 ? 'warning' : 'success'
-            );
-            
-            // Redirect to library with success parameter
-            setTimeout(() => {
-                window.location.href = `index.html?bulk_imported=${successCount}`;
-            }, 2000);
-        }
+function skipCurrent() {
+    updateScannerStatus('Skipped. Ready for next barcode...', 'info');
+}
 // NEW: Review transition function
 async function initiateReview() {
         const foundItems = scanResults.filter(r => r.status === 'found');

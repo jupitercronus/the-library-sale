@@ -393,58 +393,59 @@
             }
         }
         
-        async function loadLatestRatings() {
-            const cached = DashboardCache.getCachedDashboard('latest_ratings');
-                if (cached) {
-                    renderLatestRatings(cached.ratings, cached.userMap, cached.movieMap);
-                    return;
-                }
-                
-                console.log('🔍 Loading latest ratings from Firestore');
+async function loadLatestRatings() {
+    const cached = DashboardCache.getCachedDashboard('latest_ratings');
+    if (cached) {
+        renderLatestRatings(cached.ratings, cached.userMap, cached.movieMap);
+        return;
+    }
+    
+    console.log('🔍 Loading latest ratings from Firestore');
 
-            const ratingsContainer = document.getElementById('latestRatingsContainer');
-            try {
-                // This query gets interactions where a rating has been given (rating > 0)
-                const ratingsSnapshot = await db.collectionGroup('movieInteractions')
-                    .where('rating', '>', 0)
-                    .orderBy('rating') // Firestore requires ordering by the inequality field first
-                    .orderBy('interactionDate', 'desc')
-                    .limit(5)
-                    .get();
+    const ratingsContainer = document.getElementById('latestRatingsContainer');
+    try {
+        // This query gets interactions where a rating has been given (rating > 0)
+        const ratingsSnapshot = await db.collectionGroup('movieInteractions')
+            .where('rating', '>', 0)
+            .orderBy('rating') // Firestore requires ordering by the inequality field first
+            .orderBy('interactionDate', 'desc')
+            .limit(5)
+            .get();
 
-                if (ratingsSnapshot.empty) {
-                    ratingsContainer.innerHTML = '<p>No ratings to display yet.</p>';
-                    return;
-                }
-
-                const ratings = ratingsSnapshot.docs.map(doc => ({
-                    userId: doc.ref.path.split('/')[1],
-                    ...doc.data()
-                }));
-
-                const userIds = [...new Set(ratings.map(r => r.userId))];
-                const movieIds = [...new Set(ratings.map(r => r.movieId))];
-
-                const [userDocs, movieDocs] = await Promise.all([
-                    db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', userIds).get(),
-                    db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', movieIds).get()
-                ]);
-
-                const userMap = new Map(userDocs.docs.map(doc => [doc.id, doc.data()]));
-                const movieMap = new Map(movieDocs.docs.map(doc => [doc.id, doc.data()]));
-
-                renderLatestRatings(ratings, userMap, movieMap);
-
-            } catch (error) {
-                console.error("Error loading latest ratings:", error);
-            }
-            
-            DashboardCache.cacheDashboard('latest_ratings', {
-                ratings: ratingsData,
-                userMap: userMap,
-                movieMap: movieMap
-            });
+        if (ratingsSnapshot.empty) {
+            ratingsContainer.innerHTML = '<p>No ratings to display yet.</p>';
+            return;
         }
+
+        const ratings = ratingsSnapshot.docs.map(doc => ({
+            userId: doc.ref.path.split('/')[1],
+            ...doc.data()
+        }));
+
+        const userIds = [...new Set(ratings.map(r => r.userId))];
+        const movieIds = [...new Set(ratings.map(r => r.movieId))];
+
+        const [userDocs, movieDocs] = await Promise.all([
+            db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', userIds).get(),
+            db.collection('movies').where(firebase.firestore.FieldPath.documentId(), 'in', movieIds).get()
+        ]);
+
+        const userMap = new Map(userDocs.docs.map(doc => [doc.id, doc.data()]));
+        const movieMap = new Map(movieDocs.docs.map(doc => [doc.id, doc.data()]));
+
+        renderLatestRatings(ratings, userMap, movieMap);
+        
+        // FIXED: Cache the correct variable names
+        DashboardCache.cacheDashboard('latest_ratings', {
+            ratings: ratings, // Fixed: was ratingsData
+            userMap: userMap,
+            movieMap: movieMap
+        });
+
+    } catch (error) {
+        console.error("Error loading latest ratings:", error);
+    }
+}
         
 
         function renderLatestRatings(ratings, userMap, movieMap) {
