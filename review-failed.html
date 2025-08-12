@@ -259,6 +259,7 @@
             const statusDiv = document.getElementById('searchStatus');
             
             resultsGrid.innerHTML = '';
+            resultsGrid.style.display = ''; // <-- ADD THIS LINE
             statusDiv.textContent = 'Edit the title above and click search';
             statusDiv.className = 'search-status';
         }
