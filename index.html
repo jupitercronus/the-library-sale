@@ -405,7 +405,11 @@
 async function loadLatestRatings() {
     const cached = DashboardCache.getCachedDashboard('latest_ratings');
     if (cached) {
-        renderLatestRatings(cached.ratings, cached.userMap, cached.movieMap);
+        // Re-create the Map objects from the cached arrays
+        const userMap = new Map(cached.userMap);
+        const movieMap = new Map(cached.movieMap);
+        
+        renderLatestRatings(cached.ratings, userMap, movieMap);
         return;
     }
     
@@ -446,9 +450,9 @@ async function loadLatestRatings() {
         
         // FIXED: Cache the correct variable names
         DashboardCache.cacheDashboard('latest_ratings', {
-            ratings: ratings, // Fixed: was ratingsData
-            userMap: userMap,
-            movieMap: movieMap
+            ratings: ratings,
+            userMap: Array.from(userMap.entries()),
+            movieMap: Array.from(movieMap.entries())
         });
 
     } catch (error) {

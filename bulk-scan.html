@@ -126,13 +126,13 @@
                 <p><strong id="finalFailedCount">0</strong> items failed (you can add these manually later)</p>
             </div>
             <div class="final-buttons">
-                <button id="addAllBtn" class="btn btn-xl btn-success" title="add all found">
+                <button id="addAllConfirmedBtn" class="btn btn-xl btn-success" title="add all confirmed & review queue">
                     <span class="icon icon-confirm icon-xl"></span>
                 </button>
-                <button id="reviewItemsBtn" class="btn btn-xl btn-warning" title="review items">
+                <button id="sendAllToReviewBtn" class="btn btn-xl btn-warning" title="send all to review">
                     <span class="icon icon-details icon-xl"></span>
                 </button>
-                <button id="startOverBtn" class="btn btn-xl btn-danger" title="start over">
+                <button id="startOverBtn" class="btn btn-xl btn-danger" title="clear and start over">
                     <span class="icon icon-delete icon-xl"></span>
                 </button>
             </div>
@@ -229,34 +229,31 @@ async function initializeBulkScanner() {
 
     restoreProgress();
 }
-    function setupEventListeners() {
-        document.getElementById('startScanBtn').addEventListener('click', startBulkScanning);
-        document.getElementById('finishScanBtn').addEventListener('click', finishScanning);
-        document.getElementById('addAllBtn').addEventListener('click', addAllToLibrary);
-        document.getElementById('startOverBtn').addEventListener('click', startOver);
+function setupEventListeners() {
+    document.getElementById('startScanBtn').addEventListener('click', startBulkScanning);
+    document.getElementById('finishScanBtn').addEventListener('click', finishScanning);
 
-        // NEW: Add review button listener with safety check
-        const reviewItemsBtn = document.getElementById('reviewItemsBtn');
-        if (reviewItemsBtn) {
-            reviewItemsBtn.addEventListener('click', initiateReview);
-        }
+    // NEW: Updated batch action buttons
+    document.getElementById('addAllConfirmedBtn').addEventListener('click', addAllConfirmedAndReview);
+    document.getElementById('sendAllToReviewBtn').addEventListener('click', sendAllToReview);
+    document.getElementById('startOverBtn').addEventListener('click', startOver);
 
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => setResultFilter(btn.dataset.filter));
-        });
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => setResultFilter(btn.dataset.filter));
+});
 
-        document.getElementById('resultsGrid').addEventListener('click', (e) => {
-            const removeBtn = e.target.closest('.btn-remove-item');
-            if (removeBtn) {
-                const resultId = parseFloat(removeBtn.dataset.resultId);
-                removeResult(resultId);
-            }
-        });
-
-        document.getElementById('manualEntryBtn').addEventListener('click', () => {
-            ScannerUI.showManualEntryModal();
-        });
+document.getElementById('resultsGrid').addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.btn-remove-item');
+    if (removeBtn) {
+        const resultId = parseFloat(removeBtn.dataset.resultId);
+        removeResult(resultId);
     }
+});
+
+document.getElementById('manualEntryBtn').addEventListener('click', () => {
+    ScannerUI.showManualEntryModal();
+});
+}
     function showScanIndicator(status, message) {
             const indicator = document.getElementById('scanResultIndicator');
             const icon = document.getElementById('scanResultIcon');
@@ -317,35 +314,102 @@ async function processScanQueue() {
         }
     }    
 }
-function saveReviewQueue() {
-    const queueData = {
-        queue: reviewQueue,
-        timestamp: Date.now(),
-        expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-    };
+async function addAllConfirmedAndReview() {
+    const foundItems = scanResults.filter(r => r.status === 'found');
+    const reviewItems = scanResults.filter(r => r.status === 'needs_review');
+    
+    if (foundItems.length === 0 && reviewItems.length === 0) {
+        LibraryUtils.ui.showStatusMessage('No items to process', 'warning');
+        return;
+    }
+    
+    const addBtn = document.getElementById('addAllConfirmedBtn');
+    addBtn.classList.add('saving');
+    addBtn.disabled = true;
     
     try {
-        sessionStorage.setItem('reviewQueue', JSON.stringify(queueData));
-        // Also backup to localStorage for longer persistence
-        localStorage.setItem('reviewQueue_backup', JSON.stringify(queueData));
-    } catch (e) {
-        console.warn('Could not save review queue:', e);
+        // Save confirmed items immediately
+        if (foundItems.length > 0) {
+            const results = await saveItemsToLibrary(foundItems);
+            LibraryUtils.ui.showStatusMessage(`Added ${results.successCount} confirmed items`, 'success');
+        }
+        
+        // Send review items to review queue
+        if (reviewItems.length > 0) {
+            sessionStorage.setItem('reviewQueue', JSON.stringify({
+                items: reviewItems,
+                timestamp: Date.now(),
+                totalFound: foundItems.length
+            }));
+            
+            // Redirect to review page
+            window.location.href = 'review-failed.html';
+        } else {
+            // No review items, just go to library
+            setTimeout(() => {
+                window.location.href = `index.html?bulk_imported=${foundItems.length}`;
+            }, 1000);
+        }
+        
+    } catch (error) {
+        console.error('Failed to process items:', error);
+        LibraryUtils.ui.showStatusMessage('Failed to save items. Please try again.', 'error');
+    } finally {
+        addBtn.classList.remove('saving');
+        addBtn.disabled = false;
     }
 }
+async function sendAllToReview() {
+    const allProcessableItems = scanResults.filter(r => r.status === 'found' || r.status === 'needs_review');
+    
+    if (allProcessableItems.length === 0) {
+        LibraryUtils.ui.showStatusMessage('No items to review', 'warning');
+        return;
+    }
+    
+    // Send everything to review queue
+    sessionStorage.setItem('reviewQueue', JSON.stringify({
+        items: allProcessableItems,
+        timestamp: Date.now(),
+        totalFound: 0
+    }));
+    
+    window.location.href = 'review-failed.html';
+}
+function startOver() {
+    if (confirm('Are you sure you want to start over? All scanned results will be lost.')) {
+        // Clear everything
+        scanResults = [];
+        processedBarcodes.clear();
+        currentFilter = 'all';
+        
+        // Clear localStorage
+        localStorage.removeItem('bulkScanProgress');
+        
+        // Reset UI
+        updateStats();
+        renderResults();
+        setResultFilter('all');
+        
+        document.getElementById('finalActions').style.display = 'none';
+        
+        LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
+    }
+}
+// KEEP this function but move it to only be called during final save
 async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
     try {
         let movieDocRef;
         
-        //
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
-            // Check if existingDoc is not null BEFORE checking if it exists
             if (existingDoc && existingDoc.exists) {
                 movieDocRef = { id: existingDoc.id };
             }
         }
+        
         // Create new movie if doesn't exist
         if (!movieDocRef) {
             const movieData = {
@@ -366,37 +430,13 @@ async function addMovieToDatabase(result) {
             };
             
             movieDocRef = await db.collection('movies').add(movieData);
-            
-            //Cache the new movie
             CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
         }
 
-        // Handle physical copy creation
+        // Handle physical copy creation if needed
         let physicalCopyId = null;
         if (physicalEdition && upcData.barcode) {
-            const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
-                upcData.barcode,
-                physicalEdition.format,
-                physicalEdition.edition,
-                physicalEdition.region
-            );
-
-            // Check if physical copy exists
-            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-
-            if (existingCopy) {
-                physicalCopyId = existingCopy.id;
-            } else {
-                // Create new physical copy
-                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
-                    movieDocRef.id,
-                    {
-                        ...physicalEdition,
-                        barcode: upcData.barcode
-                    },
-                    currentUser.uid
-                );
-            }
+            // Add physical copy logic here if needed
         }
         
         return { 
@@ -410,20 +450,16 @@ async function addMovieToDatabase(result) {
         throw error;
     }
 }
-
-// Function to handle final bulk save with proper duplicate detection
-async function saveFoundItemsToUserLibrary(foundResults) {
+async function saveItemsToLibrary(items) {
     let successCount = 0;
     let duplicateCount = 0;
     let errorCount = 0;
     
-    for (const result of foundResults) {
+    for (const result of items) {
         try {
-            // Get the movie that was already created during scanning
-            const movieId = result.movieDocRef?.id;
-            if (!movieId) {
-                throw new Error('Movie reference missing');
-            }
+            // Create the movie in database first
+            const dbResult = await addMovieToDatabase(result);
+            const movieId = dbResult.movieDocRef.id;
             
             // Check for existing user interaction
             const userInteractionRef = db.collection('users').doc(currentUser.uid)
@@ -434,27 +470,25 @@ async function saveFoundItemsToUserLibrary(foundResults) {
                 const existingData = existingInteraction.data();
                 const currentPhysicalCopies = existingData.physicalCopies || [];
                 
-                // Check if user already owns this physical copy
-                if (result.physicalCopyId && currentPhysicalCopies.includes(result.physicalCopyId)) {
-                    // Ask user about duplicate
-                    const currentCount = currentPhysicalCopies.filter(id => id === result.physicalCopyId).length;
+                // Check for duplicates and handle accordingly
+                if (dbResult.physicalCopyId && currentPhysicalCopies.includes(dbResult.physicalCopyId)) {
                     const shouldAddAnyway = await showDuplicateConfirmation(
                         result.tmdbData.title || result.tmdbData.name,
                         result.physicalEdition.format,
                         result.physicalEdition.edition,
-                        currentCount
+                        currentPhysicalCopies.filter(id => id === dbResult.physicalCopyId).length
                     );
                     
                     if (!shouldAddAnyway) {
                         duplicateCount++;
-                        continue; // Skip this item
+                        continue;
                     }
                 }
                 
-                // Update existing interaction - add physical copy
+                // Update existing interaction
                 const updatedPhysicalCopies = [...currentPhysicalCopies];
-                if (result.physicalCopyId) {
-                    updatedPhysicalCopies.push(result.physicalCopyId);
+                if (dbResult.physicalCopyId) {
+                    updatedPhysicalCopies.push(dbResult.physicalCopyId);
                 }
                 
                 await userInteractionRef.update({
@@ -473,7 +507,7 @@ async function saveFoundItemsToUserLibrary(foundResults) {
                     watchedDate: null,
                     owned: true,
                     interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                    physicalCopies: result.physicalCopyId ? [result.physicalCopyId] : [],
+                    physicalCopies: dbResult.physicalCopyId ? [dbResult.physicalCopyId] : [],
                     upc: result.upcData?.barcode || '',
                     physicalEdition: result.physicalEdition || {}
                 };
@@ -490,51 +524,6 @@ async function saveFoundItemsToUserLibrary(foundResults) {
     }
     
     return { successCount, duplicateCount, errorCount };
-}
-async function addMovieToDatabase_WithDuplicateHandling(result) {
-    try {
-        return await addMovieToDatabase(result);
-    } catch (error) {
-        if (error.message === 'DUPLICATE_CHECK_NEEDED') {
-            // Handle duplicate confirmation outside transaction
-            const { tmdbData, physicalEdition } = result;
-            const shouldAddAnyway = await showDuplicateConfirmation(
-                tmdbData.title || tmdbData.name,
-                physicalEdition.format,
-                physicalEdition.edition,
-                1 // You'd need to calculate current count
-            );
-            
-            if (!shouldAddAnyway) {
-                throw new Error('DUPLICATE_SKIPPED');
-            }
-            
-            // If user confirms, run a simpler transaction that just adds the copy
-            return await addDuplicatePhysicalCopy(result);
-        }
-        throw error;
-    }
-}
-function startOver() {
-    if (confirm('Are you sure you want to start over? All scanned results will be lost.')) {
-        // Clear everything
-        scanResults = [];
-        processedBarcodes.clear();
-        currentFilter = 'all';
-        
-        // Clear localStorage
-        localStorage.removeItem('bulkScanProgress');
-        
-        // Reset UI
-        updateStats();
-        renderResults();
-        setResultFilter('all');
-        
-        document.getElementById('finalActions').style.display = 'none';
-        finishScanning();
-        
-        LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
-    }
 }
 //Function to show a toast notification
 function showToastNotification(message, status = 'info') {
@@ -568,103 +557,102 @@ function showToastNotification(message, status = 'info') {
         toast.remove();
     });
 }
-
-        // Enhanced keyboard shortcuts with hints
-        document.addEventListener('keydown', (e) => {
-            // Check the scanner's state directly from the manager object
-            if (bulkScanner && bulkScanner.getStats().isScanning) {
-                if (e.code === 'Escape') {
-                    e.preventDefault();
-                    finishScanning();
-                }
-            }
-
-                // Use the new centralized modal function for manual entry
-            if (e.code === 'KeyM' && !document.querySelector('.modal.active')) {
-                e.preventDefault();
-                ScannerUI.showManualEntryModal();
-            }
-        });
-        // Show/hide keyboard hints based on scanning state
-        function updateKeyboardHints() {
-            const hints = document.getElementById('keyboardHints');
-            // FIX: Check the scanning state from the bulkScanner manager instance
-            if (bulkScanner && bulkScanner.getStats().isScanning) {
-                hints.classList.remove('hidden');
-            } else {
-                hints.classList.add('hidden');
-            }
+// Enhanced keyboard shortcuts with hints
+document.addEventListener('keydown', (e) => {
+    // Check the scanner's state directly from the manager object
+    if (bulkScanner && bulkScanner.getStats().isScanning) {
+        if (e.code === 'Escape') {
+            e.preventDefault();
+            finishScanning();
         }
-        // Update progress bar during bulk operations
-        function updateProgressBar(current, total) {
-            const progressContainer = document.getElementById('scanProgress');
-            const progressBar = document.getElementById('scanProgressBar');
+    }
+
+        // Use the new centralized modal function for manual entry
+    if (e.code === 'KeyM' && !document.querySelector('.modal.active')) {
+        e.preventDefault();
+        ScannerUI.showManualEntryModal();
+    }
+});
+// Show/hide keyboard hints based on scanning state
+function updateKeyboardHints() {
+    const hints = document.getElementById('keyboardHints');
+    // FIX: Check the scanning state from the bulkScanner manager instance
+    if (bulkScanner && bulkScanner.getStats().isScanning) {
+        hints.classList.remove('hidden');
+    } else {
+        hints.classList.add('hidden');
+    }
+}
+// Update progress bar during bulk operations
+function updateProgressBar(current, total) {
+    const progressContainer = document.getElementById('scanProgress');
+    const progressBar = document.getElementById('scanProgressBar');
+    
+    if (current > 0 && total > 0) {
+        const percentage = (current / total) * 100;
+        progressBar.style.width = `${percentage}%`;
+        progressContainer.style.display = 'block';
+    } else {
+        progressContainer.style.display = 'none';
+    }
+}
+// Auto-save progress to localStorage
+function saveProgress() {
+    if (scanResults.length > 0) {
+        localStorage.setItem('bulkScanProgress', JSON.stringify({
+            results: scanResults,
+            processedBarcodes: Array.from(processedBarcodes),
+            timestamp: Date.now()
+        }));
+    }
+}
+// Auto-save every 5 seconds
+setInterval(saveProgress, 5000);
+// Also save on major actions
+function saveProgressOnAction() {
+    setTimeout(saveProgress, 100);
+}
+// Restore progress on page load
+function restoreProgress() {
+    const saved = localStorage.getItem('bulkScanProgress');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            const age = Date.now() - data.timestamp;
             
-            if (current > 0 && total > 0) {
-                const percentage = (current / total) * 100;
-                progressBar.style.width = `${percentage}%`;
-                progressContainer.style.display = 'block';
-            } else {
-                progressContainer.style.display = 'none';
-            }
-        }
-        // Auto-save progress to localStorage
-        function saveProgress() {
-            if (scanResults.length > 0) {
-                localStorage.setItem('bulkScanProgress', JSON.stringify({
-                    results: scanResults,
-                    processedBarcodes: Array.from(processedBarcodes),
-                    timestamp: Date.now()
-                }));
-            }
-        }
-        // Auto-save every 5 seconds
-        setInterval(saveProgress, 5000);
-        // Also save on major actions
-        function saveProgressOnAction() {
-            setTimeout(saveProgress, 100);
-        }
-        // Restore progress on page load
-        function restoreProgress() {
-            const saved = localStorage.getItem('bulkScanProgress');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    const age = Date.now() - data.timestamp;
-                    
-                    // Only restore if less than 1 hour old
-                    if (age < 3600000 && data.results && data.results.length > 0) {
-                        if (confirm(`Found ${data.results.length} items from a previous scanning session. Restore them?`)) {
-                            scanResults = data.results;
-                            processedBarcodes = new Set(data.processedBarcodes || data.results.map(r => r.barcode));
-                            updateStats();
-                            renderResults();
-                            LibraryUtils.ui.showStatusMessage('Previous session restored!', 'success');
-                        } else {
-                            localStorage.removeItem('bulkScanProgress');
-                        }
-                    }
-                } catch (e) {
-                    console.error('Failed to restore scan progress:', e);
+            // Only restore if less than 1 hour old
+            if (age < 3600000 && data.results && data.results.length > 0) {
+                if (confirm(`Found ${data.results.length} items from a previous scanning session. Restore them?`)) {
+                    scanResults = data.results;
+                    processedBarcodes = new Set(data.processedBarcodes || data.results.map(r => r.barcode));
+                    updateStats();
+                    renderResults();
+                    LibraryUtils.ui.showStatusMessage('Previous session restored!', 'success');
+                } else {
                     localStorage.removeItem('bulkScanProgress');
                 }
             }
+        } catch (e) {
+            console.error('Failed to restore scan progress:', e);
+            localStorage.removeItem('bulkScanProgress');
         }
-    async function startBulkScanning() {
-        if (!bulkScanner || !bulkScanner.getStats().hasCamera) {
-            LibraryUtils.ui.showStatusMessage('Camera not available', 'error');
-            return;
-        }
+    }
+}
+async function startBulkScanning() {
+    if (!bulkScanner || !bulkScanner.getStats().hasCamera) {
+        LibraryUtils.ui.showStatusMessage('Camera not available', 'error');
+        return;
+    }
 
-        // Update UI
-        document.getElementById('scannerSection').style.display = 'block';
-        document.getElementById('startScanBtn').style.display = 'none';
-        document.getElementById('finishScanBtn').style.display = 'inline-flex';
-        updateKeyboardHints();
+    // Update UI
+    document.getElementById('scannerSection').style.display = 'block';
+    document.getElementById('startScanBtn').style.display = 'none';
+    document.getElementById('finishScanBtn').style.display = 'inline-flex';
+    updateKeyboardHints();
 
-        const video = document.getElementById('scanner-video');
-        await bulkScanner.startCamera(video, 'scannerStatus');
-        }
+    const video = document.getElementById('scanner-video');
+    await bulkScanner.startCamera(video, 'scannerStatus');
+    }
 async function processBarcodeLookup(barcode) {
     if (scanResults.some(r => r.barcode === barcode)) {
         console.log(`Barcode ${barcode} already in results, skipping`);
@@ -676,37 +664,32 @@ async function processBarcodeLookup(barcode) {
     updateStats();
 
     try {
-        updateScannerStatus(`Looking up ${barcode}...`, 'processing');
-        
-        const lookupResult = await MediaLookupUtils.completeMovieLookup(barcode);
-        const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
-
-        const dbResult = await addMovieToDatabase(lookupResult);
+            updateScannerStatus(`Looking up ${barcode}...`, 'processing');
             
-        let status = 'found';
-        if (needsReview) {
-            status = 'needs_review';
-        }
+            const lookupResult = await MediaLookupUtils.completeMovieLookup(barcode);
+            const { upcData, tmdbData, physicalEdition, confidence, needsReview } = lookupResult;
+            
+            let status = 'found';
+            if (needsReview) {
+                status = 'needs_review';
+            }
 
-        const scanResult = {
-            id: Date.now() + Math.random(),
-            barcode: barcode,
-            status: status,
-            timestamp: new Date(),
-            upcData,
-            tmdbData,
-            title: tmdbData.title || tmdbData.name,
-            year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
-            poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
-            physicalEdition,
-            confidence: confidence || 0,
-            movieDocRef: dbResult.movieDocRef,
-            physicalCopyId: dbResult.physicalCopyId
-        };
+            const scanResult = {
+                id: Date.now() + Math.random(),
+                barcode: barcode,
+                status: status,
+                timestamp: new Date(),
+                upcData,
+                tmdbData,
+                title: tmdbData.title || tmdbData.name,
+                year: (tmdbData.release_date || tmdbData.first_air_date || '').substring(0, 4),
+                poster: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+                physicalEdition,
+                confidence: confidence || 0,
+            };
 
-
-        scanResults.push(scanResult);
-        
+            scanResults.push(scanResult);
+    
         if (status === 'needs_review') {
             showToastNotification(`Needs Review: ${scanResult.title}`, 'warning');
         } else {
@@ -758,8 +741,7 @@ function updateScannerStatus(message, type = 'info') {
             statusEl.textContent = message;
             statusEl.className = `scanner-status status-${type}`;
         }
-
-        function updateStats() {
+function updateStats() {
     const scannedCount = scanResults.length;
     const foundCount = scanResults.filter(r => r.status === 'found').length;
     const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
@@ -803,13 +785,10 @@ function updateScannerStatus(message, type = 'info') {
         reviewBtn.style.display = needsReviewCount > 0 ? 'inline-flex' : 'none';
     }   
 }
-
-
 // Helper function to count how many of the same copy type user has
 function getCurrentCopyCount(physicalCopiesArray, targetCopyId) {
 return physicalCopiesArray.filter(copyId => copyId === targetCopyId).length;
 }
-
 // Show duplicate confirmation modal
 async function showDuplicateConfirmation(movieTitle, format, edition, currentCount) {
     return new Promise((resolve) => {
@@ -865,51 +844,6 @@ async function showDuplicateConfirmation(movieTitle, format, edition, currentCou
         });
     });
 }
-
-// addAllToLibrary to handle only found items (skip the skipped ones)
-async function addAllToLibrary() {
-    const foundResults = scanResults.filter(r => r.status === 'found');
-    
-    if (foundResults.length === 0) {
-        LibraryUtils.ui.showStatusMessage('No items found to add', 'warning');
-        return;
-    }
-    
-    const addAllBtn = document.getElementById('addAllBtn');
-    addAllBtn.classList.add('saving');
-    addAllBtn.disabled = true;
-    
-    try {
-        // Use the new save function that handles duplicates properly
-        const results = await saveFoundItemsToUserLibrary(foundResults);
-        const { successCount, duplicateCount, errorCount } = results;
-        
-        // Clear localStorage progress
-        localStorage.removeItem('bulkScanProgress');
-
-        let message = `Added ${successCount} items to your library.`;
-        if (duplicateCount > 0) {
-            message += ` ${duplicateCount} duplicates were skipped.`;
-        }
-        if (errorCount > 0) {
-            message += ` ${errorCount} failed.`;
-        }
-        
-        LibraryUtils.ui.showStatusMessage(message, errorCount > 0 ? 'warning' : 'success');
-
-    // Redirect to library with success parameter
-    setTimeout(() => {
-        window.location.href = `index.html?bulk_imported=${successCount}`;
-    }, 2000);
-        
-    } catch (error) {
-        console.error('Failed to add items to library:', error);
-        LibraryUtils.ui.showStatusMessage('Failed to save items. Please try again.', 'error');
-    } finally {
-        addAllBtn.classList.remove('saving');
-        addAllBtn.disabled = false;
-    }
-}
 function setResultFilter(filter) {
     currentFilter = filter;
     
@@ -921,15 +855,40 @@ function setResultFilter(filter) {
     renderResults();
 }
 function removeResult(resultId) {
+    // Find the barcode BEFORE removing the result
+    const result = scanResults.find(r => r.id === resultId);
+    const barcode = result?.barcode;
+    
+    // Now remove the result
     scanResults = scanResults.filter(r => r.id !== resultId);
-    const barcode = scanResults.find(r => r.id === resultId)?.barcode;
+    
+    // Clean up the processed barcodes
     if (barcode) {
         processedBarcodes.delete(barcode);
     }
+    
     updateStats();
     renderResults();
 }
-// Updated renderResults function to handle skipped items
+async function addToLibrary(resultId) {
+    const result = scanResults.find(r => r.id === resultId);
+    if (!result) return;
+    
+    try {
+        await saveItemsToLibrary([result]);
+        
+        // Remove from results after successful save
+        scanResults = scanResults.filter(r => r.id !== resultId);
+        updateStats();
+        renderResults();
+        
+        LibraryUtils.ui.showStatusMessage(`Added "${result.title}" to library`, 'success');
+    } catch (error) {
+        console.error('Failed to add single item:', error);
+        LibraryUtils.ui.showStatusMessage('Failed to add item', 'error');
+    }
+}
+// renderResults function to handle skipped items
 function renderResults() {
             const grid = document.getElementById('resultsGrid');
             
@@ -964,131 +923,108 @@ function renderResults() {
             // Sort by timestamp (most recent first)
             filteredResults.sort((a, b) => b.timestamp - a.timestamp);
             
-            grid.innerHTML = filteredResults.map(result => {
-                const posterSrc = result.poster || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
-                
-                // Confidence indicator for needs_review items
-                const confidenceIndicator = result.status === 'needs_review' 
-                    ? `<p class="bulk-result-confidence">Confidence: ${Math.round(result.confidence || 0)}%</p>` 
-                    : '';
-                
-                // Skip reason for skipped items
-                const skipIndicator = result.status === 'skipped'
-                    ? `<p class="bulk-result-skipped">${result.skipReason || 'Skipped by user'}</p>`
-                    : '';
-                
-                return `
-                    <div class="bulk-result-item status-${result.status}">
-                        <img src="${posterSrc}" alt="${result.title}" class="bulk-result-poster" loading="lazy">
-                        <div class="bulk-result-info">
-                            <h4 class="bulk-result-title">${result.title}</h4>
-                            <p class="bulk-result-year">${result.year || 'Unknown'}</p>
-                            <p class="bulk-result-barcode">UPC: ${result.barcode}</p>
-                            ${result.status === 'failed' ? `<p class="bulk-result-error">${result.error}</p>` : ''}
-                            ${result.status === 'needs_review' ? `<p class="bulk-result-warning">Needs manual review</p>` : ''}
-                            ${result.status === 'skipped' ? skipIndicator : ''}
-                            ${confidenceIndicator}
-                            ${result.physicalEdition ? `<p class="bulk-result-format">${result.physicalEdition.format} • ${result.physicalEdition.edition}</p>` : ''}
-                        </div>
-                        <div class="bulk-result-actions">
-                            <button class="btn btn-sm btn-danger" onclick="removeResult(${result.id})" title="Remove">
-                                <span class="icon icon-delete icon-sm"></span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+                grid.innerHTML = filteredResults.map(result => {
+        const posterSrc = result.poster || 'https://placehold.co/60x90/2D194D/DEF0F7?text=N/A';
+        
+        // Add action buttons for found items
+        const actionButtons = result.status === 'found' ? `
+            <div class="bulk-result-actions">
+                <button class="btn btn-sm btn-success" onclick="addToLibrary(${result.id})" title="add to library">
+                    <span class="icon icon-confirm icon-sm"></span>
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="sendToReview(${result.id})" title="needs review">
+                    <span class="icon icon-details icon-sm"></span>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="removeResult(${result.id})" title="remove">
+                    <span class="icon icon-delete icon-sm"></span>
+                </button>
+            </div>
+        ` : `
+            <div class="bulk-result-actions">
+                <button class="btn btn-sm btn-danger" onclick="removeResult(${result.id})" title="Remove">
+                    <span class="icon icon-delete icon-sm"></span>
+                </button>
+            </div>
+        `;
+        
+        return `
+            <div class="bulk-result-item status-${result.status}">
+                <img src="${posterSrc}" alt="${result.title}" class="bulk-result-poster" loading="lazy">
+                <div class="bulk-result-info">
+                    <h4 class="bulk-result-title">${result.title}</h4>
+                    <p class="bulk-result-year">${result.year || 'Unknown'}</p>
+                    <p class="bulk-result-barcode">UPC: ${result.barcode}</p>
+                    ${result.status === 'failed' ? `<p class="bulk-result-error">${result.error}</p>` : ''}
+                    ${result.status === 'needs_review' ? `<p class="bulk-result-warning">Needs manual review</p>` : ''}
+                    ${result.physicalEdition ? `<p class="bulk-result-format">${result.physicalEdition.format} • ${result.physicalEdition.edition}</p>` : ''}
+                </div>
+                ${actionButtons}
+            </div>
+        `;
+    }).join('');
+}
 function skipCurrent() {
     updateScannerStatus('Skipped. Ready for next barcode...', 'info');
 }
-// NEW: Review transition function
-async function initiateReview() {
-        const foundItems = scanResults.filter(r => r.status === 'found');
-        const reviewItems = scanResults.filter(r => r.status === 'needs_review');
-        
-        if (reviewItems.length === 0) {
-            LibraryUtils.ui.showStatusMessage('No items need review', 'info');
-            return;
+function finishScanning() {
+    if (bulkScanner) {
+            bulkScanner.stopCamera();
         }
-        
-        try {
-            // Step 1: Save all found items immediately
-            if (foundItems.length > 0) {
-                LibraryUtils.ui.showStatusMessage(`Saving ${foundItems.length} found items...`, 'info');
-                
-                for (const item of foundItems) {
-                    await addMovieToDatabase(item);
-                }
-                
-                LibraryUtils.ui.showStatusMessage(`Saved ${foundItems.length} items to library`, 'success');
-            }
-            
-            // Step 2: Store review items in sessionStorage
-            sessionStorage.setItem('reviewQueue', JSON.stringify({
-                items: reviewItems,
-                timestamp: Date.now(),
-                totalFound: foundItems.length
-            }));
-            
-            // Step 3: Navigate to review page
-            window.location.href = 'review-failed.html';
-            
-        } catch (error) {
-            console.error('Failed to initiate review:', error);
-            LibraryUtils.ui.showStatusMessage('Failed to save items. Please try again.', 'error');
+
+    // Update UI
+    document.getElementById('scannerSection').style.display = 'none';
+    document.getElementById('startScanBtn').style.display = 'inline-flex';
+    document.getElementById('finishScanBtn').style.display = 'none';
+    updateKeyboardHints();
+
+    const finalActions = document.getElementById('finalActions');
+    const foundCount = scanResults.filter(r => r.status === 'found').length;
+    const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
+    const failedCount = scanResults.filter(r => r.status === 'failed').length;
+
+    // Show final actions if there are ANY items to process
+    if (foundCount > 0 || needsReviewCount > 0 || failedCount > 0) {
+        finalActions.style.display = 'block';
+        finalActions.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// Add these helper functions:
+function sendToReview(resultId) {
+    const result = scanResults.find(r => r.id === resultId);
+    if (result) {
+        result.status = 'needs_review';
+        updateStats();
+        renderResults();
+    }
+}
+// Update progress bar during bulk operations
+function updateProgressBar(current, total) {
+    const progressContainer = document.getElementById('scanProgress');
+    const progressBar = document.getElementById('scanProgressBar');
+    
+    if (progressContainer && progressBar) {
+        if (current > 0 && total > 0) {
+            const percentage = (current / total) * 100;
+            progressBar.style.width = `${percentage}%`;
+            progressContainer.style.display = 'block';
+        } else {
+            progressContainer.style.display = 'none';
         }
     }
-        function finishScanning() {
-            if (bulkScanner) {
-                    bulkScanner.stopCamera();
-                }
+}
 
-            // Update UI
-            document.getElementById('scannerSection').style.display = 'none';
-            document.getElementById('startScanBtn').style.display = 'inline-flex';
-            document.getElementById('finishScanBtn').style.display = 'none';
-            updateKeyboardHints();
-
-            const finalActions = document.getElementById('finalActions');
-            const foundCount = scanResults.filter(r => r.status === 'found').length;
-            const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
-            const failedCount = scanResults.filter(r => r.status === 'failed').length;
-
-            // Show final actions if there are ANY items to process
-            if (foundCount > 0 || needsReviewCount > 0 || failedCount > 0) {
-                finalActions.style.display = 'block';
-                finalActions.scrollIntoView({ behavior: 'smooth' });
-            }
+// Initialize when auth is ready
+document.addEventListener('DOMContentLoaded', () => {
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            currentUser = user;
+            initializeBulkScanner();
+        } else {
+            window.location.href = 'auth.html'; 
         }
-
-        // Update progress bar during bulk operations
-        function updateProgressBar(current, total) {
-            const progressContainer = document.getElementById('scanProgress');
-            const progressBar = document.getElementById('scanProgressBar');
-            
-            if (progressContainer && progressBar) {
-                if (current > 0 && total > 0) {
-                    const percentage = (current / total) * 100;
-                    progressBar.style.width = `${percentage}%`;
-                    progressContainer.style.display = 'block';
-                } else {
-                    progressContainer.style.display = 'none';
-                }
-            }
-        }
-
-        // Initialize when auth is ready
-        document.addEventListener('DOMContentLoaded', () => {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    currentUser = user;
-                    initializeBulkScanner();
-                } else {
-                    window.location.href = 'auth.html'; 
-                }
-            });
-        });
+    });
+});
     </script>
 </body>
 </html>

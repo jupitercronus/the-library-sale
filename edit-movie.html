@@ -1065,7 +1065,7 @@ function getMovieDataFromForm() {
                 await db.collection('movies').doc(movieId).delete();
             }
             LibraryUtils.ui.showStatusMessage('Movie deleted from your collection.', 'success');
-            setTimeout(() => window.location.href = 'index.html', 1500);
+            setTimeout(() => window.location.href = 'library.html', 1500);
         } catch (error) {
             console.error('Error deleting movie:', error);
             LibraryUtils.ui.showStatusMessage('Failed to delete movie.', 'error');

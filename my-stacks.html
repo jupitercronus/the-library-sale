@@ -122,6 +122,11 @@
         <div id="groupsContainer" class="collection-groups" style="display: none;">
             <!-- Groups will be dynamically inserted here -->
         </div>
+        <div id="loadMoreContainer" style="text-align: center; margin-top: var(--space-xl);">
+            <button id="loadMoreBtn" class="btn btn-barcode btn-rectangular btn-primary" style="display: none;">
+                show me more
+            </button>
+        </div>
 
         <!-- Empty State -->
         <div id="emptyState" class="empty-state" style="display: none;">
@@ -130,7 +135,7 @@
             <p>start building your collection to explore it here!</p>
             <a href="add-movie.html" class="btn btn-lg btn-primary">
                 <span class="icon icon-add icon-lg"></span>
-                Add Media
+                add media
             </a>
         </div>
     </main>
@@ -155,6 +160,10 @@
         let currentViewMode = 'grid';
         let searchTerm = '';
         let sortOrder = 'titleAsc';
+
+        const GROUPS_PER_PAGE = 15;
+        let groupsCurrentlyShown = 0;
+        let currentlyDisplayedGroups = [];
 
         // Cache management (add after line 130)
         const CACHE_KEY = 'dvd_collection_cache';
@@ -227,56 +236,52 @@
 
         // Load user's collection
         async function loadUserCollection(userId) {
-            const cachedData = getCachedData();
+            // --- 1. Set initial UI state ---
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('groupsContainer').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('cacheIndicator').style.display = 'none';
 
-            if (cachedData && cachedData.userId === userId) {
-                console.log('Using cached data');
-                document.getElementById('cacheIndicator').style.display = 'flex';
-            }
             try {
-                // Show loading state
-                document.getElementById('loadingState').style.display = 'block';
-                document.getElementById('groupsContainer').style.display = 'none';
-                document.getElementById('emptyState').style.display = 'none';
-
-                // Check cache first
                 const cachedData = getCachedData();
+
+                // --- 2. Decide whether to use cache or fetch fresh data ---
                 if (cachedData && cachedData.userId === userId) {
-                    console.log('Using cached data');
-                    allOwnedMedia = cachedData.media;
-                    
-                    // Update stats
-                    updateOverviewStats();
-                    
-                    // Initial grouping
-                    groupAndDisplay();
-                    
-                    // Hide loading state
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('groupsContainer').style.display = 'block';
-                    
-                    // Refresh cache in background
-                    refreshDataInBackground(userId);
-                    return;
+                    console.log('Using cached data.');
+                    allOwnedMedia = cachedData.media; // Get data from cache
+                    document.getElementById('cacheIndicator').style.display = 'flex';
+                    refreshDataInBackground(userId); // Silently check for updates in the background
+                } else {
+                    console.log('No valid cache. Fetching fresh data.');
+                    allOwnedMedia = await loadFreshData(userId); // Get data from Firestore
                 }
 
-                // If no cache, load from Firestore
-                await loadFreshData(userId);
-                
+                // --- 3. Update the UI now that data is guaranteed to be ready ---
+                if (allOwnedMedia && allOwnedMedia.length > 0) {
+                    updateOverviewStats();
+                    groupAndDisplay();
+                    document.getElementById('groupsContainer').style.display = 'block';
+                } else {
+                    // Show a friendly message if the user owns no media
+                    document.getElementById('emptyState').style.display = 'block';
+                }
+
             } catch (error) {
                 console.error('Error loading collection:', error);
-                document.getElementById('loadingState').innerHTML = `
-                    <div class="error-state">
-                        <span class="icon icon-close icon-3xl"></span>
-                        <h3>Error loading collection</h3>
-                        <p>${error.message}</p>
-                        <button class="btn btn-primary" onclick="clearCache(); location.reload()">Try Again</button>
-                    </div>
+                // Display a clear error message on the page
+                document.getElementById('emptyState').innerHTML = `
+                    <span class="icon icon-close icon-3xl"></span>
+                    <h3>Error Loading Collection</h3>
+                    <p>There was a problem fetching your data. Please try refreshing.</p>
+                    <button class="btn btn-primary" onclick="clearCache(); location.reload();">Try Again</button>
                 `;
+                document.getElementById('emptyState').style.display = 'block';
+            } finally {
+                // --- 4. Always hide the loading spinner at the end ---
+                document.getElementById('loadingState').style.display = 'none';
             }
         }
         async function loadFreshData(userId) {
-            // Fetch user's owned media
             const interactionsSnapshot = await db.collection('users')
                 .doc(userId)
                 .collection('movieInteractions')
@@ -284,19 +289,15 @@
                 .get();
 
             if (interactionsSnapshot.empty) {
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('emptyState').style.display = 'block';
-                return;
+                return []; // Return an empty array if no media is owned
             }
 
-            // Get all movie IDs
             const movieIds = interactionsSnapshot.docs.map(doc => doc.id);
             const interactions = {};
             interactionsSnapshot.docs.forEach(doc => {
                 interactions[doc.id] = doc.data();
             });
 
-            // Fetch movie details in batches (with parallel loading)
             const movieData = {};
             const batchPromises = [];
             
@@ -313,34 +314,24 @@
                 batchPromises.push(batchPromise);
             }
             
-            // Wait for all batches to complete
             await Promise.all(batchPromises);
 
-            // Combine movie data with interaction data
-            allOwnedMedia = movieIds.map(id => ({
+            const freshMedia = movieIds.map(id => ({
                 ...movieData[id],
                 ...interactions[id],
                 movieId: id
-            })).filter(movie => movie.title); // Filter out any missing movies
+            })).filter(movie => movie.title);
 
-            // Cache the data
+            // Cache the newly fetched data
             setCachedData({
                 userId: userId,
-                media: allOwnedMedia,
+                media: freshMedia,
                 timestamp: new Date().getTime()
             });
 
-            // Update stats
-            updateOverviewStats();
-
-            // Initial grouping
-            groupAndDisplay();
-
-            // Hide loading state
-            document.getElementById('loadingState').style.display = 'none';
-            document.getElementById('groupsContainer').style.display = 'block';
+            // Return the data to the function that called it
+            return freshMedia;
         }
-
         async function refreshDataInBackground(userId) {
             try {
                 // Silently refresh data in background
@@ -381,14 +372,9 @@
             document.getElementById('completionRate').textContent = completionRate;
         }
 
-        // Group media by selected criteria
-        // In my-stacks.html, replace the entire groupAndDisplay function
-
-// In my-stacks.html
-
 function groupAndDisplay() {
-    const groups = {};
-    
+    let groups = {}; // Use 'let' instead of 'const' to allow reassignment    
+
     // Step 1: Create the groups (this logic is unchanged)
     allOwnedMedia.forEach(movie => {
         let groupKeys = [];
@@ -427,6 +413,15 @@ function groupAndDisplay() {
             groups[key].push(movie);
         });
     });
+    // --- THIS IS THE NEW LOGIC ---
+    // Step 1.5: Consolidate small groups for specific views
+    if (currentGroupBy === 'director') {
+        // For directors, keep the threshold at 2 and create the "Various Directors" group
+        groups = consolidateSmallGroups(groups, 2, 'Various Directors', true);
+    } else if (currentGroupBy === 'cast') {
+        // For cast, set a threshold of 3 and DO NOT create an "Other" group
+        groups = consolidateSmallGroups(groups, 3, '', false);
+    }
 
     // Step 2: Convert to an array and apply robust sorting
     let sortedGroups = Object.entries(groups);
@@ -489,8 +484,23 @@ function groupAndDisplay() {
 
         // Display grouped media
         function displayGroups(sortedGroups) {
-            const container = document.getElementById('groupsContainer');
+            // Store the full list of groups so we can add to it later
+            currentlyDisplayedGroups = sortedGroups; 
+            groupsCurrentlyShown = 0; // Reset on every re-display
             
+            const container = document.getElementById('groupsContainer');
+            container.innerHTML = ''; // Clear previous results
+            
+            if (currentViewMode === 'stats') {
+                displayStatsView(currentlyDisplayedGroups, container);
+                // Hide the load more button in stats view
+                document.getElementById('loadMoreContainer').style.display = 'none';
+                return;
+            }
+
+            // Initial render of the first batch of groups
+            appendNextGroups();
+
             // Apply sorting to the groups themselves
             let groupsToDisplay = [...sortedGroups];
 
@@ -598,109 +608,164 @@ function groupAndDisplay() {
             }).join('');
         }
 
-        // Render grid view of movies
-        function renderGridView(movies) {
-            return `
-                <div class="media-grid">
-                    ${movies.map(movie => `
-                        <div class="media-card">
-                            <a href="movie-details.html?id=${movie.movieId}" class="media-link">
-                                <div class="media-poster">
-                                    ${movie.posterUrl ? 
-                                        `<img src="${movie.posterUrl}" alt="${movie.title}" loading="lazy">` :
-                                        `<div class="no-poster">No Poster</div>`}
-                                    ${movie.watched ? '<div class="watched-badge"><span class="icon icon-watched"></span></div>' : ''}
-                                </div>
-                                <div class="media-title">${movie.title || 'Unknown Title'}</div>
-                                <div class="media-year">${movie.year || '—'}</div>
-                                ${movie.rating ? `<div class="media-rating">${'<span class="icon star-full"></span>'.repeat(movie.rating)}</div>` : ''}
-                            </a>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        // Render list view of movies
-        function renderListView(movies) {
-            return `
-                <div class="media-list">
-                    ${movies.map(movie => `
-                        <div class="media-list-item">
-                            <a href="movie-details.html?id=${movie.movieId}" class="media-list-link">
-                                <img src="${movie.posterUrl || 'https://placehold.co/40x60/2D194D/DEF0F7?text=N/A'}" 
-                                     class="list-poster" alt="${movie.title}">
-                                <div class="list-info">
-                                    <div class="list-title">${movie.title || 'Unknown Title'}</div>
-                                    <div class="list-meta">
-                                        ${movie.year || '—'} • ${movie.director || 'Unknown Director'}
-                                        ${movie.rating ? ` • ${'<span class="icon star-full"></span>'.repeat(movie.rating)}` : ''}
-                                    </div>
-                                </div>
-                                <div class="list-status">
-                                    ${movie.watched ? '<span class="status-watched">Watched</span>' : '<span class="status-unwatched">Not Watched</span>'}
-                                </div>
-                            </a>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-
-        function displayStatsView(sortedGroups, container) {
-        // Show up to 9 top groups for a nice 3x3 grid on large screens
-        const topGroups = sortedGroups.slice(0, 9);
+    function appendNextGroups() {
+        const container = document.getElementById('groupsContainer');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+        const loadMoreContainer = document.getElementById('loadMoreContainer');
         
-        // The main container is now a grid
-        container.innerHTML = `
-            <div class="stats-view-grid">
-            ${topGroups.map(([groupName, movies]) => {
-                // Perform calculations for each group
-                const watchedCount = movies.filter(m => m.watched).length;
-                const completionPercent = movies.length > 0 ? Math.round((watchedCount / movies.length) * 100) : 0;
-                const avgRating = calculateAverageRating(movies);
-                
-                // Find the highest-rated movie in this group
-                let topFilm = { title: 'N/A', rating: 0 };
-                const ratedMovies = movies.filter(m => m.rating > 0);
-                if (ratedMovies.length > 0) {
-                    topFilm = ratedMovies.reduce((a, b) => a.rating > b.rating ? a : b);
-                }
+        const startIndex = groupsCurrentlyShown;
+        const endIndex = startIndex + GROUPS_PER_PAGE;
+        
+        const groupsToAppend = currentlyDisplayedGroups.slice(startIndex, endIndex);
 
-                // --- SVG Circular Progress Bar Logic ---
-                const radius = 40;
-                const circumference = 2 * Math.PI * radius;
-                const offset = circumference - (completionPercent / 100) * circumference;
-
-                // --- Return the HTML for one report card ---
-                return `
-                    <div class="stat-report-card">
-                        <div class="report-card-header">
-                            <h3 class="report-card-title">${groupName}</h3>
-                            <p class="report-card-subtitle">${movies.length} titles</p>
-                        </div>
-                        <div class="report-card-body">
-                            <div class="report-progress-circle">
-                                <svg>
-                                    <circle class="progress-circle-bg" cx="50" cy="50" r="${radius}"></circle>
-                                    <circle class="progress-circle-fg" cx="50" cy="50" r="${radius}" 
-                                            stroke-dasharray="${circumference}" 
-                                            stroke-dashoffset="${offset}"></circle>
-                                </svg>
-                                <span class="progress-circle-text">${completionPercent}%</span>
-                            </div>
-                            <div class="report-card-metrics">
-                                <div class="metric-item">
-                                    <div class="metric-value"> <span class="icon star-full"> ${avgRating.toFixed(1)}</div>
-                                    <div class="metric-label">Avg Rating</div>
-                                </div>
+        // The rendering logic is the same as before, but now we use .innerHTML +=
+        container.innerHTML += groupsToAppend.map(([groupName, movies], index) => {
+            const globalIndex = startIndex + index; // Use a global index for unique IDs
+            const watchedCount = movies.filter(m => m.watched).length;
+            const completionPercent = Math.round((watchedCount / movies.length) * 100);
+            const avgRating = calculateAverageRating(movies);
+            
+            // Note: We render the group-content div empty. It will be populated on click.
+            return `
+                <div class="collection-group" data-group-index="${globalIndex}">
+                    <div class="group-header" onclick="toggleGroup(${globalIndex})">
+                        <div class="group-info">
+                            <h2 class="group-title">
+                                <span class="group-expand-icon" data-expanded="false">▶</span>
+                                ${groupName}
+                            </h2>
+                            <div class="group-stats">
+                                <span class="group-stat">${movies.length} titles</span>
+                                <span class="group-stat">${watchedCount} watched</span>
+                                ${avgRating > 0 ? `<span class="group-stat"><span class="icon star-full"></span> ${avgRating.toFixed(1)}</span>` : ''}
                             </div>
                         </div>
-                        <div class="report-card-footer">
-                            <div class="metric-label">Your Top Film</div>
-                            <div class="metric-value">${topFilm.title}</div>
+                        <div class="group-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${completionPercent}%"></div>
+                            </div>
+                            <span class="progress-text">${completionPercent}%</span>
                         </div>
                     </div>
+                    <div class="group-content" id="group-content-${globalIndex}" style="display: none;">
+                        </div>
+                </div>
+            `;
+        }).join('');
+
+        groupsCurrentlyShown = endIndex;
+
+        // Show or hide the "Load More" button
+        if (groupsCurrentlyShown >= currentlyDisplayedGroups.length) {
+            loadMoreContainer.style.display = 'none'; // All groups are shown
+        } else {
+            loadMoreContainer.style.display = 'block';
+            loadMoreBtn.style.display = 'inline-block';
+        }
+    }
+    // Render grid view of movies
+    function renderGridView(movies) {
+        return `
+            <div class="media-grid">
+                ${movies.map(movie => `
+                    <div class="media-card">
+                        <a href="movie-details.html?id=${movie.movieId}" class="media-link">
+                            <div class="media-poster">
+                                ${movie.posterUrl ? 
+                                    `<img src="${movie.posterUrl}" alt="${movie.title}" loading="lazy">` :
+                                    `<div class="no-poster">No Poster</div>`}
+                                ${movie.watched ? '<div class="watched-badge"><span class="icon icon-watched"></span></div>' : ''}
+                            </div>
+                            <div class="media-title">${movie.title || 'Unknown Title'}</div>
+                            <div class="media-year">${movie.year || '—'}</div>
+                            ${movie.rating ? `<div class="media-rating">${'<span class="icon star-full"></span>'.repeat(movie.rating)}</div>` : ''}
+                        </a>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // Render list view of movies
+    function renderListView(movies) {
+        return `
+            <div class="media-list">
+                ${movies.map(movie => `
+                    <div class="media-list-item">
+                        <a href="movie-details.html?id=${movie.movieId}" class="media-list-link">
+                            <img src="${movie.posterUrl || 'https://placehold.co/40x60/2D194D/DEF0F7?text=N/A'}" 
+                                    class="list-poster" alt="${movie.title}">
+                            <div class="list-info">
+                                <div class="list-title">${movie.title || 'Unknown Title'}</div>
+                                <div class="list-meta">
+                                    ${movie.year || '—'} • ${movie.director || 'Unknown Director'}
+                                    ${movie.rating ? ` • ${'<span class="icon star-full"></span>'.repeat(movie.rating)}` : ''}
+                                </div>
+                            </div>
+                            <div class="list-status">
+                                ${movie.watched ? '<span class="status-watched">Watched</span>' : '<span class="status-unwatched">Not Watched</span>'}
+                            </div>
+                        </a>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function displayStatsView(sortedGroups, container) {
+    // Show up to 9 top groups for a nice 3x3 grid on large screens
+    const topGroups = sortedGroups.slice(0, 9);
+    
+    // The main container is now a grid
+    container.innerHTML = `
+        <div class="stats-view-grid">
+        ${topGroups.map(([groupName, movies]) => {
+            // Perform calculations for each group
+            const watchedCount = movies.filter(m => m.watched).length;
+            const completionPercent = movies.length > 0 ? Math.round((watchedCount / movies.length) * 100) : 0;
+            const avgRating = calculateAverageRating(movies);
+            
+            // Find the highest-rated movie in this group
+            let topFilm = { title: 'N/A', rating: 0 };
+            const ratedMovies = movies.filter(m => m.rating > 0);
+            if (ratedMovies.length > 0) {
+                topFilm = ratedMovies.reduce((a, b) => a.rating > b.rating ? a : b);
+            }
+
+            // --- SVG Circular Progress Bar Logic ---
+            const radius = 40;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference - (completionPercent / 100) * circumference;
+
+            // --- Return the HTML for one report card ---
+            return `
+                <div class="stat-report-card">
+                    <div class="report-card-header">
+                        <h3 class="report-card-title">${groupName}</h3>
+                        <p class="report-card-subtitle">${movies.length} titles</p>
+                    </div>
+                    <div class="report-card-body">
+                        <div class="report-progress-circle">
+                            <svg>
+                                <circle class="progress-circle-bg" cx="50" cy="50" r="${radius}"></circle>
+                                <circle class="progress-circle-fg" cx="50" cy="50" r="${radius}" 
+                                        stroke-dasharray="${circumference}" 
+                                        stroke-dashoffset="${offset}"></circle>
+                            </svg>
+                            <span class="progress-circle-text">${completionPercent}%</span>
+                        </div>
+                        <div class="report-card-metrics">
+                            <div class="metric-item">
+                                <div class="metric-value"> <span class="icon star-full"> ${avgRating.toFixed(1)}</div>
+                                <div class="metric-label">Avg Rating</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="report-card-footer">
+                        <div class="metric-label">Your Top Film</div>
+                        <div class="metric-value">${topFilm.title}</div>
+                    </div>
+                </div>
                 `;
             }).join('')}
         </div>
@@ -708,30 +773,71 @@ function groupAndDisplay() {
     `;
     }
 
-        // Toggle group expansion
-        function toggleGroup(index) {
-            const content = document.getElementById(`group-content-${index}`);
-            const icon = document.querySelector(`[data-group-index="${index}"] .group-expand-icon`);
-            
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.textContent = '▼';
-                icon.dataset.expanded = 'true';
-            } else {
-                content.style.display = 'none';
-                icon.textContent = '▶';
-                icon.dataset.expanded = 'false';
-            }
-        }
+function toggleGroup(index) {
+    const content = document.getElementById(`group-content-${index}`);
+    const icon = document.querySelector(`[data-group-index="${index}"] .group-expand-icon`);
 
-        // Calculate average rating
-        function calculateAverageRating(movies) {
-            const ratedMovies = movies.filter(m => m.rating > 0);
-            if (ratedMovies.length === 0) return 0;
-            
-            const sum = ratedMovies.reduce((acc, m) => acc + m.rating, 0);
-            return sum / ratedMovies.length;
+    // If content has not been rendered yet
+    if (content.innerHTML.trim() === '') {
+        // Generate content for the first time
+        const [groupName, movies] = currentlyDisplayedGroups[index];
+        content.innerHTML = currentViewMode === 'grid' 
+            ? renderGridView(movies) 
+            : renderListView(movies);
+    }
+
+    // Now, just toggle visibility
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▼';
+        icon.dataset.expanded = 'true';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▶';
+        icon.dataset.expanded = 'false';
+    }
+}
+
+    // Calculate average rating
+    function calculateAverageRating(movies) {
+        const ratedMovies = movies.filter(m => m.rating > 0);
+        if (ratedMovies.length === 0) return 0;
+        
+        const sum = ratedMovies.reduce((acc, m) => acc + m.rating, 0);
+        return sum / ratedMovies.length;
+    }
+
+
+/**
+ * Consolidates or removes groups that fall below a size threshold.
+ * @param {object} groups - The initial object of grouped movies.
+ * @param {number} threshold - The minimum size a group must be to remain standalone.
+ * @param {string} otherKey - The name for the new consolidated group (e.g., "Various Directors").
+ * @param {boolean} createOther - If true, merges small groups into the 'otherKey' group. If false, discards them.
+ * @returns {object} A new object with small groups consolidated or removed.
+ */
+function consolidateSmallGroups(groups, threshold, otherKey, createOther) {
+    const consolidatedGroups = {};
+    const otherItems = [];
+
+    // Separate the large groups from the small ones
+    for (const [key, movies] of Object.entries(groups)) {
+        if (movies.length < threshold) {
+            otherItems.push(...movies);
+        } else {
+            consolidatedGroups[key] = movies;
         }
+    }
+
+    // Conditionally create the "other" group based on the new parameter
+    if (createOther && otherItems.length > 0) {
+        // Remove duplicates that might occur if a movie is in multiple small groups
+        const uniqueOtherItems = [...new Map(otherItems.map(item => [item.movieId, item])).values()];
+        consolidatedGroups[otherKey] = uniqueOtherItems;
+    }
+
+    return consolidatedGroups;
+}
 
         function filterAndSortMovies(movies) {
             let filtered = movies;
@@ -789,6 +895,8 @@ function groupAndDisplay() {
                 groupAndDisplay();
             });
         });
+
+        document.getElementById('loadMoreBtn').addEventListener('click', appendNextGroups);
 
         // Search functionality
         document.getElementById('collectionSearchInput').addEventListener('input', (e) => {

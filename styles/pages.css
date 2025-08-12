@@ -216,7 +216,7 @@
   }
 }
 
-/* ===== HOME PAGE: QUICK ACCESS DASHBOARD ===== */
+/* ===== INDEX or HOME PAGE: QUICK ACCESS DASHBOARD ===== */
 
 .quick-access-section {
   margin-bottom: var(--space-4xl);
@@ -308,7 +308,7 @@
   letter-spacing: 0.5px;
 }
 
-/* ===== HOME PAGE (ACTIVITY FEED) ===== */
+/* ===== INDEX or HOME PAGE (ACTIVITY FEED) ===== */
 
 /* New styles for the scrollable feed container */
 #activityFeedContainer {
@@ -452,7 +452,7 @@
   width: 70%;
 }
 
-/* ===== HOME PAGE TWO-COLUMN LAYOUT ===== */
+/* ===== INDEX or HOME PAGE TWO-COLUMN LAYOUT ===== */
 .home-layout {
   display: grid;
   grid-template-columns: 1fr 1fr; 
@@ -468,17 +468,21 @@
   top: var(--space-xl);
 }
 
+/* ===== INDEX or HOME PAGE (MOBILE) ===== */
 
-/* ===== HOME PAGE (Comments FEED) ===== */
-
+@media (max-width: 600px) {
+  .quick-access-grid {
+    grid-template-columns: 1fr; 
+  }
+}
 
 /* On screens 1024px or less, stack the columns */
-@media (max-width: 400px) {
+@media (max-width: 1024px) {
   .home-layout {
-    grid-template-columns: 1fr; /* Single column */
+    grid-template-columns: 1fr; 
   }
   .sidebar-feed {
-    position: static; /* Unstick the sidebar on mobile */
+    position: static; 
   }
 }
 
@@ -560,7 +564,7 @@
 }
 
 
-/* ===== INDEX PAGE ===== */
+/* ===== Library PAGE ===== */
 /* Square grid media layout */
 
 .index-page .hero-section {
@@ -4357,7 +4361,6 @@ input.error {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-md);
   gap: 1rem;
 }
 
