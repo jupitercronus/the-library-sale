@@ -1,0 +1,7 @@
+Centralize Caching: Refactor MediaLookupUtils in scanner-utils.js to only use the caching classes from cache.js. Remove all direct calls to localStorage.setItem/getItem and the sessionCache Map in favor of your CacheManager or MovieCache.
+
+Consolidate Debouncing: Remove the redundant SearchUtils object from utils.js and use UIUtils.debounce exclusively.
+
+Unify Modal Logic: Create a single, more robust ModalManager utility that can handle both modals that exist in HTML and modals that need to be created dynamically. This would unify the patterns used by UIUtils and ScannerUI.
+
+Relocate SearchUI: Move the SearchUI object from utils.js into its own dedicated file to better separate your generic utilities from your complex, feature-specific components.

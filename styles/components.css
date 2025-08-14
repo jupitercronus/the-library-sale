@@ -452,6 +452,35 @@ label {
   padding: 0 15px;
 }
 
+/* SECTIONS */ 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.empty-state, .error-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--space-6xl) var(--space-xl);
+  color: var(--color-text-secondary);
+  background: var(--color-primary-bg);
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--color-border-medium);
+}
+
+.empty-state h3, .error-state h3 {
+  margin: var(--space-xl) 0 var(--space-md);
+  font-size: var(--font-size-3xl);
+  color: var(--color-text-primary);
+}
+
+.error-state h3 {
+    color: var(--color-error);
+}
 
 /* ===== STATUS MESSAGES ===== */
 /* Your success/error/info message system */
