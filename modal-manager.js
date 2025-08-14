@@ -110,24 +110,30 @@ const ModalManager = {
     /**
      * Closes the active modal and cleans up.
      */
-    close() {
-        if (!this.overlayElement) return;
+// REPLACE your existing close() function with this one in modal-manager.js
 
-        // Execute the onClose callback if it exists
-        if (this.onCloseCallback) {
-            this.onCloseCallback();
-            this.onCloseCallback = null;
+close() {
+    if (!this.overlayElement) return;
+
+    // Execute the onClose callback if it exists
+    if (this.onCloseCallback) {
+        this.onCloseCallback();
+        this.onCloseCallback = null;
+    }
+    
+    // Start the fade-out animation
+    this.overlayElement.classList.remove('active');
+    document.body.style.overflow = 'auto';
+
+    // --- START OF FIX ---
+    // Use a reliable setTimeout instead of the 'transitionend' event.
+    // The timeout duration should match the CSS transition duration (300ms).
+    setTimeout(() => {
+        if (this.overlayElement && this.overlayElement.parentNode) {
+            this.overlayElement.parentNode.removeChild(this.overlayElement);
         }
-        
-        this.overlayElement.classList.remove('active');
-        document.body.style.overflow = 'auto';
-
-        // Remove the element from the DOM after the fade-out transition completes
-        this.overlayElement.addEventListener('transitionend', () => {
-            if (this.overlayElement && this.overlayElement.parentNode) {
-                this.overlayElement.parentNode.removeChild(this.overlayElement);
-            }
-            this.overlayElement = null;
-        }, { once: true });
-    },
+        this.overlayElement = null;
+    }, 300); // 300ms matches your --transition-normal variable
+    // --- END OF FIX ---
+},
 };

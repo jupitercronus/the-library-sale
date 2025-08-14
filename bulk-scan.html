@@ -1015,16 +1015,17 @@ function updateProgressBar(current, total) {
 }
 
 // Initialize when auth is ready
-document.addEventListener('DOMContentLoaded', () => {
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            currentUser = user;
-            initializeBulkScanner();
-        } else {
-            window.location.href = 'auth.html'; 
-        }
-    });
+document.addEventListener('authStateReady', (e) => {
+    currentUser = e.detail.user;
+    if (currentUser) {
+        // Now that the user is confirmed, initialize the scanner page
+        initializeBulkScanner();
+    } else {
+        // This page requires a user, so redirect if they are not logged in
+        window.location.href = 'auth.html';
+    }
 });
+
     </script>
 </body>
 </html>

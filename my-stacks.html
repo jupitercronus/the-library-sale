@@ -224,11 +224,13 @@
         }
 
         // Initialize on auth state change
-        auth.onAuthStateChanged(user => {
-            currentUser = user;
-            if (user) {
-                loadUserCollection(user.uid);
+        document.addEventListener('authStateReady', (e) => {
+            currentUser = e.detail.user;
+            if (currentUser) {
+                // Now that the user is confirmed, load the collection data
+                loadUserCollection(currentUser.uid);
             } else {
+                // This page requires a user, so redirect if they are not logged in
                 window.location.href = 'auth.html';
             }
         });

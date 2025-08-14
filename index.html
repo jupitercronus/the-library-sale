@@ -164,36 +164,37 @@
         let currentUser = null;
 
         // --- Main Logic ---
-        document.addEventListener('DOMContentLoaded', () => {
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                loadActivityFeed();
-                loadLatestComments(); 
-                loadLatestRatings();
-            });
+        document.addEventListener('authStateReady', (e) => {
+            // This event tells us the auth state is ready.
+            // We can get the user (or null if they're logged out).
+            currentUser = e.detail.user;
 
-            // --- ADD THIS NEW LOGIC FOR THE MODAL ---
+            loadActivityFeed();
+            loadLatestComments(); 
+            loadLatestRatings();
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // This listener now only handles the page-specific modal logic.
             const addMediaBtn = document.getElementById('addMediaBtn');
             const addMediaModal = document.getElementById('addMediaModal');
             const closeAddMediaModal = document.getElementById('closeAddMediaModal');
 
             if (addMediaBtn && addMediaModal && closeAddMediaModal) {
-                // Show the modal when the "Add Media" card is clicked
                 addMediaBtn.addEventListener('click', () => {
                     addMediaModal.classList.add('active');
                 });
 
-                // Hide the modal when the close button is clicked
                 closeAddMediaModal.addEventListener('click', () => {
                     addMediaModal.classList.remove('active');
                 });
 
-                // Hide the modal when clicking on the background overlay
                 addMediaModal.addEventListener('click', (e) => {
                     if (e.target === addMediaModal) {
                         addMediaModal.classList.remove('active');
                     }
                 });
+            
             }
         });
 

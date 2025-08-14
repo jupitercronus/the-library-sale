@@ -844,91 +844,96 @@ async function setupFactualDetailsEditButton(user, movieData) {
         editDetailsBtn.style.display = 'none';
     }
 }
-    document.addEventListener('DOMContentLoaded', () => {
-        // Update back button text based on context
-        updateBackButton();
+document.addEventListener('authStateReady', (e) => {
+    const user = e.detail.user;
+    const movieId = new URLSearchParams(window.location.search).get('id');
 
-        auth.onAuthStateChanged(user => {
-            const movieId = new URLSearchParams(window.location.search).get('id');
-            if (movieId) {
-                loadMoviePage(user, movieId);
+    if (user && movieId) {
+        // If user is logged in AND there's a movie ID, load the page.
+        loadMoviePage(user, movieId);
+    } else if (!user) {
+        // If user is NOT logged in, redirect them to the auth page.
+        window.location.href = 'auth.html';
+    } else {
+        // Handle the case where there's no movie ID.
+        const container = document.getElementById('detailsContainer');
+        container.innerHTML = `<div class="error-state"><h3>Error</h3><p>No movie ID was provided.</p></div>`;
+        container.style.display = 'block';
+        document.getElementById('loadingState').style.display = 'none';
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    // This listener now only handles page-specific UI like the back button.
+    updateBackButton();
+});
+function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromParam = urlParams.get('from');
+    
+    switch(fromParam) {
+        case 'library':
+        case 'home':
+            window.location.href = 'index.html';
+            break;
+        case 'profile':
+            const profileId = urlParams.get('profileId');
+            window.location.href = profileId ? `profile.html?id=${profileId}` : 'profile.html';
+            break;
+        case 'review':
+            window.location.href = 'review-failed.html';
+            break;
+        case 'bulk':
+            window.location.href = 'bulk-scan.html';
+            break;
+        case 'search':
+            // Try browser back first for search results
+            if (window.history.length > 1) {
+                window.history.back();
             } else {
-                const container = document.getElementById('detailsContainer');
-                container.innerHTML = `<div class="error-state"><h3>Error</h3><p>No movie ID was provided.</p></div>`;
-                container.style.display = 'block';
-                document.getElementById('loadingState').style.display = 'none';
+                window.location.href = 'index.html';
             }
-        });
-    });
-
-    function goBack() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const fromParam = urlParams.get('from');
-        
-        switch(fromParam) {
-            case 'library':
-            case 'home':
-                window.location.href = 'index.html';
-                break;
-            case 'profile':
-                const profileId = urlParams.get('profileId');
-                window.location.href = profileId ? `profile.html?id=${profileId}` : 'profile.html';
-                break;
-            case 'review':
-                window.location.href = 'review-failed.html';
-                break;
-            case 'bulk':
-                window.location.href = 'bulk-scan.html';
-                break;
-            case 'search':
-                // Try browser back first for search results
-                if (window.history.length > 1) {
-                    window.history.back();
-                } else {
-                    window.location.href = 'index.html';
-                }
-                break;
-            default:
-                // Default fallback to library
-                window.location.href = 'index.html';
-        }
+            break;
+        default:
+            // Default fallback to library
+            window.location.href = 'index.html';
     }
-
-    function updateBackButton() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const fromParam = urlParams.get('from');
-        const backBtnText = document.getElementById('backBtnText');
-        const backBtn = document.getElementById('smartBackBtn');
-        
-        if (!backBtnText || !backBtn) return;
-        
-        switch(fromParam) {
-            case 'library':
-            case 'home':
-                backBtnText.textContent = 'Back to Library';
-                backBtn.title = 'Back to Library';
-                break;
-            case 'profile':
-                backBtnText.textContent = 'Back to Profile';
-                backBtn.title = 'Back to Profile';
-                break;
-            case 'review':
-                backBtnText.textContent = 'Back to Review';
-                backBtn.title = 'Back to Review';
-                break;
-            case 'bulk':
-                backBtnText.textContent = 'Back to Bulk Scan';
-                backBtn.title = 'Back to Bulk Scan';
-                break;
-            case 'search':
-                backBtnText.textContent = 'Back to Results';
-                backBtn.title = 'Back to Search Results';
-                break;
-            default:
-                backBtnText.textContent = 'Back to Library';
-                backBtn.title = 'Back to Library';
-        }
+}
+function updateBackButton() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromParam = urlParams.get('from');
+    const backBtnText = document.getElementById('backBtnText');
+    const backBtn = document.getElementById('smartBackBtn');
+    
+    if (!backBtnText || !backBtn) return;
+    
+    switch(fromParam) {
+        case 'library':
+        case 'home':
+            backBtnText.textContent = 'Back to Library';
+            backBtn.title = 'Back to Library';
+            break;
+        case 'profile':
+            backBtnText.textContent = 'Back to Profile';
+            backBtn.title = 'Back to Profile';
+            break;
+        case 'review':
+            backBtnText.textContent = 'Back to Review';
+            backBtn.title = 'Back to Review';
+            break;
+        case 'bulk':
+            backBtnText.textContent = 'Back to Bulk Scan';
+            backBtn.title = 'Back to Bulk Scan';
+            break;
+        case 'search':
+            backBtnText.textContent = 'Back to Results';
+            backBtn.title = 'Back to Search Results';
+            break;
+        default:
+            backBtnText.textContent = 'Back to Library';
+            backBtn.title = 'Back to Library';
     }
+}
 </script>
 </div>
 <div id="footer-placeholder"></div>

@@ -124,128 +124,214 @@
         let myInteractions = {};
         let debouncedRender = null;
         
-        function setupAuthButton() {
-            const authBtn = document.getElementById('authBtn');
-            if (!authBtn) return; // Exit if the button isn't loaded yet
 
-            if (currentUser) {
-                authBtn.textContent = 'Logout';
-                authBtn.title = 'Logout';
-                authBtn.onclick = () => {
-                    auth.signOut().then(() => {
-                        window.location.reload(); // Reload the page to clear user data
-                    });
-                };
-            } else {
-                authBtn.textContent = 'Login';
-                authBtn.title = 'Login';
-                authBtn.onclick = () => {
-                    window.location.href = 'auth.html';
-                };
-            }
+    // ADD THIS NEW EVENT LISTENER
+    document.addEventListener('authStateReady', (e) => {
+        currentUser = e.detail.user;
+        if (currentUser) {
+            // Now that we know for sure the user is logged in,
+            // we can safely load the library data.
+            loadAllMedia();
+        } else {
+            // If there's no user, redirect to the login page.
+            window.location.href = 'auth.html';
         }
-        
+    });
+
+    // === SKELETON UI UTILITIES ===
+    const SkeletonUI = {
+        showMediaGridSkeleton: (containerId, count = 12) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const skeletonHTML = Array(count).fill(0).map(() => `
+                <div class="skeleton-media-card">
+                    <div class="skeleton media-poster"></div>
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-year"></div>
+                    <div class="skeleton-rating">
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                        <div class="skeleton skeleton-star"></div>
+                    </div>
+                </div>
+            `).join('');
+            container.innerHTML = skeletonHTML;
+        },
+
+        showEmptyState: (containerId, searchTerm = '') => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const message = searchTerm 
+                ? 'No media found. Try adjusting your search terms.'
+                : 'Your collection is empty. Add some media to get started!';
+            const actionButton = !searchTerm 
+                ? '<a href="add-movie.html" class="btn btn-lg btn-primary" title="Add Your First Movie"><i class="icon icon-add"></i></a>' 
+                : '';
+            
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>No media found</h3>
+                    <p>${message}</p>
+                    ${actionButton}
+                </div>
+            `;
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
+
         auth.onAuthStateChanged(user => {
             currentUser = user;
-        loadAllMedia();
-            setupAuthButton();
-            });
-        document.addEventListener('navbarLoaded', () => {
-            setupAuthButton();
+            loadAllMedia();
         });
 
-        // === SKELETON UI UTILITIES ===
-        const SkeletonUI = {
-            showMediaGridSkeleton: (containerId, count = 12) => {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                const skeletonHTML = Array(count).fill(0).map(() => `
-                    <div class="skeleton-media-card">
-                        <div class="skeleton media-poster"></div>
-                        <div class="skeleton skeleton-title"></div>
-                        <div class="skeleton skeleton-year"></div>
-                        <div class="skeleton-rating">
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                            <div class="skeleton skeleton-star"></div>
-                        </div>
-                    </div>
-                `).join('');
-                container.innerHTML = skeletonHTML;
-            },
-
-            showEmptyState: (containerId, searchTerm = '') => {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                const message = searchTerm 
-                    ? 'No media found. Try adjusting your search terms.'
-                    : 'Your collection is empty. Add some media to get started!';
-                const actionButton = !searchTerm 
-                    ? '<a href="add-movie.html" class="btn btn-lg btn-primary" title="Add Your First Movie"><i class="icon icon-add"></i></a>' 
-                    : '';
-                
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No media found</h3>
-                        <p>${message}</p>
-                        ${actionButton}
-                    </div>
-                `;
-            }
+        const debounce = (func, delay) => {
+            let timeout;
+            return function(...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), delay);
+            };
         };
-
-        async function loadAllMedia() {
-            try {
-                SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
-
-                const mediaSnapshot = await db.collection('movies').get();
-                allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                myInteractions = {};
-                if (currentUser) {
-                    const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
-                    interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
-                }
-                
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                setTimeout(() => renderMedia(), 100);
-
-            } catch (error) {
-                console.error("Error loading media:", error);
-                const container = document.getElementById('mediaContainer');
-                if(container) {
-                    container.innerHTML = `
-                        <div class="error-state">
-                            <h3>Oops! Something went wrong</h3>
-                            <p>Unable to load your media collection. Please try again.</p>
-                            <button class="btn btn-rectangular btn-primary" onclick="loadAllMedia()">Try Again</button>
-                        </div>
-                    `;
-                }
-            }
-        }
         
-        function getSortableTitle(title) {
-            if (!title) return '';
+        debouncedRender = debounce(() => renderMedia(), 300);
 
-            const lowerTitle = title.toLowerCase();
-            const articlesToIgnore = ['the ', 'a ', 'an '];
 
-            for (const article of articlesToIgnore) {
-                if (lowerTitle.startsWith(article)) {
-                    // If the title starts with an article, return the rest of the string
-                    return title.substring(article.length);
-                }
+        document.getElementById('searchInput')?.addEventListener('input', debouncedRender);
+            currentPage = 1; 
+        document.getElementById('myMediaToggle')?.addEventListener('click', () => {
+            currentPage = 1; 
+            const toggle = document.getElementById('myMediaToggle');
+            const statusToggles = document.getElementById('statusToggles');
+            const isActive = toggle.getAttribute('data-active') === 'true';
+                        
+            toggle.setAttribute('data-active', !isActive);
+            toggle.classList.toggle('btn-primary', !isActive);
+            toggle.classList.toggle('toggle-btn', isActive);  
+
+            statusToggles.style.display = !isActive ? 'flex' : 'none';
+
+        // Reset sub-toggles when hiding
+            if (isActive) {
+                document.getElementById('watchedToggle').setAttribute('data-active', 'false');
+                document.getElementById('ownedToggle').setAttribute('data-active', 'false');
+                document.getElementById('watchedToggle').className = 'btn btn-md toggle-btn';  // Changed from btn-secondary
+                document.getElementById('ownedToggle').className = 'btn btn-md toggle-btn';    // Changed from btn-secondary
             }
             
-            // Otherwise, return the original title
-            return title;
-        }
+            renderMedia();
+        });
 
-        function generateStarDisplay(rating) {
+
+        // Add event listeners for the new toggles
+        document.getElementById('watchedToggle')?.addEventListener('click', () => {
+            currentPage = 1; 
+            const toggle = document.getElementById('watchedToggle');
+            const isActive = toggle.getAttribute('data-active') === 'true';
+            
+            toggle.setAttribute('data-active', !isActive);
+            toggle.classList.toggle('btn-primary', !isActive);
+            toggle.classList.toggle('toggle-btn', isActive);
+            
+            renderMedia();
+        });
+
+        document.getElementById('ownedToggle')?.addEventListener('click', () => {
+            currentPage = 1; 
+            const toggle = document.getElementById('ownedToggle');
+            const isActive = toggle.getAttribute('data-active') === 'true';
+            
+            toggle.setAttribute('data-active', !isActive);
+            toggle.classList.toggle('btn-primary', !isActive);
+            toggle.classList.toggle('toggle-btn', isActive);
+            
+            renderMedia();
+        });
+
+        document.getElementById('sortDropdown')?.addEventListener('change', () => {
+            currentPage = 1; 
+            
+            renderMedia();
+        });
+
+        document.getElementById('prevPageBtn')?.addEventListener('click', () => goToPage(currentPage - 1));
+        document.getElementById('nextPageBtn')?.addEventListener('click', () => goToPage(currentPage + 1));
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const bulkImported = urlParams.get('bulk_imported');
+        
+        if (bulkImported) {
+            const successDiv = document.getElementById('bulkImportSuccess');
+            const messageSpan = document.getElementById('bulkImportMessage');
+            
+            if (successDiv && messageSpan) {
+                messageSpan.textContent = `Successfully imported ${bulkImported} items from bulk scan!`;
+                successDiv.style.display = 'block';
+                
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                // Hide after 5 seconds
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+    });
+
+async function loadAllMedia() {
+    try {
+        SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
+
+        const mediaSnapshot = await db.collection('movies').get();
+        allMedia = mediaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        myInteractions = {};
+        if (currentUser) {
+            const interactionsSnapshot = await db.collection('users').doc(currentUser.uid).collection('movieInteractions').get();
+            interactionsSnapshot.forEach(doc => { myInteractions[doc.id] = doc.data(); });
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        setTimeout(() => renderMedia(), 100);
+
+    } catch (error) {
+        console.error("Error loading media:", error);
+        const container = document.getElementById('mediaContainer');
+        if(container) {
+            container.innerHTML = `
+                <div class="error-state">
+                    <h3>Oops! Something went wrong</h3>
+                    <p>Unable to load your media collection. Please try again.</p>
+                    <button class="btn btn-rectangular btn-primary" onclick="loadAllMedia()">Try Again</button>
+                </div>
+            `;
+        }
+    }
+}
+
+function getSortableTitle(title) {
+    if (!title) return '';
+
+    const lowerTitle = title.toLowerCase();
+    const articlesToIgnore = ['the ', 'a ', 'an '];
+
+    for (const article of articlesToIgnore) {
+        if (lowerTitle.startsWith(article)) {
+            // If the title starts with an article, return the rest of the string
+            return title.substring(article.length);
+        }
+    }
+    
+    // Otherwise, return the original title
+    return title;
+}
+
+function generateStarDisplay(rating) {
             if (!rating || rating <= 0) return '<div class="star-rating"></div>'; 
             const totalStars = 5;
             let starsHTML = '';
@@ -271,369 +357,263 @@ function addToList(mediaId) {
     // You could show a modal here, redirect to a lists page, etc.
     alert('Add to list functionality - to be implemented!');
 }
-        function addExistingMovieToMyCollection(mediaId) { 
-            window.location.href = `add-movie.html?edit=${mediaId}`; 
-        }
+function addExistingMovieToMyCollection(mediaId) { 
+    window.location.href = `add-movie.html?edit=${mediaId}`; 
+}
+function renderMedia() {
+    const container = document.getElementById('mediaContainer');
+    if(!container) return;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            SkeletonUI.showMediaGridSkeleton('mediaContainer', 12);
+    const searchTerm = (document.getElementById('searchInput').value || '').trim();
+    const isMyMediaActive = document.getElementById('myMediaToggle').getAttribute('data-active') === 'true';
+    const isWatchedActive = document.getElementById('watchedToggle').getAttribute('data-active') === 'true';
+    const isOwnedActive = document.getElementById('ownedToggle').getAttribute('data-active') === 'true';
+    const sort = document.getElementById('sortDropdown').value;
+    const isMobile = window.innerWidth <= 768;
 
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                loadAllMedia();
-            });
+    let mediaToDisplay = [...allMedia];  // DECLARE THIS FIRST!
 
-            const debounce = (func, delay) => {
-                let timeout;
-                return function(...args) {
-                    const context = this;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(context, args), delay);
-                };
-            };
+    // Filter by "my media" if toggle is active
+    if (isMyMediaActive && currentUser) {
+        mediaToDisplay = mediaToDisplay.filter(media => {
+            const interaction = myInteractions[media.id];
+            if (!interaction) return false;
             
-            debouncedRender = debounce(() => renderMedia(), 300);
-
-
-            document.getElementById('searchInput')?.addEventListener('input', debouncedRender);
-                currentPage = 1; 
-            document.getElementById('myMediaToggle')?.addEventListener('click', () => {
-                currentPage = 1; 
-                const toggle = document.getElementById('myMediaToggle');
-                const statusToggles = document.getElementById('statusToggles');
-                const isActive = toggle.getAttribute('data-active') === 'true';
-                            
-                toggle.setAttribute('data-active', !isActive);
-                toggle.classList.toggle('btn-primary', !isActive);
-                toggle.classList.toggle('toggle-btn', isActive);  
-
-                statusToggles.style.display = !isActive ? 'flex' : 'none';
-
-            // Reset sub-toggles when hiding
-                if (isActive) {
-                    document.getElementById('watchedToggle').setAttribute('data-active', 'false');
-                    document.getElementById('ownedToggle').setAttribute('data-active', 'false');
-                    document.getElementById('watchedToggle').className = 'btn btn-md toggle-btn';  // Changed from btn-secondary
-                    document.getElementById('ownedToggle').className = 'btn btn-md toggle-btn';    // Changed from btn-secondary
-                }
-                
-                renderMedia();
-            });
-
-
-            // Add event listeners for the new toggles
-            document.getElementById('watchedToggle')?.addEventListener('click', () => {
-                currentPage = 1; 
-                const toggle = document.getElementById('watchedToggle');
-                const isActive = toggle.getAttribute('data-active') === 'true';
-                
-                toggle.setAttribute('data-active', !isActive);
-                toggle.classList.toggle('btn-primary', !isActive);
-                toggle.classList.toggle('toggle-btn', isActive);
-                
-                renderMedia();
-            });
-
-            document.getElementById('ownedToggle')?.addEventListener('click', () => {
-                currentPage = 1; 
-                const toggle = document.getElementById('ownedToggle');
-                const isActive = toggle.getAttribute('data-active') === 'true';
-                
-                toggle.setAttribute('data-active', !isActive);
-                toggle.classList.toggle('btn-primary', !isActive);
-                toggle.classList.toggle('toggle-btn', isActive);
-                
-                renderMedia();
-            });
-
-            document.getElementById('sortDropdown')?.addEventListener('change', () => {
-                currentPage = 1; 
-                
-                renderMedia();
-            });
-
-            document.getElementById('prevPageBtn')?.addEventListener('click', () => goToPage(currentPage - 1));
-            document.getElementById('nextPageBtn')?.addEventListener('click', () => goToPage(currentPage + 1));
-
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const bulkImported = urlParams.get('bulk_imported');
-            
-            if (bulkImported) {
-                const successDiv = document.getElementById('bulkImportSuccess');
-                const messageSpan = document.getElementById('bulkImportMessage');
-                
-                if (successDiv && messageSpan) {
-                    messageSpan.textContent = `Successfully imported ${bulkImported} items from bulk scan!`;
-                    successDiv.style.display = 'block';
-                    
-                    // Clean up URL
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    
-                    // Hide after 5 seconds
-                    setTimeout(() => {
-                        successDiv.style.display = 'none';
-                    }, 5000);
-                }
+            // If both toggles are active, show items that are both watched AND owned
+            if (isWatchedActive && isOwnedActive) {
+                return interaction.watched && interaction.owned;
+            }
+            // If only watched is active, show only watched
+            else if (isWatchedActive) {
+                return interaction.watched;
+            }
+            // If only owned is active, show only owned
+            else if (isOwnedActive) {
+                return interaction.owned;
+            }
+            // If neither sub-toggle is active, show any interaction
+            else {
+                return true;
             }
         });
+    }
 
+    // Filter by search term
+    if (searchTerm) {
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        mediaToDisplay = mediaToDisplay.filter(media => {
+            const title = (media.title || '').toLowerCase();
+            const director = (media.director || '').toLowerCase();
+            const genre = (media.genre || '').toLowerCase();
+            const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
+            return title.includes(lowerCaseSearchTerm) || 
+                director.includes(lowerCaseSearchTerm) ||
+                genre.includes(lowerCaseSearchTerm) ||
+                cast.includes(lowerCaseSearchTerm);
+        });
+    }
 
-        // Mobile-friendly interaction improvements
-        function addMobileInteractionHandlers() {
-            // Detect if user is on mobile
-            const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+    // Sort the results
+    mediaToDisplay.sort((a, b) => {
+        const interactionA = myInteractions[a.id] || { rating: 0 };
+        const interactionB = myInteractions[b.id] || { rating: 0 };
+        switch (sort) {
+            case 'titleAsc': return getSortableTitle(a.title).localeCompare(getSortableTitle(b.title));
+            case 'titleDesc': return getSortableTitle(b.title).localeCompare(getSortableTitle(a.title));
+            case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
+            case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
+            default:
+                const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
+                const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
+                return timeB - timeA;
+        }
+    });
+
+    // Store filtered results and calculate pagination
+    filteredMedia = mediaToDisplay;
+    totalPages = Math.ceil(filteredMedia.length / itemsPerPage);
+
+    // Reset to page 1 if current page is beyond available pages
+    if (currentPage > totalPages) {
+        currentPage = 1;
+    }
+
+    // Update pagination controls
+    updatePaginationControls();
+
+    // Get items for current page
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedMedia = filteredMedia.slice(startIndex, endIndex);
+
+    if (paginatedMedia.length === 0) {
+        SkeletonUI.showEmptyState('mediaContainer', searchTerm);
+        return;
+    }
+
+    // Render the current page of media
+    container.innerHTML = paginatedMedia.map(media => {
+        const title = media.title || 'Untitled';
+        const interaction = myInteractions[media.id];
+
+        const posterImg = media.posterUrl 
+            ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
+            : '<div class="no-poster">No Poster</div>';
+        
+        let actionsHTML = '';
+        if (currentUser) {
+            let statusBadges = [];
+            let actionButtons = [];
             
-            if (isMobile) {
-                // Add visual feedback for button presses
-                document.addEventListener('touchstart', (e) => {
-                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
-                        e.target.style.transform = 'scale(0.95)';
-                    }
-                });
-                
-                document.addEventListener('touchend', (e) => {
-                    if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
-                        setTimeout(() => {
-                            e.target.style.transform = '';
-                        }, 150);
-                    }
-                });
-                
-                // Prevent accidental card navigation when tapping buttons
-                document.addEventListener('click', (e) => {
-                    if (e.target.closest('.media-actions')) {
-                        e.stopPropagation();
-                    }
-                });
+            if (interaction) {
+                // User has this media, show action buttons
+                actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
+                actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); addToList('${media.id}')" title="Add to List" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-list"></i></button>`);
+
+            } else {
+                actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
+                actionButtons.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-add"></i></button>`);
             }
+            
+            actionsHTML = `<div class="media-actions">${actionButtons.join('')}</div>`;
+
+        } else {
+            actionsHTML = `<div class="media-actions"><a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a></div>`;
         }
 
-        function renderMedia() {
-            const container = document.getElementById('mediaContainer');
-            if(!container) return;
+        return `
+            <div class="media-card fade-in" ${isMobile ? 'data-mobile="true"' : ''}>
+                <div class="media-poster" onclick="${isMobile ? '' : `viewMediaDetails('${media.id}')`}" ${isMobile ? `data-media-id="${media.id}"` : ''}>
+                    ${posterImg}
+                    ${actionsHTML}
+                </div>
+                <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
+                <p class="media-year">${media.year || ''}</p>
+                ${generateStarDisplay(interaction ? interaction.rating : 0)}
+            </div>
+        `;
+    }).join('');
 
-            const searchTerm = (document.getElementById('searchInput').value || '').trim();
-            const isMyMediaActive = document.getElementById('myMediaToggle').getAttribute('data-active') === 'true';
-            const isWatchedActive = document.getElementById('watchedToggle').getAttribute('data-active') === 'true';
-            const isOwnedActive = document.getElementById('ownedToggle').getAttribute('data-active') === 'true';
-            const sort = document.getElementById('sortDropdown').value;
-            const isMobile = window.innerWidth <= 768;
+    // Add mobile-specific event handlers after rendering
+    if (isMobile) {
+        addMobileClickHandlers();
+    }
 
-            let mediaToDisplay = [...allMedia];  // DECLARE THIS FIRST!
-
-            // Filter by "my media" if toggle is active
-            if (isMyMediaActive && currentUser) {
-                mediaToDisplay = mediaToDisplay.filter(media => {
-                    const interaction = myInteractions[media.id];
-                    if (!interaction) return false;
-                    
-                    // If both toggles are active, show items that are both watched AND owned
-                    if (isWatchedActive && isOwnedActive) {
-                        return interaction.watched && interaction.owned;
-                    }
-                    // If only watched is active, show only watched
-                    else if (isWatchedActive) {
-                        return interaction.watched;
-                    }
-                    // If only owned is active, show only owned
-                    else if (isOwnedActive) {
-                        return interaction.owned;
-                    }
-                    // If neither sub-toggle is active, show any interaction
-                    else {
-                        return true;
-                    }
-                });
-            }
-
-            // Filter by search term
-            if (searchTerm) {
-                const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                mediaToDisplay = mediaToDisplay.filter(media => {
-                    const title = (media.title || '').toLowerCase();
-                    const director = (media.director || '').toLowerCase();
-                    const genre = (media.genre || '').toLowerCase();
-                    const cast = Array.isArray(media.cast) ? media.cast.join(' ').toLowerCase() : '';
-                    return title.includes(lowerCaseSearchTerm) || 
-                        director.includes(lowerCaseSearchTerm) ||
-                        genre.includes(lowerCaseSearchTerm) ||
-                        cast.includes(lowerCaseSearchTerm);
-                });
-            }
-
-            // Sort the results
-            mediaToDisplay.sort((a, b) => {
-                const interactionA = myInteractions[a.id] || { rating: 0 };
-                const interactionB = myInteractions[b.id] || { rating: 0 };
-                switch (sort) {
-                    case 'titleAsc': return getSortableTitle(a.title).localeCompare(getSortableTitle(b.title));
-                    case 'titleDesc': return getSortableTitle(b.title).localeCompare(getSortableTitle(a.title));
-                    case 'ratingDesc': return (interactionB.rating || 0) - (interactionA.rating || 0);
-                    case 'ratingAsc': return (interactionA.rating || 0) - (interactionB.rating || 0);
-                    default:
-                        const timeA = a.dateAdded ? a.dateAdded.seconds : 0;
-                        const timeB = b.dateAdded ? b.dateAdded.seconds : 0;
-                        return timeB - timeA;
-                }
-            });
-
-            // Store filtered results and calculate pagination
-            filteredMedia = mediaToDisplay;
-            totalPages = Math.ceil(filteredMedia.length / itemsPerPage);
-
-            // Reset to page 1 if current page is beyond available pages
-            if (currentPage > totalPages) {
-                currentPage = 1;
-            }
-
-            // Update pagination controls
-            updatePaginationControls();
-
-            // Get items for current page
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            const paginatedMedia = filteredMedia.slice(startIndex, endIndex);
-
-            if (paginatedMedia.length === 0) {
-                SkeletonUI.showEmptyState('mediaContainer', searchTerm);
-                return;
-            }
-
-            // Render the current page of media
-            container.innerHTML = paginatedMedia.map(media => {
-                const title = media.title || 'Untitled';
-                const interaction = myInteractions[media.id];
-
-                const posterImg = media.posterUrl 
-                    ? `<img src="${media.posterUrl}" alt="${title}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'no-poster\\'>No Poster</div>';">`
-                    : '<div class="no-poster">No Poster</div>';
-                
-                let actionsHTML = '';
-                if (currentUser) {
-                    let statusBadges = [];
-                    let actionButtons = [];
-                    
-                    if (interaction) {
-                        // User has this media, show action buttons
-                        actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); addToList('${media.id}')" title="Add to List" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-list"></i></button>`);
-
-                    } else {
-                        actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); addExistingMovieToMyCollection('${media.id}')" title="Add to My Media" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-add"></i></button>`);
-                    }
-                    
-                    actionsHTML = `<div class="media-actions">${actionButtons.join('')}</div>`;
-
-                } else {
-                    actionsHTML = `<div class="media-actions"><a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-secondary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a></div>`;
-                }
-
-                return `
-                    <div class="media-card fade-in" ${isMobile ? 'data-mobile="true"' : ''}>
-                        <div class="media-poster" onclick="${isMobile ? '' : `viewMediaDetails('${media.id}')`}" ${isMobile ? `data-media-id="${media.id}"` : ''}>
-                            ${posterImg}
-                            ${actionsHTML}
-                        </div>
-                        <h3 class="media-title" onclick="viewMediaDetails('${media.id}')">${title}</h3>
-                        <p class="media-year">${media.year || ''}</p>
-                        ${generateStarDisplay(interaction ? interaction.rating : 0)}
-                    </div>
-                `;
-            }).join('');
-
-            // Add mobile-specific event handlers after rendering
-            if (isMobile) {
-                addMobileClickHandlers();
-            }
-
+    setTimeout(() => {
+        container.querySelectorAll('.media-card').forEach((card, index) => {
             setTimeout(() => {
-                container.querySelectorAll('.media-card').forEach((card, index) => {
-                    setTimeout(() => {
-                        card.classList.add('visible');
-                    }, index * 30);
-                });
-            }, 50);
-        }
-
-    // Mobile-specific click handlers
-    function addMobileClickHandlers() {
-        const mediaPosters = document.querySelectorAll('.media-poster[data-media-id]');
-        
-        mediaPosters.forEach(poster => {
-            poster.addEventListener('click', (e) => {
-                // On mobile, poster click should go to details unless clicking a button
-                if (!e.target.closest('.media-actions')) {
-                    const mediaId = poster.getAttribute('data-media-id');
-                    viewMediaDetails(mediaId);
-                }
-            });
+                card.classList.add('visible');
+            }, index * 30);
         });
-    }
+    }, 50);
+}
 
-    function updatePaginationControls() {
-        const paginationControls = document.getElementById('paginationControls');
-        const paginationControlsBottom = document.getElementById('paginationControlsBottom');
-        const paginationInfo = document.getElementById('paginationInfo');
-        const paginationInfoBottom = document.getElementById('paginationInfoBottom');
-        const prevBtn = document.getElementById('prevPageBtn');
-        const nextBtn = document.getElementById('nextPageBtn');
-        const prevBtnBottom = document.getElementById('prevPageBtnBottom');
-        const nextBtnBottom = document.getElementById('nextPageBtnBottom');
 
-        if (totalPages <= 1) {
-            paginationControls.style.display = 'none';
-            paginationControlsBottom.style.display = 'none';
-            return;
-        }
-
-        paginationControls.style.display = 'flex';
-        paginationControlsBottom.style.display = 'flex';
-        
-        const startItem = (currentPage - 1) * itemsPerPage + 1;
-        const endItem = Math.min(currentPage * itemsPerPage, filteredMedia.length);
-        const infoText = `Page ${currentPage} of ${totalPages} (${startItem}-${endItem} of ${filteredMedia.length} items)`;
-        
-        // Update both info displays
-        paginationInfo.textContent = infoText;
-        paginationInfoBottom.textContent = infoText;
-        
-        // Update all buttons
-        const isFirstPage = currentPage === 1;
-        const isLastPage = currentPage === totalPages;
-        
-        [prevBtn, prevBtnBottom].forEach(btn => {
-            btn.disabled = isFirstPage;
-            btn.classList.toggle('disabled', isFirstPage);
-        });
-        
-        [nextBtn, nextBtnBottom].forEach(btn => {
-            btn.disabled = isLastPage;
-            btn.classList.toggle('disabled', isLastPage);
-        });
-    }
-
-    function goToPage(page) {
-        if (page >= 1 && page <= totalPages) {
-            currentPage = page;
-            renderMedia();
-        }
-    }
+// Mobile-friendly interaction improvements
+function addMobileInteractionHandlers() {
+    // Detect if user is on mobile
+    const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
     
-    // Add haptic feedback for mobile interactions
-    function addHapticFeedback(element) {
-        if (navigator.vibrate && window.innerWidth <= 768) {
-            element.addEventListener('touchstart', () => {
-                navigator.vibrate(50); // Short vibration
-            });
-        }
+    if (isMobile) {
+        // Add visual feedback for button presses
+        document.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
+                e.target.style.transform = 'scale(0.95)';
+            }
+        });
+        
+        document.addEventListener('touchend', (e) => {
+            if (e.target.closest('.btn') || e.target.closest('.status-badge-positive') || e.target.closest('.status-badge-negative')) {
+                setTimeout(() => {
+                    e.target.style.transform = '';
+                }, 150);
+            }
+        });
+        
+        // Prevent accidental card navigation when tapping buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.media-actions')) {
+                e.stopPropagation();
+            }
+        });
+    }
+}
+
+// Mobile-specific click handlers
+function addMobileClickHandlers() {
+    const mediaPosters = document.querySelectorAll('.media-poster[data-media-id]');
+    
+    mediaPosters.forEach(poster => {
+        poster.addEventListener('click', (e) => {
+            // On mobile, poster click should go to details unless clicking a button
+            if (!e.target.closest('.media-actions')) {
+                const mediaId = poster.getAttribute('data-media-id');
+                viewMediaDetails(mediaId);
+            }
+        });
+    });
+}
+
+function updatePaginationControls() {
+    const paginationControls = document.getElementById('paginationControls');
+    const paginationControlsBottom = document.getElementById('paginationControlsBottom');
+    const paginationInfo = document.getElementById('paginationInfo');
+    const paginationInfoBottom = document.getElementById('paginationInfoBottom');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+    const prevBtnBottom = document.getElementById('prevPageBtnBottom');
+    const nextBtnBottom = document.getElementById('nextPageBtnBottom');
+
+    if (totalPages <= 1) {
+        paginationControls.style.display = 'none';
+        paginationControlsBottom.style.display = 'none';
+        return;
     }
 
-    // Initialize mobile improvements when page loads
-    document.addEventListener('DOMContentLoaded', () => {
+    paginationControls.style.display = 'flex';
+    paginationControlsBottom.style.display = 'flex';
+    
+    const startItem = (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, filteredMedia.length);
+    const infoText = `Page ${currentPage} of ${totalPages} (${startItem}-${endItem} of ${filteredMedia.length} items)`;
+    
+    // Update both info displays
+    paginationInfo.textContent = infoText;
+    paginationInfoBottom.textContent = infoText;
+    
+    // Update all buttons
+    const isFirstPage = currentPage === 1;
+    const isLastPage = currentPage === totalPages;
+    
+    [prevBtn, prevBtnBottom].forEach(btn => {
+        btn.disabled = isFirstPage;
+        btn.classList.toggle('disabled', isFirstPage);
+    });
+    
+    [nextBtn, nextBtnBottom].forEach(btn => {
+        btn.disabled = isLastPage;
+        btn.classList.toggle('disabled', isLastPage);
+    });
+}
+
+function goToPage(page) {
+    if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        renderMedia();
+    }
+}
+
+// Add haptic feedback for mobile interactions
+function addHapticFeedback(element) {
+    if (navigator.vibrate && window.innerWidth <= 768) {
+        element.addEventListener('touchstart', () => {
+            navigator.vibrate(50); // Short vibration
+        });
+    }
+}
+
+// Initialize mobile improvements when page loads
+document.addEventListener('DOMContentLoaded', () => {
         addMobileInteractionHandlers();
         
         // Add haptic feedback to interactive elements

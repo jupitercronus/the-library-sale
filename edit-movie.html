@@ -390,6 +390,7 @@
         let editingPhysicalCopyId = null;
         let currentMovieId = null; 
         let allPhysicalCopies = []; 
+        
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- 1. Get DOM Elements ---
@@ -1053,19 +1054,23 @@ if (!movieId) {
     }
     updatePageContext(fromParam);
 
-    auth.onAuthStateChanged(user => {
-        if (!user) {
+
+    document.addEventListener('authStateReady', (e) => {
+        currentUser = e.detail.user;
+
+        if (!currentUser) {
             window.location.href = 'auth.html';
             return;
         }
-        currentUser = user;
 
+        // All the logic from the old listener now lives here,
+        // running only AFTER main.js confirms the user's auth state.
         const params = new URLSearchParams(window.location.search);
         const movieId = params.get('id');
         const mode = params.get('mode');
         const editCopyId = params.get('editCopy');
 
-        // Get references to page sections
+        // Get references to page sections and buttons
         const movieDetailsForm = document.getElementById('movieDetailsForm');
         const physicalDetailsSection = document.getElementById('physical-edition-details');
         const heroSubtitle = document.querySelector('.hero-subtitle');
@@ -1073,37 +1078,35 @@ if (!movieId) {
         const savePhysicalCopyBtn = document.getElementById('save-physical-copy');
 
         // Load base movie data for all modes
-        loadMovieData(user.uid, movieId);
+        loadMovieData(currentUser.uid, movieId);
         initializeEditScanner();
 
-        // Hide all optional sections by default
+        // Hide all optional sections and buttons by default
         movieDetailsForm.style.display = 'none';
         physicalDetailsSection.style.display = 'none';
-        mainSaveBtn.style.display = 'none'; // Hide main save button by default
+        mainSaveBtn.style.display = 'none';
         savePhysicalCopyBtn.style.display = 'none';
 
         // Configure the UI based on the mode
         if (mode === 'details') {
-            heroSubtitle.textContent = 'Edit Factual Movie Details';
-            checkEditPermissions(movieId); // This shows the form and TMDB search if user has rights
-            mainSaveBtn.style.display = 'inline-flex'; // Show the main save button
+            heroSubtitle.textContent = 'edit movie details';
+            checkEditPermissions(movieId);
+            mainSaveBtn.style.display = 'inline-flex';
         
         } else if (editCopyId) {
-            heroSubtitle.textContent = 'Edit Your Physical Copy';
+            heroSubtitle.textContent = 'edit physical copy';
             physicalDetailsSection.style.display = 'block';
-            editPhysicalCopy(editCopyId); // This shows and populates the physical copy form
-            savePhysicalCopyBtn.style.display = 'inline-flex'; // Show the physical copy save button
+            editPhysicalCopy(editCopyId);
+            savePhysicalCopyBtn.style.display = 'inline-flex';
         
         } else if (mode === 'addCopy') {
-            heroSubtitle.textContent = 'Add a New Physical Copy';
+            heroSubtitle.textContent = 'add new physical copy';
             physicalDetailsSection.style.display = 'block';
-            addNewPhysicalCopy(); // This shows a blank physical copy form
-            savePhysicalCopyBtn.style.display = 'inline-flex'; // Show the physical copy save button
+            addNewPhysicalCopy();
+            savePhysicalCopyBtn.style.display = 'inline-flex';
+
+         } else {
         
-        } else {
-            // Fallback or unknown mode - show a simple message or redirect
-            heroSubtitle.textContent = 'Edit Your Collection';
-            // By default, no forms are shown, which is a safe state.
         }
     });
 

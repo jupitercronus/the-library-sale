@@ -100,9 +100,8 @@
 
         let currentUser = null;
         let isPublic = true;
-
-        // Enhanced skeleton utilities using CSS component classes
-        const SkeletonUI = {
+    
+    const SkeletonUI = {
             showCreateListSkeleton: () => {
                 document.getElementById('listName').placeholder = 'Loading...';
                 document.getElementById('listName').disabled = true;
@@ -113,42 +112,40 @@
                 document.getElementById('listName').disabled = false;
             }
         };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    currentUser = user;
-                    // Show skeleton briefly for smooth UX
-                    SkeletonUI.showCreateListSkeleton();
-                    setTimeout(() => {
-                        SkeletonUI.hideCreateListSkeleton();
-                        document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${currentUser.uid}">${currentUser.displayName || 'Anonymous'}</a>`;
-                    }, 300);
-                } else {
-                    window.location.href = 'auth.html';
-                }
-            });
-            
-            document.getElementById('createListForm').addEventListener('submit', handleCreateList);
-            
-            // Privacy toggle logic using proper button component classes
-            const publicBtn = document.getElementById('publicBtn');
-            const privateBtn = document.getElementById('privateBtn');
-            
-            publicBtn.addEventListener('click', () => {
-                isPublic = true;
-                publicBtn.classList.add('active');
-                privateBtn.classList.remove('active');
-            });
-
-            privateBtn.addEventListener('click', () => {
-                isPublic = false;
-                privateBtn.classList.add('active');
-                publicBtn.classList.remove('active');
-            });
-        });
+    document.addEventListener('authStateReady', (e) => {
+        currentUser = e.detail.user;
+        if (currentUser) {
+            // Show skeleton briefly for smooth UX
+            SkeletonUI.showCreateListSkeleton();
+            setTimeout(() => {
+                SkeletonUI.hideCreateListSkeleton();
+                document.getElementById('creatorName').innerHTML = `by <a href="profile.html?id=${currentUser.uid}">${currentUser.displayName || 'Anonymous'}</a>`;
+            }, 300);
+        } else {
+            // This page requires a user, so redirect if not logged in.
+            window.location.href = 'auth.html';
+        }
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+        // This listener now only handles page-specific UI events.
+        document.getElementById('createListForm').addEventListener('submit', handleCreateList);
         
-        async function handleCreateList(e) {
+        const publicBtn = document.getElementById('publicBtn');
+        const privateBtn = document.getElementById('privateBtn');
+        
+        publicBtn.addEventListener('click', () => {
+            isPublic = true;
+            publicBtn.classList.add('active');
+            privateBtn.classList.remove('active');
+        });
+
+        privateBtn.addEventListener('click', () => {
+            isPublic = false;
+            privateBtn.classList.add('active');
+            publicBtn.classList.remove('active');
+        });
+    });   
+    async function handleCreateList(e) {
             e.preventDefault();
             if (!currentUser) {
                 alert("You must be logged in to create a list.");

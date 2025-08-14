@@ -1,4 +1,4 @@
-// main.js
+// main.js - The NEW Centralized Logic
 document.addEventListener("DOMContentLoaded", function() {
     // Load the navbar
     fetch("navbar.html")
@@ -8,26 +8,10 @@ document.addEventListener("DOMContentLoaded", function() {
             if (navbarPlaceholder) {
                 navbarPlaceholder.innerHTML = data;
             }
-
-            // Highlight the active page link
-            const currentPage = window.location.pathname.split("/").pop();
-            const navLinks = document.querySelectorAll('.nav-link');
-            navLinks.forEach(link => {
-                if (link.getAttribute('href') === currentPage) {
-                    link.classList.add('active');
-                }
-            });
-
-            // Re-attach hamburger menu logic if needed
-            const hamburgerBtn = document.getElementById('hamburgerBtn');
-            const navMenu = document.getElementById('navLinks');
-            if (hamburgerBtn && navMenu) {
-                hamburgerBtn.addEventListener('click', () => {
-                    navMenu.classList.toggle('active');
-                });
-            }
-            document.dispatchEvent(new Event('navbarLoaded'));
+            // After navbar is loaded, initialize the authentication listener
+            setupAuthentication();
         });
+
     // Load the footer
     const footerPlaceholder = document.getElementById("footer-placeholder");
     if (footerPlaceholder) {
@@ -41,32 +25,28 @@ document.addEventListener("DOMContentLoaded", function() {
             });
     }
 });
-        // ADD THIS NEW FUNCTION
-        function setupAuthButton() {
-            const auth = firebase.auth();
-            const authBtn = document.getElementById('authBtn');
 
-            if (!authBtn) return;
+// This is now the ONLY onAuthStateChanged listener in the entire application
+function setupAuthentication() {
+    const auth = firebase.auth();
+    const authBtn = document.getElementById('authBtn');
+    if (!authBtn) return;
 
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    // User is signed in
-                    authBtn.textContent = 'Logout';
-                    authBtn.title = 'Logout';
-                    authBtn.onclick = () => {
-                        auth.signOut().then(() => {
-                            // Redirect to home page after sign out to refresh state
-                            window.location.href = 'index.html';
-                        });
-                    };
-                } else {
-                    // User is signed out
-                    authBtn.textContent = 'Login';
-                    authBtn.title = 'Login';
-                    authBtn.onclick = () => {
-                        window.location.href = 'auth.html';
-                    };
-                }
-            });
+    auth.onAuthStateChanged(user => {
+        // Update the main login/logout button
+        if (user) {
+            authBtn.textContent = 'Logout';
+            authBtn.title = 'Logout';
+            authBtn.onclick = () => auth.signOut().then(() => window.location.href = 'index.html');
+        } else {
+            authBtn.textContent = 'Login';
+            authBtn.title = 'Login';
+            authBtn.onclick = () => window.location.href = 'auth.html';
         }
 
+        // --- THE CRITICAL STEP ---
+        // Announce the user's status to the rest of the application
+        const authEvent = new CustomEvent('authStateReady', { detail: { user: user } });
+        document.dispatchEvent(authEvent);
+    });
+}

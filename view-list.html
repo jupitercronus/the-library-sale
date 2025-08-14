@@ -103,30 +103,25 @@
             }
         };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const listId = urlParams.get('id');
+        document.addEventListener('authStateReady', (e) => {
+            const user = e.detail.user;
+            const movieId = new URLSearchParams(window.location.search).get('id');
 
-            if (!listId) {
-                document.getElementById('list-content').innerHTML = `
-                    <div class="error-state">
-                        <span class="icon icon-close icon-3xl"></span>
-                        <h3>Error: No List ID provided</h3>
-                        <p>Please check the URL and try again.</p>
-                        <a href="lists.html" class="btn btn-lg btn-primary">
-                            <span class="icon icon-back icon-lg"></span>
-                            Back to Lists
-                        </a>
-                    </div>
-                `;
-                return;
+            if (user && movieId) {
+                // If user is logged in AND there's a movie ID, load the page.
+                loadMoviePage(user, movieId);
+            } else if (!user) {
+                // If user is NOT logged in, redirect them to the auth page.
+                window.location.href = 'auth.html';
+            } else {
+                // Handle the case where there's no movie ID.
+                const container = document.getElementById('detailsContainer');
+                container.innerHTML = `<div class="error-state"><h3>Error</h3><p>No movie ID was provided.</p></div>`;
+                container.style.display = 'block';
+                document.getElementById('loadingState').style.display = 'none';
             }
-            
-            auth.onAuthStateChanged(user => {
-                currentUser = user;
-                loadListData(listId);
-            });
         });
+
 
         async function loadListData(listId) {
             SkeletonUI.showListSkeleton();
