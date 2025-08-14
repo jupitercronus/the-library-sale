@@ -49,4 +49,13 @@ function setupAuthentication() {
         const authEvent = new CustomEvent('authStateReady', { detail: { user: user } });
         document.dispatchEvent(authEvent);
     });
+
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const navLinks = document.getElementById('navLinks');
+
+    if (hamburgerBtn && navLinks) {
+        hamburgerBtn.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+        });
+    }
 }

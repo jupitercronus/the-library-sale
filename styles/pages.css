@@ -39,6 +39,10 @@
   margin-bottom: var(--space-6xl); /* Space above footer */
 }
 
+.hero-section {
+  text-align: center;
+}
+
 .logo {
   font-family: var(--font-family-brand);
   font-size: var(--font-size-4xl);
@@ -575,11 +579,6 @@
 
 /* ===== Library PAGE ===== */
 /* Square grid media layout */
-
-.index-page .hero-section {
-  text-align: left;
-  margin-bottom: var(--space-4xl);
-}
 
 .index-page .hero-title {
   font-size: var(--font-size-6xl);
@@ -3703,10 +3702,6 @@ input.error {
   margin: 0 auto;
   padding: var(--space-xl);
   justify-content: center;
-  text-align: center;
-}
-
-.bulkScantitle{
   text-align: center;
 }
 

@@ -143,32 +143,20 @@ button {
 /* ===== LAYOUT CONTAINERS ===== */
 /* Basic page layout building blocks */
 
-.container, 
-.main-container, 
-.profile-page-container,
-.details-page-container,
-.view-list-container,
-.add-movie-container,
-.edit-movie-container,
-.auth-container {
+.page-container {
   width: var(--container-width-page);
   max-width: var(--container-width-lg);
   margin: 0 auto;
   padding: var(--space-3xl) var(--space-xl);
-  position: relative;
-  z-index: 1;
-}
-
-main,
-.main-container,
-.container,
-.profile-page-container,
-.details-page-container,
-.view-list-container,
-.add-movie-container,
-.edit-movie-container {
   flex: 1; /* Push footer to bottom */
   margin-bottom: var(--space-6xl); /* Space above footer */
+}
+
+.page-utility-container {
+      display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
 }
 
 /* ===== UTILITY CLASSES ===== */
