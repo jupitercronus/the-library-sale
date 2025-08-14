@@ -261,20 +261,16 @@
             return `<div class="star-rating">${starsHTML}</div>`;
         }
 
-        function viewMediaDetails(mediaId) { 
-            window.location.href = `movie-details.html?id=${mediaId}`; 
-        }
-        
-        function editMovie(mediaId) { 
-            window.location.href = `edit-movie.html?id=${mediaId}`; 
-        }
-        
-        function addToList(mediaId) {
-            // Placeholder for now - you can implement the list functionality later
-            console.log('Add to list:', mediaId);
-            // You could show a modal here, redirect to a lists page, etc.
-            alert('Add to list functionality - to be implemented!');
-        }
+function viewMediaDetails(mediaId) { 
+    window.location.href = `movie-details.html?id=${mediaId}`; 
+}
+
+function addToList(mediaId) {
+    // Placeholder for now - you can implement the list functionality later
+    console.log('Add to list:', mediaId);
+    // You could show a modal here, redirect to a lists page, etc.
+    alert('Add to list functionality - to be implemented!');
+}
         function addExistingMovieToMyCollection(mediaId) { 
             window.location.href = `add-movie.html?edit=${mediaId}`; 
         }
@@ -523,7 +519,6 @@
                     if (interaction) {
                         // User has this media, show action buttons
                         actionButtons.push(`<a href="movie-details.html?id=${media.id}" class="btn btn-sm btn-primary" title="View Details" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-details"></i></a>`);
-                        actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editMovie('${media.id}')" title="Edit" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-edit"></i></button>`);
                         actionButtons.push(`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); addToList('${media.id}')" title="Add to List" ${isMobile ? 'data-mobile-action="true"' : ''}><i class="icon icon-list"></i></button>`);
 
                     } else {
