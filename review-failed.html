@@ -443,17 +443,20 @@
             });
         }
 
-        // Initialize when auth is ready
+        document.addEventListener('authStateReady', (e) => {
+            currentUser = e.detail.user;
+            if (currentUser) {
+                // Now that the user is confirmed, initialize the page
+                initializeReviewPage();
+            } else {
+                // This page requires a user, so redirect if they are not logged in
+                window.location.href = 'auth.html';
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    currentUser = user;
-                    setupEventListeners();
-                    initializeReviewPage();
-                } else {
-                    window.location.href = 'auth.html'; 
-                }
-            });
+            // This listener now only handles page-specific UI events
+            setupEventListeners();
         });
     </script>
 </body>
