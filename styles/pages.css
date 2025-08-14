@@ -2480,6 +2480,14 @@ margin: 0;
   top: 0;
   right: 0;
 }
+.section-header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
 
 .details-info-group {
   margin-bottom: var(--space-xl);
@@ -3176,15 +3184,20 @@ input.error {
 /* ===== ADD/EDIT MOVIE PAGES ===== */
 /* Form-heavy pages for adding/editing movies */
 
-.add-movie-container {
+.add-movie-container{
+  max-width: var(--container-width-lg);
+  margin-left: auto;
+  margin-right: auto;
   text-align: center;
-  justify-content: center;
-  max-width: var(--container-width-md);
 }
 
 .edit-movie-container {
   max-width: var(--container-width-md);
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
+
 
 /* Search results styling */
 .search-result {
@@ -4929,6 +4942,7 @@ input.error {
   
   .details-main-content {
     display: flex;
+    grid-template-columns: auto 1fr; /* This creates the horizontal layout */
     flex-direction: column;
     gap: var(--space-xl);
     text-align: center;
