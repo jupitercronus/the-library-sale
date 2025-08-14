@@ -135,7 +135,6 @@
             <p>start building your collection to explore it here!</p>
             <a href="add-movie.html" class="btn btn-lg btn-primary">
                 <span class="icon icon-add icon-lg"></span>
-                add media
             </a>
         </div>
     </main>
@@ -248,7 +247,7 @@
                 // --- 2. Decide whether to use cache or fetch fresh data ---
                 if (cachedData && cachedData.userId === userId) {
                     console.log('Using cached data.');
-                    allOwnedMedia = cachedData.media; // Get data from cache
+                    allOwnedMedia = cachedData.media || []; 
                     document.getElementById('cacheIndicator').style.display = 'flex';
                     refreshDataInBackground(userId); // Silently check for updates in the background
                 } else {

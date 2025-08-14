@@ -60,12 +60,6 @@
                     <div id="myRating" class="star-rating star-rating-sm"></div>
                 </div>
             </div>
-        
-            <div class="details-actions-centered">
-                <a id="editBtn" href="#" class="btn btn-xl btn-primary" title="Edit" style="display: none;">
-                    <span class="icon icon-edit icon-xl"></span>
-                </a>
-            </div>
         </div>
 
         <!-- Main Content Grid (Poster + Info) -->
@@ -91,13 +85,19 @@
 
         <!-- Summary Section -->
         <div class="details-section">
+            <div class="section-header-actions">
             <h2 class="details-section-header">
                 <i class="icon icon-details"></i>
-                <span>Summary</span>
+                <span>summary</span>
             </h2>
+                <a id="editDetailsBtn" href="#" class="btn btn-rectangular btn-primary" style="display: none;">
+                    <i class="icon icon-edit"></i>
+                    <span>edit details</span>
+                </a>
+            </div>
             <div class="details-summary" id="summaryGroup">
                 <p id="movieOverview" class="summary-text"></p>
-                <button id="readMoreBtn" class="read-more-btn" style="display: none;">Read more</button>
+                <button id="readMoreBtn" class="read-more-btn" style="display: none;">read more</button>
             </div>
         </div>
 
@@ -106,24 +106,95 @@
             <div class="comments-header">
                 <h2 class="details-section-header">
                     <i class="icon icon-comment"></i>
-                    <span>Comments</span>
+                    <span>comments</span>
                 </h2>
+                <button id="toggleCommentEditBtn" class="btn btn-rectangular btn-primary" style="display: none;">
+                    <i class="icon icon-edit"></i>
+                    <span id="commentBtnText">add comments</span>
+                </button>
             </div>
-            
+                <div id="myStatusDisplay" class="my-status-grid" style="display: none;">
+                    <div class="status-item">
+                        <label>my rating</label>
+                    <div id="myStatusRating" class="star-rating star-rating-lg"> 
+                            <span class="star star-empty" data-value="1"></span>
+                            <span class="star star-empty" data-value="2"></span>
+                            <span class="star star-empty" data-value="3"></span>
+                            <span class="star star-empty" data-value="4"></span>
+                            <span class="star star-empty" data-value="5"></span>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <label>watched</label>
+                        <div id="myStatusWatched" class="status-icon"></div>
+                    </div>
+                    <div class="status-item">
+                        <label>owned</label>
+                        <div id="myStatusOwned" class="status-icon"></div>
+                    </div>
+                </div>
+
+            <div id="commentEditForm" class="comment-edit-form" style="display: none;">
+                <div class="edit-status-grid">
+                    <div class="form-group">
+                        <label>my rating</label>
+                        <div id="comment-star-rating" class="star-rating-interactive star-rating-lg">
+                            <span class="star star-empty" data-value="1"></span>
+                            <span class="star star-empty" data-value="2"></span>
+                            <span class="star star-empty" data-value="3"></span>
+                            <span class="star star-empty" data-value="4"></span>
+                            <span class="star star-empty" data-value="5"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>watched</label>
+                        <div class="toggle-group">
+                            <button type="button" id="watched-toggle" class="toggle-btn" data-active="false" title="Toggle Watched Status">
+                                <i class="icon icon-watched"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>owned</label>
+                        <div class="toggle-group">
+                            <button type="button" id="owned-toggle" class="toggle-btn" data-active="false" title="Toggle Owned Status">
+                                <i class="icon icon-dvds"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group" id="watched-date-group" style="display: none;">
+                    <label for="watched-date">watched date</label>
+                    <input type="date" id="watched-date" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="comment-textarea">my comments</label>
+                    <textarea id="comment-textarea" class="comment-edit-textarea" rows="4" placeholder="your notes, thoughts, or review..."></textarea>
+                </div>
+                <div class="comment-edit-actions">
+                    <button id="saveCommentBtn" type="button" class="btn btn-lg btn-success"><i class="icon icon-confirm"></i></button>
+                    <button id="cancelCommentBtn" type="button" class="btn btn-lg btn-danger"> <i class="icon icon-close"></i></button>
+                </div>
+            </div>
+
             <div id="commentsContainer" class="comments-list">
-                <!-- Comments will be injected by JS -->
-            </div>
+                </div>
         </div>
 
         <!-- Enhanced Physical Copies Section -->
         <div class="details-section">
-            <h2 class="details-section-header">
-                <i class="icon icon-dvds"></i>
-                <span>Physical Copies</span>
-            </h2>
-            <div id="physicalCopiesContainer" class="physical-copies-list">
-                <!-- Physical copies will be injected by JS -->
+            <div class="section-header-actions">
+                <h2 class="details-section-header">
+                    <i class="icon icon-dvds"></i>
+                    <span>physical copies</span>
+                </h2>
+                <a href="#" id="addCopyBtn" class="btn btn-rectangular btn-primary" style="display: none;">
+                    <i class="icon icon-add"></i>
+                    <span>add copy</span>
+                </a>
             </div>
+            <div id="physicalCopiesContainer" class="physical-copies-list">
+                </div>
         </div>
     </main>
     
@@ -175,7 +246,8 @@
     const db = firebase.firestore(); 
     const auth = firebase.auth();
 
-// In movie-details.html, modify the loadMoviePage function to bypass cache when coming from edit
+    let commentStarRatingController = null;
+
 async function loadMoviePage(user, movieId) {
     document.getElementById('loadingState').style.display = 'block';
     document.getElementById('detailsContainer').style.display = 'none';
@@ -184,6 +256,9 @@ async function loadMoviePage(user, movieId) {
         // Check if we're coming from an edit operation
         const urlParams = new URLSearchParams(window.location.search);
         const fromEdit = urlParams.get('from') === 'edit' || document.referrer.includes('edit-movie.html');
+
+        const adminDoc = user ? await db.collection('admins').doc(user.uid).get() : null;
+        const isAdmin = adminDoc && adminDoc.exists && adminDoc.data().isActive === true;  
         
         let movieDoc;
         if (fromEdit) {
@@ -211,9 +286,9 @@ async function loadMoviePage(user, movieId) {
 
         populateMovieDetails(movieData, myInteraction, allInteractions);
         await loadCommentsWithUserData(allInteractions);
-        await loadPhysicalCopies(allInteractions);
+        await loadPhysicalCopies(allInteractions, user, isAdmin);
+        await setupFactualDetailsEditButton(user, movieData); 
         setupCommentForm(user, movieId, myInteraction);
-        setupEditButton(user, movieId);
 
         document.getElementById('loadingState').style.display = 'none';
         document.getElementById('detailsContainer').style.display = 'flex';
@@ -226,7 +301,6 @@ async function loadMoviePage(user, movieId) {
         document.getElementById('loadingState').style.display = 'none';
     }
 }
-
 function populateMovieDetails(movieData, myInteraction, allInteractions) {
     document.getElementById('movieTitle').textContent = movieData.title || 'Untitled';
     document.getElementById('movieYear').textContent = movieData.year || 'N/A';
@@ -253,7 +327,7 @@ function populateMovieDetails(movieData, myInteraction, allInteractions) {
         readMoreBtn.style.display = 'inline-flex';
         readMoreBtn.onclick = () => {
             summaryGroup.classList.toggle('collapsed');
-            readMoreBtn.textContent = summaryGroup.classList.contains('collapsed') ? 'Read more' : 'Read less';
+            readMoreBtn.textContent = summaryGroup.classList.contains('collapsed') ? 'read more' : 'read less';
         };
     } else {
             readMoreBtn.style.display = 'none';
@@ -261,91 +335,83 @@ function populateMovieDetails(movieData, myInteraction, allInteractions) {
 
     const ratings = allInteractions.map(i => i.rating).filter(r => r > 0);
     const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
-
     renderStars(document.getElementById('averageRating'), avgRating); 
     renderStars(document.getElementById('myRating'), myInteraction ? myInteraction.rating : 0);
+
+    const myStatusDisplay = document.getElementById('myStatusDisplay');
+    if (myInteraction) {
+        myStatusDisplay.style.display = 'grid'; // Show the grid if the user has interacted
+
+        const myStatusRating = document.getElementById('myStatusRating');
+        const myStatusWatched = document.getElementById('myStatusWatched');
+        const myStatusOwned = document.getElementById('myStatusOwned');
+
+        renderStars(myStatusRating, myInteraction.rating || 0);
+
+        myStatusWatched.innerHTML = myInteraction.watched ? '<i class="icon icon-watched"></i>' : '<i class="icon icon-unwatched"></i>';
+        myStatusWatched.classList.toggle('active', myInteraction.watched);
+
+        myStatusOwned.innerHTML = '<i class="icon icon-dvds"></i>';
+        myStatusOwned.classList.toggle('active', myInteraction.owned);
+    }
 }
+async function loadCommentsWithUserData(interactions) {
+    const commentsContainer = document.getElementById('commentsContainer');
+    commentsContainer.innerHTML = '';
+
+    const commentsWithReviews = interactions.filter(i => i.review && i.review.trim() !== '');
     
-    async function loadUserInteraction(userId, movieId) {
-        // Check cache first
-        const cacheKey = `interaction_${userId}_${movieId}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-            try {
-                const data = JSON.parse(cached);
-                console.log(`👤 Using cached interaction`);
-                return { exists: true, data: () => data };
-            } catch (e) {
-                localStorage.removeItem(cacheKey);
-            }
-        }
-        
-        // Not cached, query Firestore
-        const doc = await db.collection('users').doc(userId)
-            .collection('movieInteractions').doc(movieId).get();
-        
-        if (doc.exists) {
-            // Cache for 5 minutes (interactions change more frequently)
-            const data = doc.data();
-            try {
-                localStorage.setItem(cacheKey, JSON.stringify(data));
-            } catch (e) {
-                console.warn('Could not cache interaction:', e);
-            }
-        }
-        
-        return doc;
+    if (commentsWithReviews.length === 0) {
+        commentsContainer.innerHTML = `<p class="review-text-empty">No comments yet. Be the first to leave one!</p>`;
+        return;
     }
-    async function loadCommentsWithUserData(interactions) {
-        const commentsContainer = document.getElementById('commentsContainer');
-        commentsContainer.innerHTML = '';
 
-        const commentsWithReviews = interactions.filter(i => i.review && i.review.trim() !== '');
-        
-        if (commentsWithReviews.length === 0) {
-            commentsContainer.innerHTML = `<p class="review-text-empty">No comments yet. Be the first to leave one!</p>`;
-            return;
-        }
+    const userIds = [...new Set(commentsWithReviews.map(c => c.userId))];
+    const userPromises = userIds.map(id => db.collection('users').doc(id).get());
+    const userDocs = await Promise.all(userPromises);
+    
+    const userMap = new Map();
+    userDocs.forEach(doc => {
+        if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
+    });
 
-        const userIds = [...new Set(commentsWithReviews.map(c => c.userId))];
-        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-        const userDocs = await Promise.all(userPromises);
-        
-        const userMap = new Map();
-        userDocs.forEach(doc => {
-            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
-        });
-
-        commentsWithReviews.forEach(comment => {
-            const username = userMap.get(comment.userId) || 'Anonymous';
-            const commentEl = document.createElement('div');
-            commentEl.className = 'comment-item';
-            commentEl.innerHTML = `
-                <p class="review-text">${comment.review}</p>
-                <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
-            `;
-            commentsContainer.appendChild(commentEl);
-        });
+    commentsWithReviews.forEach(comment => {
+        const username = userMap.get(comment.userId) || 'Anonymous';
+        const commentEl = document.createElement('div');
+        commentEl.className = 'comment-item';
+        commentEl.innerHTML = `
+            <p class="review-text">${comment.review}</p>
+            <p class="comment-author">by <a href="profile.html?id=${comment.userId}">${username}</a></p>
+        `;
+        commentsContainer.appendChild(commentEl);
+    });
+}
+function renderStars(container, rating) {
+    if (!container) return;
+    container.innerHTML = '';
+    if (typeof rating !== 'number' || rating <= 0) {
+        container.innerHTML = `<span class="not-rated">Not Rated</span>`;
+        return;
     }
-    function renderStars(container, rating) {
-        if (!container) return;
-        container.innerHTML = '';
-        if (typeof rating !== 'number' || rating <= 0) {
-            container.innerHTML = `<span class="not-rated">Not Rated</span>`;
-            return;
-        }
-        let starsHTML = '';
-        for (let i = 1; i <= 5; i++) {
-            if (i <= rating) starsHTML += `<span class="star star-full"></span>`;
-            else if (i - 0.5 <= rating) starsHTML += `<span class="star star-half"></span>`;
-            else starsHTML += `<span class="star star-empty"></span>`;
-        }
-        container.innerHTML = starsHTML;
+    let starsHTML = '';
+    for (let i = 1; i <= 5; i++) {
+        if (i <= rating) starsHTML += `<span class="star star-full"></span>`;
+        else if (i - 0.5 <= rating) starsHTML += `<span class="star star-half"></span>`;
+        else starsHTML += `<span class="star star-empty"></span>`;
     }
+    container.innerHTML = starsHTML;
+}
 //Enhanced physical copies display with quantities (for movie-details.html)
-async function loadPhysicalCopies(interactions) {
+async function loadPhysicalCopies(interactions, currentUser, isAdmin) {
     const container = document.getElementById('physicalCopiesContainer');
     container.innerHTML = '';
+    // Logic for the "Add Copy" button
+    const addCopyBtn = document.getElementById('addCopyBtn');
+    if (currentUser) {
+        const movieId = new URLSearchParams(window.location.search).get('id');
+        addCopyBtn.href = `edit-movie.html?id=${movieId}&mode=addCopy`;
+        addCopyBtn.style.display = 'inline-flex';
+    }
 
     //Support both old and new data structures
     const physicalCopies = interactions.filter(i => {
@@ -362,109 +428,125 @@ async function loadPhysicalCopies(interactions) {
     }
 
     // Handle new format (physicalCopies arrays)
-        const newFormatCopies = physicalCopies.filter(i => i.physicalCopies && i.physicalCopies.length > 0);
-        if (newFormatCopies.length > 0) {
-            // Get all unique physical copy IDs
-            const allPhysicalCopyIds = [];
-            newFormatCopies.forEach(copy => {
-                if (copy.physicalCopies) {
-                    allPhysicalCopyIds.push(...copy.physicalCopies);
-                }
-            });
+    const newFormatCopies = physicalCopies.filter(i => i.physicalCopies && i.physicalCopies.length > 0);
+    if (newFormatCopies.length > 0) {
+        // Get all unique physical copy IDs
+        const allPhysicalCopyIds = [];
+        newFormatCopies.forEach(copy => {
+            if (copy.physicalCopies) {
+                allPhysicalCopyIds.push(...copy.physicalCopies);
+            }
+        });
 
-            // Fetch physical copy details
-            const uniqueCopyIds = [...new Set(allPhysicalCopyIds)];
-            const copyPromises = uniqueCopyIds.map(id => 
-                db.collection('physicalCopies').doc(id).get()
-            );
-            const copyDocs = await Promise.all(copyPromises);
+        // Fetch physical copy details
+        const uniqueCopyIds = [...new Set(allPhysicalCopyIds)];
+        const copyPromises = uniqueCopyIds.map(id => 
+            db.collection('physicalCopies').doc(id).get()
+        );
+        const copyDocs = await Promise.all(copyPromises);
+        
+        const copyMap = new Map();
+        copyDocs.forEach(doc => {
+            if (doc.exists) {
+                copyMap.set(doc.id, doc.data());
+            }
+        });
+
+        // Get user data
+        const userIds = [...new Set(newFormatCopies.map(c => c.userId))];
+        const userPromises = userIds.map(id => db.collection('users').doc(id).get());
+        const userDocs = await Promise.all(userPromises);
+        
+        const userMap = new Map();
+        userDocs.forEach(doc => {
+            if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
+        });
+
+        // Group copies by user and copy type
+        const copyGroups = new Map(); // userId -> copyId -> count
+        
+        newFormatCopies.forEach(userCopy => {
+            const userId = userCopy.userId;
+            if (!copyGroups.has(userId)) {
+                copyGroups.set(userId, new Map());
+            }
             
-            const copyMap = new Map();
-            copyDocs.forEach(doc => {
-                if (doc.exists) {
-                    copyMap.set(doc.id, doc.data());
-                }
-            });
-
-            // Get user data for new format
-            const userIds = [...new Set(newFormatCopies.map(c => c.userId))];
-            const userPromises = userIds.map(id => db.collection('users').doc(id).get());
-            const userDocs = await Promise.all(userPromises);
+            const userCopyGroups = copyGroups.get(userId);
             
-            const userMap = new Map();
-            userDocs.forEach(doc => {
-                if(doc.exists) userMap.set(doc.id, doc.data().displayName || 'Anonymous');
+            userCopy.physicalCopies.forEach(copyId => {
+                const currentCount = userCopyGroups.get(copyId) || 0;
+                userCopyGroups.set(copyId, currentCount + 1);
             });
+        });
 
-            // Group copies by user and copy type
-            const copyGroups = new Map(); // userId -> copyId -> count
+    // NOW display grouped copies with edit/delete buttons
+    copyGroups.forEach((userCopies, userId) => {
+        const username = userMap.get(userId) || 'Anonymous';
+        const currentUser = auth.currentUser;
+        const canModify = (currentUser && currentUser.uid === userId) || isAdmin;
+
+        userCopies.forEach((count, copyId) => {
+            const copyData = copyMap.get(copyId);
+            if (!copyData) return;
             
-            newFormatCopies.forEach(userCopy => {
-                const userId = userCopy.userId;
-                if (!copyGroups.has(userId)) {
-                    copyGroups.set(userId, new Map());
-                }
-                
-                const userCopyGroups = copyGroups.get(userId);
-                
-                userCopy.physicalCopies.forEach(copyId => {
-                    const currentCount = userCopyGroups.get(copyId) || 0;
-                    userCopyGroups.set(copyId, currentCount + 1);
-                });
-            });
-
-            // Display grouped copies
-            copyGroups.forEach((userCopies, userId) => {
-                const username = userMap.get(userId) || 'Anonymous';
-                
-                userCopies.forEach((count, copyId) => {
-                    const copyData = copyMap.get(copyId);
-                    if (!copyData) return;
-                    
-                    const copyEl = document.createElement('div');
-                    copyEl.className = 'physical-copy-item';
-                    
-                    let copyInfo = '';
-                    const details = [];
-                    
-                    if (copyData.format && copyData.format !== 'Unknown') {
-                        details.push(`<span class="copy-format">${copyData.format}</span>`);
-                    }
-                    if (copyData.edition && copyData.edition !== 'Standard') {
-                        details.push(`<span class="copy-edition">${copyData.edition}</span>`);
-                    }
-                    if (copyData.region && copyData.region !== 'Unknown') {
-                        details.push(`<span class="copy-region">${copyData.region}</span>`);
-                    }
-                    
-                    copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
-                    
-                    // Add quantity indicator if more than 1
-                    if (count > 1) {
-                        copyInfo += ` <span class="copy-quantity">(${count})</span>`;
-                    }
-                    
-                    // Add special features if available
-                    if (copyData.features && copyData.features.length > 0) {
-                        const featuresText = Array.isArray(copyData.features) 
-                            ? copyData.features.join(', ') 
-                            : copyData.features;
-                        copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
-                    }
-                    
-                    // Add barcode if available
-                    if (copyData.barcode) {
-                        copyInfo += `<div class="copy-barcode"><small>UPC: ${copyData.barcode}</small></div>`;
-                    }
-                    
-                    copyEl.innerHTML = `
-                        <div class="copy-edition-details">${copyInfo}</div>
-                        <div class="copy-owner">by <a href="profile.html?id=${userId}">${username}</a></div>
-                    `;
-                    container.appendChild(copyEl);
-                });
-            });
-        }
+            const copyEl = document.createElement('div');
+            copyEl.className = 'physical-copy-item';
+            
+            let copyInfo = '';
+            const details = [];
+            
+            if (copyData.format && copyData.format !== 'Unknown') {
+                details.push(`<span class="copy-format">${copyData.format}</span>`);
+            }
+            if (copyData.edition && copyData.edition !== 'Standard') {
+                details.push(`<span class="copy-edition">${copyData.edition}</span>`);
+            }
+            
+            copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy';
+            
+            // Add quantity indicator if more than 1
+            if (count > 1) {
+                copyInfo += ` <span class="copy-quantity">(${count})</span>`;
+            }
+            
+            // Add special features if available
+            if (copyData.features && copyData.features.length > 0) {
+                const featuresText = Array.isArray(copyData.features) 
+                    ? copyData.features.join(', ') 
+                    : copyData.features;
+                copyInfo += `<div class="copy-features"><small>Features: ${featuresText}</small></div>`;
+            }
+            
+            // Add barcode if available
+            if (copyData.barcode) {
+                copyInfo += `<div class="copy-barcode"><small>UPC: ${copyData.barcode}</small></div>`;
+            }
+            
+            // Add edit/delete buttons only for current user's copies
+            const actionButtons = canModify ? `
+                <div class="copy-actions">
+                    <button onclick="editPhysicalCopy('${copyId}', '${copyData.movieId || movieId}')" 
+                            class="btn btn-md btn-primary" title="Edit">
+                        <i class="icon icon-edit"></i>
+                    </button>
+                    <button onclick="deletePhysicalCopy('${copyId}', '${copyData.movieId || movieId}')" 
+                            class="btn btn-md btn-danger" title="Delete">
+                        <i class="icon icon-delete"></i>
+                    </button>
+                </div>
+            ` : '';
+            
+            copyEl.innerHTML = `
+                <div class="copy-details-wrapper">
+                    <div class="copy-edition-details">${copyInfo}</div>
+                    <div class="copy-owner">by <a href="profile.html?id=${userId}">${username}</a></div>
+                </div>
+                ${actionButtons}
+            `;
+            container.appendChild(copyEl);
+        });
+    });
+    }
         
         // Handle old format (physicalEdition objects)
         const oldFormatCopies = physicalCopies.filter(i => 
@@ -498,33 +580,270 @@ async function loadPhysicalCopies(interactions) {
                 
                 copyInfo = details.length > 0 ? details.join(' • ') : 'Physical Copy (Legacy)';
                 
+                // Check for permission to modify
+                const canModify = (currentUser && currentUser.uid === userCopy.userId) || isAdmin;
+
+                const actionButtons = canModify ? `
+                    <div class="copy-actions">
+                        <button onclick="editAndMigrateLegacyCopy('${userCopy.movieId}')"
+                                class="btn btn-md btn-primary" title="Edit Legacy Copy">
+                            <i class="icon icon-edit"></i>
+                        </button>
+                        <button onclick="deleteLegacyCopy('${userCopy.movieId}')" 
+                                class="btn btn-md btn-danger" title="Delete Legacy Data">
+                            <i class="icon icon-delete"></i>
+                        </button>
+                    </div>
+                ` : '';
+
                 copyEl.innerHTML = `
-                    <div class="copy-edition-details">${copyInfo}</div>
-                    <div class="copy-owner">by <a href="profile.html?id=${userCopy.userId}">${username}</a></div>
+                    <div class="copy-details-wrapper">
+                        <div class="copy-edition-details">${copyInfo}</div>
+                        <div class="copy-owner">by <a href="profile.html?id=${userCopy.userId}">${username}</a></div>
+                    </div>
+                    ${actionButtons}
                 `;
                 container.appendChild(copyEl);
             });
         }
 }   
-
-// Helper function to get user display name
-async function getUserDisplayName(userId) {
-    try {
-        const userDoc = await db.collection('users').doc(userId).get();
-        return userDoc.exists ? (userDoc.data().displayName || 'Anonymous') : 'Anonymous';
-    } catch (error) {
-        return 'Anonymous';
-    }
+function editPhysicalCopy(copyId, movieId) {
+    // Redirect to edit-movie page with a special parameter to focus on physical copy editing
+    window.location.href = `edit-movie.html?id=${movieId}&editCopy=${copyId}`; 
 }
-    function setupCommentForm(user, movieId, myInteraction) {
-        const editMovieBtn = document.getElementById('editMovieBtn');
+function setupCommentForm(user, movieId, myInteraction) {
+    // --- Get DOM Elements ---
+    const myStatusDisplay = document.getElementById('myStatusDisplay'); 
+    const toggleBtn = document.getElementById('toggleCommentEditBtn');
+    const commentForm = document.getElementById('commentEditForm');
+    const commentsContainer = document.getElementById('commentsContainer');
+    const saveBtn = document.getElementById('saveCommentBtn');
+    const cancelBtn = document.getElementById('cancelCommentBtn');
+    const textarea = document.getElementById('comment-textarea');
+    const commentBtnText = document.getElementById('commentBtnText');
+    const starRatingContainer = document.getElementById('comment-star-rating');
+    const watchedToggle = document.getElementById('watched-toggle');
+    const ownedToggle = document.getElementById('owned-toggle'); 
+    const watchedDateGroup = document.getElementById('watched-date-group');
+    const watchedDateInput = document.getElementById('watched-date');
 
-        if (!user) {
-            editMovieBtn.style.display = 'none';
+    if (!user) {
+        toggleBtn.style.display = 'none';
+        return;
+    }
+    
+    toggleBtn.style.display = 'inline-flex';
+    commentBtnText.textContent = (myInteraction && myInteraction.review) ? 'edit comments' : 'add comments';
+
+    // --- Event Listeners ---
+    toggleBtn.onclick = () => {
+        commentForm.style.display = 'block';
+        commentsContainer.style.display = 'none';
+        myStatusDisplay.style.display = 'none'; 
+        toggleBtn.style.display = 'none';
+
+        // Populate form with existing data from myInteraction
+        const initialRating = myInteraction?.rating || 0;
+        const isWatched = myInteraction?.watched || false;
+        
+        textarea.value = myInteraction?.review || '';
+        watchedToggle.dataset.active = isWatched;
+        ownedToggle.dataset.active = myInteraction?.owned || false; 
+        watchedDateGroup.style.display = isWatched ? 'block' : 'none';
+        watchedDateInput.value = myInteraction?.watchedDate || '';
+        
+        // Initialize interactive stars
+        if (window.LibraryUtils && window.LibraryUtils.stars) {
+            commentStarRatingController = window.LibraryUtils.stars.setupInteractiveStarRating('comment-star-rating', () => {}, initialRating);
+        }
+    };
+
+    cancelBtn.onclick = () => {
+        commentForm.style.display = 'none';
+        commentsContainer.style.display = 'block';
+        if (myInteraction) myStatusDisplay.style.display = 'grid'; 
+        toggleBtn.style.display = 'inline-flex';
+    };
+
+    watchedToggle.addEventListener('click', () => {
+        const isActive = watchedToggle.dataset.active === 'true';
+        watchedToggle.dataset.active = !isActive;
+        watchedDateGroup.style.display = !isActive ? 'block' : 'none';
+    });
+
+    ownedToggle.addEventListener('click', () => {
+        const isCurrentlyOwned = myInteraction?.owned || false;
+        
+        if (isCurrentlyOwned) {
+            UIUtils.showStatusMessage("Manage your copies in the section below.", "info");
             return;
         }
+
+            // Use ModalManager for a better UX
+            ModalManager.show({
+                title: 'add physical copy?',
+                content: 'do you want to add a physical copy of this movie to your collection?',
+                buttons: [
+                    {
+                        text: 'Cancel',
+                        class: 'btn-secondary',
+                        onClick: () => {
+                            // The modal will close automatically. No action needed.
+                        }
+
+                    },
+                    {
+                        text: 'Yes, Add Copy',
+                        class: 'btn-primary',
+                        onClick: () => {
+                            // Redirect to the edit page in 'addCopy' mode.
+                            window.location.href = `edit-movie.html?id=${movieId}&mode=addCopy`;
+                        }
+                    }
+                ]
+            });
+        });
+
+    saveBtn.onclick = async () => {
+        UIUtils.setButtonLoading(saveBtn.id, 'Saving...');
+        try {
+            // Gather all data from the form
+            const newRating = commentStarRatingController ? commentStarRatingController.getRating() : (myInteraction?.rating || 0);
+            const newReview = textarea.value.trim();
+            const newWatchedStatus = watchedToggle.dataset.active === 'true';
+            const newWatchedDate = watchedDateInput.value || null;
+
+            const interactionData = {
+                ...(myInteraction || {}),
+                rating: newRating,
+                review: newReview,
+                watched: newWatchedStatus,
+                watchedDate: newWatchedStatus ? newWatchedDate : null, // Only save date if watched
+                movieId: movieId,
+                userId: user.uid,
+                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+
+            await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).set(interactionData, { merge: true });
+
+            UIUtils.showStatusMessage('Your review has been saved!', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+
+        } catch (error) {
+            console.error('Error saving comment:', error);
+            UIUtils.showStatusMessage('Failed to save review.', 'error');
+        } finally {
+            UIUtils.resetButton(saveBtn.id);
+        }
+    };
+}
+/* Delete a physical copy from movie-details page */
+async function deletePhysicalCopy(copyId, movieId) {
+    if (!confirm('are you sure you want to delete this physical copy?')) return;
+    
+    const user = auth.currentUser;
+    if (!user) {
+        alert('You must be logged in to delete copies');
+        return;
+    }
+    
+    try {
+        // Delete the physical copy document
+        await db.collection('physicalCopies').doc(copyId).delete();
+        
+        // Remove reference from user's interaction
+        const interactionRef = db.collection('users').doc(user.uid)
+            .collection('movieInteractions').doc(movieId);
+        const interactionDoc = await interactionRef.get();
+        
+        if (interactionDoc.exists) {
+            const data = interactionDoc.data();
+            const updatedCopies = (data.physicalCopies || []).filter(id => id !== copyId);
+            
+            await interactionRef.update({
+                physicalCopies: updatedCopies,
+                owned: updatedCopies.length > 0 // Set owned to false if no copies left
+            });
+        }
+        // Reload the page to show updated list
+        window.location.reload();
+    } catch (error) {
+        console.error('Error deleting physical copy:', error);
+        alert('Failed to delete copy. Please try again.');
+    }
+}
+// Add this new function to your script
+async function editAndMigrateLegacyCopy(movieId) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    UIUtils.showStatusMessage('Upgrading to new format...', 'info');
+
+    try {
+        const interactionRef = db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId);
+        const interactionDoc = await interactionRef.get();
+
+        if (!interactionDoc.exists || !interactionDoc.data().physicalEdition) {
+            throw new Error('Legacy data not found.');
+        }
+
+        const legacyData = interactionDoc.data().physicalEdition;
+        const upc = interactionDoc.data().upc || '';
+
+        // 1. Create a new physical copy document from the legacy data
+        const newCopyRef = await db.collection('physicalCopies').add({
+            format: legacyData.format || '',
+            edition: legacyData.edition || '',
+            region: legacyData.region || '',
+            distributor: legacyData.distributor || '',
+            barcode: upc,
+            features: legacyData.features || [],
+            movieId: movieId,
+            userId: user.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 2. Update the interaction document: remove old fields and add a reference to the new one
+        await interactionRef.update({
+            physicalEdition: firebase.firestore.FieldValue.delete(),
+            upc: firebase.firestore.FieldValue.delete(),
+            editionTitle: firebase.firestore.FieldValue.delete(),
+            physicalCopies: firebase.firestore.FieldValue.arrayUnion(newCopyRef.id)
+        });
+        
+        // 3. Redirect to the edit page for the newly created copy
+        window.location.href = `edit-movie.html?id=${movieId}&editCopy=${newCopyRef.id}&from=details`;
+
+    } catch (error) {
+        console.error("Error migrating legacy copy:", error);
+        UIUtils.showStatusMessage('Could not upgrade legacy data.', 'error');
+    }
+}
+
+// Add this new function inside the <script> tag
+async function setupFactualDetailsEditButton(user, movieData) {
+    const editDetailsBtn = document.getElementById('editDetailsBtn');
+    if (!user || !movieData) {
+        editDetailsBtn.style.display = 'none';
+        return;
     }
 
+    try {
+        const adminDoc = await db.collection('admins').doc(user.uid).get();
+        const isOriginalUploader = movieData.originalUploaderId === user.uid;
+        const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
+
+        if (isOriginalUploader || isAdmin) {
+            editDetailsBtn.href = `edit-movie.html?id=${movieData.id}&mode=details`;
+            editDetailsBtn.style.display = 'inline-flex';
+        } else {
+            editDetailsBtn.style.display = 'none';
+        }
+    } catch (error) {
+        console.error("Permission check failed:", error);
+        editDetailsBtn.style.display = 'none';
+    }
+}
     document.addEventListener('DOMContentLoaded', () => {
         // Update back button text based on context
         updateBackButton();
@@ -541,21 +860,6 @@ async function getUserDisplayName(userId) {
             }
         });
     });
-
-function setupEditButton(user, movieId) {
-    const editBtn = document.getElementById('editBtn');
-    
-    if (!user) {
-        editBtn.style.display = 'none';
-        return;
-    }
-    
-    const currentUrl = new URLSearchParams(window.location.search);
-    const fromParam = currentUrl.get('from') || 'details';
-    
-    editBtn.href = `edit-movie.html?id=${movieId}&from=${fromParam}`;
-    editBtn.style.display = 'inline-flex';  
-}
 
     function goBack() {
         const urlParams = new URLSearchParams(window.location.search);

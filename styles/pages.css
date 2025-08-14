@@ -2485,6 +2485,13 @@ margin: 0;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-lg) var(--space-xl); 
   align-items: start;
+  position: relative;
+}
+
+.details-section-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .details-info-group {
@@ -2510,6 +2517,15 @@ margin: 0;
   padding: var(--space-xl);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border-light);
+}
+
+.section-header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xl);
+  gap: var(--space-lg);
+  flex-wrap: wrap;
 }
 
 .details-section-header {
@@ -2572,6 +2588,16 @@ margin: 0;
 }
 
 /* Comments and physical copies lists */
+
+.comments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap; /* Allows items to wrap on smaller screens */
+  gap: var(--space-lg); /* Adds space between items if they wrap */
+  margin-bottom: var(--space-xl); /* Adds space below the header */
+}
+
 .comments-list,
 .physical-copies-list {
   display: flex;
@@ -3563,6 +3589,66 @@ input.error {
 }
 
 /* Comment editing */
+.my-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-lg);
+  background-color: var(--color-secondary-bg);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+  border: 1px solid var(--color-border-light);
+}
+
+.status-item {
+  text-align: center;
+}
+
+.status-item label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+}
+
+.status-icon {
+  font-size: var(--font-size-3xl);
+  color: var(--color-text-primary);
+  background-color: var(--color-brand-pink);
+  border-radius: var(--radius-full);
+  width: 50px;
+  height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-icon.active {
+  color: var(--color-primary-bg);
+  background-color: var(--color-brand-green);
+}
+
+.edit-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+  text-align: center;
+}
+
+.edit-status-grid .form-group label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  margin-bottom: var(--space-sm);
+  display: block;
+}
+
+.edit-status-grid .toggle-group {
+  justify-content: center; /* Centers the toggle buttons */
+}
+
 .comment-edit-form {
   background-color: var(--color-primary-bg);
   padding: var(--space-lg);
@@ -3596,6 +3682,54 @@ input.error {
   display: flex;
   gap: var(--space-md);
   justify-content: flex-end;
+}
+
+.physical-copies-list {
+  margin: var(--space-md) 0;
+}
+
+.physical-copy-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background: var(--surface-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.copy-main-info {
+  flex: 1;
+}
+
+.copy-format-badge {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--accent-purple);
+  color: var(--text-on-accent);
+  border-radius: var(--radius-sm);
+  font-weight: bold;
+  margin-bottom: var(--space-xs);
+}
+
+.copy-details span {
+  margin-right: var(--space-md);
+  color: var(--text-secondary);
+}
+
+.copy-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.physical-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-color);
 }
 
 
@@ -4114,12 +4248,18 @@ input.error {
 }
 
 .physical-copy-item {
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: var(--space-md);
   margin-bottom: var(--space-sm);
-  transition: all 0.2s ease;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.copy-details-wrapper {
+    flex: 1;
 }
 
 .physical-copy-item:hover {
@@ -4132,6 +4272,15 @@ input.error {
   color: var(--color-text-primary);
   margin-bottom: var(--space-xs);
   line-height: 1.4;
+}
+.copy-actions {
+    display: flex;
+    gap: var(--space-xs);
+    margin-left: var(--space-md);
+}
+
+.copy-actions .btn {
+    padding: var(--space-xs) var(--space-sm);
 }
 
 .copy-format {
