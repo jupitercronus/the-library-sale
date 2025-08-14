@@ -39,7 +39,7 @@
         <header id="navbar-placeholder"></header>
     </div>
 
-    <main id="detailsContainer" class="page-container" style="display: none;">
+    <main id="detailsContainer" class="details-page-container" style="display: none;">
         
         <!-- Centered Title, Year, and Ratings (Ticket Style) -->
         <div class="details-ticket">
@@ -705,7 +705,7 @@ function setupCommentForm(user, movieId, myInteraction) {
         });
 
     saveBtn.onclick = async () => {
-        UIUtils.setButtonLoading(saveBtn.id, 'Saving...');
+        UIUtils.setButtonLoading(saveBtn.id, '...');
         try {
             // Gather all data from the form
             const newRating = commentStarRatingController ? commentStarRatingController.getRating() : (myInteraction?.rating || 0);
