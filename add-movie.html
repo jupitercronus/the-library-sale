@@ -525,7 +525,10 @@ async function addMedia() {
             if (physicalCopyId) {
                 physicalCopiesArray = [physicalCopyId];
             }
-            
+        
+            if (!movieDocRef || !movieDocRef.id) {
+                throw new Error('Failed to create or retrieve movie document');
+            }
             const userInteractionData = {
                 movieId: movieDocRef.id,
                 rating: 0,

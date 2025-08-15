@@ -322,7 +322,44 @@
                 };
 
                 // Add to database using the same function as bulk scan
-                await addMovieToDatabase(reviewedResult);
+                const dbResult = await addMovieToDatabase(reviewedResult);
+                const movieId = dbResult.movieDocRef.id;
+                
+                // ✅ ADD THIS MISSING PART: Create user interaction (just like in bulk-scan.html)
+                const userInteractionRef = db.collection('users').doc(currentUser.uid)
+                    .collection('movieInteractions').doc(movieId);
+                const existingInteraction = await userInteractionRef.get();
+
+                if (existingInteraction.exists) {
+                    // Update existing interaction with the new physical copy
+                    const existingData = existingInteraction.data();
+                    const currentPhysicalCopies = existingData.physicalCopies || [];
+                    
+                    // Add new physical copy if not already in array
+                    if (dbResult.physicalCopyId && !currentPhysicalCopies.includes(dbResult.physicalCopyId)) {
+                        currentPhysicalCopies.push(dbResult.physicalCopyId);
+                    }
+                    
+                    await userInteractionRef.update({
+                        physicalCopies: currentPhysicalCopies,
+                        owned: true
+                    });
+                } else {
+                    // Create new user interaction
+                    const userInteractionData = {
+                        movieId: movieId,
+                        rating: 0,
+                        review: "",
+                        watched: false,
+                        watchedDate: null,
+                        owned: true,
+                        interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                        physicalCopies: dbResult.physicalCopyId ? [dbResult.physicalCopyId] : []
+                    };
+
+                    await userInteractionRef.set(userInteractionData);
+                }
+                // ✅ END OF MISSING PART
                 
                 completionStats.added++;
                 LibraryUtils.ui.showStatusMessage(`Added "${fullTmdbData.title || fullTmdbData.name}" to library`, 'success');
@@ -334,7 +371,6 @@
                 LibraryUtils.ui.showStatusMessage('Failed to add item. Please try again.', 'error');
             }
         }
-
 function deleteCurrentItem() {
     ModalManager.show({
         title: 'delete item?',
@@ -375,7 +411,7 @@ function deleteCurrentItem() {
             showCompletionState();
         }
 
-        async function addMovieToDatabase(result) {
+async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
     try {

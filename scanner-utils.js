@@ -414,8 +414,8 @@ const MediaLookupUtils = {
         );
 
         const copyData = {
-            userId: userId, 
             movieId: movieId,
+            userId: userId,
             title: physicalEditionData.title || 'Unknown Title',
             barcode: physicalEditionData.barcode || '',
             format: physicalEditionData.format || 'Unknown',
@@ -454,8 +454,9 @@ const MediaLookupUtils = {
             // Create new copy
             const copyRef = db.collection('physicalCopies').doc();
             const copyData = {
-                userId: userId,
                 movieId: movieId,
+                userId: userId,
+                title: physicalEditionData.title || 'Unknown Title',
                 barcode: physicalEditionData.barcode || '',
                 format: physicalEditionData.format || 'Unknown',
                 edition: physicalEditionData.edition || 'Standard',
