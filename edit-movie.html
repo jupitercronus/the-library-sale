@@ -1178,27 +1178,40 @@ if (!movieId) {
 
     // Single, correct 'delete' event listener
     deleteBtn.addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to delete this movie from your collection? This cannot be undone.')) return;
-        const user = auth.currentUser;
-        if (!user) return;
-        deleteBtn.classList.add('loading');
-        try {
-            await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).delete();
-            const otherInteractions = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).limit(1).get();
-            if (otherInteractions.empty) {
-                await db.collection('movies').doc(movieId).delete();
-            }
-            LibraryUtils.ui.showStatusMessage('Movie deleted from your collection.', 'success');
-            setTimeout(() => window.location.href = 'library.html', 1500);
-        } catch (error) {
-            console.error('Error deleting movie:', error);
-            LibraryUtils.ui.showStatusMessage('Failed to delete movie.', 'error');
-        } finally {
-            deleteBtn.classList.remove('loading');
-        }
+        ModalManager.show({
+            title: 'delete media?',
+            content: 'are you sure you want to delete this media from your collection?',
+            buttons: [
+            { text: '<span class="icon icon-close"></span> cancel', 
+                class: 'btn-rectangular' },
+            {
+                text: '<span class="icon icon-trash"></span> trash',
+                class: 'btn-danger btn-rectangular',
+                    onClick: async () => {
+                        const user = auth.currentUser;
+                        if (!user) return;
+                        deleteBtn.classList.add('loading');
+                        try {
+                            await db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId).delete();
+                            const otherInteractions = await db.collectionGroup('movieInteractions').where('movieId', '==', movieId).limit(1).get();
+                            if (otherInteractions.empty) {
+                                await db.collection('movies').doc(movieId).delete();
+                            }
+                            LibraryUtils.ui.showStatusMessage('Movie deleted from your collection.', 'success');
+                            setTimeout(() => window.location.href = 'library.html', 1500);
+                        } catch (error) {
+                            console.error('Error deleting movie:', error);
+                            LibraryUtils.ui.showStatusMessage('Failed to delete movie.', 'error');
+                        } finally {
+                            deleteBtn.classList.remove('loading');
+                        }
+                    }
+                }
+            ]
+        });
     });
-     });
-        
+ });
+            
     </script>
     <footer id="footer-placeholder"></footer>
 </body>

@@ -39,6 +39,12 @@
   margin-bottom: var(--space-6xl); /* Space above footer */
 }
 
+.my-stacks-container {
+  max-width: var(--container-width-lg);
+  margin: 0 auto;
+  padding: var(--space-xl);
+}
+
 .hero-section {
   text-align: center;
 }

@@ -484,14 +484,12 @@ async function addMedia() {
                 if (currentPhysicalCopies.includes(physicalCopyId)) {
                     // User already owns this exact copy - show confirmation
                     const currentCount = currentPhysicalCopies.filter(id => id === physicalCopyId).length;
-                    const shouldAddAnyway = confirm(
-                        `You already own ${currentCount} copy/copies of this ${physicalEditionData.format} edition of "${titleValue}". Add another copy anyway?`
+                    const shouldAddAnyway = await showDuplicateConfirmation(
+                        titleValue,
+                        physicalEditionData.format,
+                        physicalEditionData.edition,
+                        currentCount
                     );
-                    
-                    if (!shouldAddAnyway) {
-                        showStatusMessage('Duplicate copy skipped by user choice.', 'info');
-                        return; // Exit the function early
-                    }
                 }
             }
         }
@@ -551,7 +549,7 @@ async function addMedia() {
 
         // Redirect after 1 second
         setTimeout(() => {
-            window.location.href = `edit-movie.html?id=${movieDocRef.id}`;
+            window.location.href = `movie-details.html?id=${movieDocRef.id}&from=add`;
         }, 1000);
         
     } catch (error) {
@@ -854,6 +852,37 @@ function updateContentTypeToggle(selectedValue) {
         btn.classList.toggle('active', btn.dataset.value === selectedValue);
     });
 }
+// This function uses ModalManager to show a confirmation for duplicates.
+function showDuplicateConfirmation(title, format, edition, count) {
+    return new Promise((resolve) => {
+        ModalManager.show({
+            title: 'duplicate copy!!!!!',
+            content: `
+                <p>you already own <strong>${count}</strong> copy/copies of:</p>
+                <div class="duplicate-copy-details">
+                    <h4>${title}</h4>
+                    <p><strong>${format || 'Unknown Format'}</strong> • ${edition || 'Standard'}</p>
+                </div>
+                <p>do you want to add another copy anyway?</p>
+            `,
+            buttons: [
+                {
+                    text: '<span class="icon icon-close"></span> no i dont want',
+                    class: 'btn-rectangular',
+                    onClick: () => resolve(false) // User chose not to add
+                },
+                {
+                    text: '<span class="icon icon-add"></span> add anyway',
+                    class: 'btn-danger btn-rectangular',
+                    onClick: () => resolve(true) // User chose to add
+                }
+            ],
+            onClose: () => resolve(false) // Treat closing the modal as a "no"
+        });
+    });
+    }
+
+
 // === TEST FUNCTION FOR DEBUGGING UPC API ===
 window.testUPCLookup = async function(testBarcode = '883929736171') {
     console.log('🔍 Testing UPC lookup with barcode:', testBarcode);

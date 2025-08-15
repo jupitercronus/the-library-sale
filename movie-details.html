@@ -737,47 +737,56 @@ function setupCommentForm(user, movieId, myInteraction) {
         }
     };
 }
-/* Delete a physical copy from movie-details page */
 async function deletePhysicalCopy(copyId, movieId) {
-    if (!confirm('are you sure you want to delete this physical copy?')) return;
-    
-    const user = auth.currentUser;
-    if (!user) {
-        alert('You must be logged in to delete copies');
-        return;
-    }
-    
-    try {
-        // Delete the physical copy document
-        await db.collection('physicalCopies').doc(copyId).delete();
-        
-        // Remove reference from user's interaction
-        const interactionRef = db.collection('users').doc(user.uid)
-            .collection('movieInteractions').doc(movieId);
-        const interactionDoc = await interactionRef.get();
-        
-        if (interactionDoc.exists) {
-            const data = interactionDoc.data();
-            const updatedCopies = (data.physicalCopies || []).filter(id => id !== copyId);
-            
-            await interactionRef.update({
-                physicalCopies: updatedCopies,
-                owned: updatedCopies.length > 0 // Set owned to false if no copies left
-            });
-        }
-        // Reload the page to show updated list
-        window.location.reload();
-    } catch (error) {
-        console.error('Error deleting physical copy:', error);
-        alert('Failed to delete copy. Please try again.');
-    }
+    ModalManager.show({
+        title: 'delete physical copy?',
+        content: 'are you sure you want to delete this specific physical copy from your collection?',
+        buttons: [
+            { text: '<span class="icon icon-close"></span> cancel', 
+            class: 'btn-rectangular' },
+            {
+                text: '<span class="icon icon-trash"></span> trash',
+                class: 'btn-danger btn-rectangular',
+                onClick: async () => {
+                    const user = auth.currentUser;
+                    if (!user) {
+                        alert('You must be logged in to delete copies');
+                        return;
+                    }
+                    
+                    try {
+                        // Delete the physical copy document
+                        await db.collection('physicalCopies').doc(copyId).delete();
+                        
+                        // Remove reference from user's interaction
+                        const interactionRef = db.collection('users').doc(user.uid)
+                            .collection('movieInteractions').doc(movieId);
+                        const interactionDoc = await interactionRef.get();
+                        
+                        if (interactionDoc.exists) {
+                            const data = interactionDoc.data();
+                            const updatedCopies = (data.physicalCopies || []).filter(id => id !== copyId);
+                            
+                            await interactionRef.update({
+                                physicalCopies: updatedCopies,
+                                owned: updatedCopies.length > 0 // Set owned to false if no copies left
+                            });
+                        }
+                        // Reload the page to show updated list
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('Error deleting physical copy:', error);
+                        alert('Failed to delete copy. Please try again.');
+                    }
+                }
+            }
+        ]
+    });
 }
 // Add this new function to your script
 async function editAndMigrateLegacyCopy(movieId) {
     const user = auth.currentUser;
     if (!user) return;
-
-    UIUtils.showStatusMessage('Upgrading to new format...', 'info');
 
     try {
         const interactionRef = db.collection('users').doc(user.uid).collection('movieInteractions').doc(movieId);

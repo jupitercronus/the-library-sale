@@ -377,24 +377,35 @@ async function sendAllToReview() {
     window.location.href = 'review-failed.html';
 }
 function startOver() {
-    if (confirm('Are you sure you want to start over? All scanned results will be lost.')) {
-        // Clear everything
-        scanResults = [];
-        processedBarcodes.clear();
-        currentFilter = 'all';
-        
-        // Clear localStorage
-        localStorage.removeItem('bulkScanProgress');
-        
-        // Reset UI
-        updateStats();
-        renderResults();
-        setResultFilter('all');
-        
-        document.getElementById('finalActions').style.display = 'none';
-        
-        LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
-    }
+    ModalManager.show({
+        title: 'start over?',
+        content: 'are you sure you want to start over? all scanned results for this session will be permanently lost.',
+        buttons: [
+            { text: '<span class="icon icon-close"></span> cancel', class: 'btn-rectangular' },
+            {
+                text: '<span class="icon icon-trash"></span> trash',
+                class: 'btn-danger btn-rectangular',
+                onClick: () => {
+                    // Clear everything
+                    scanResults = [];
+                    processedBarcodes.clear();
+                    currentFilter = 'all';
+                    
+                    // Clear localStorage
+                    localStorage.removeItem('bulkScanProgress');
+                    
+                    // Reset UI
+                    updateStats();
+                    renderResults();
+                    setResultFilter('all');
+                    
+                    document.getElementById('finalActions').style.display = 'none';
+                    
+                    LibraryUtils.ui.showStatusMessage('Started fresh scan session', 'info');
+                }
+            }
+        ]
+    });
 }
 // KEEP this function but move it to only be called during final save
 async function addMovieToDatabase(result) {
@@ -432,16 +443,31 @@ async function addMovieToDatabase(result) {
             movieDocRef = await db.collection('movies').add(movieData);
             CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
         }
-
-        // Handle physical copy creation if needed
+        // Handle physical copy creation using the correct new format
         let physicalCopyId = null;
         if (physicalEdition && upcData.barcode) {
-            // Add physical copy logic here if needed
-        }
-        
+             const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                upcData.barcode,
+                physicalEdition.format,
+                physicalEdition.edition,
+                physicalEdition.region
+            );
+
+            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+            
+            if (existingCopy) {
+                physicalCopyId = existingCopy.id;
+            } else {
+                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                    movieDocRef.id, 
+                    { ...physicalEdition, barcode: upcData.barcode }, 
+                    currentUser.uid
+                );
+            }
+        }        
         return { 
             movieDocRef, 
-            physicalCopyId,
+            physicalCopyId, // This will now contain the ID of the new physical copy record
             processed: true
         };
         
@@ -485,7 +511,8 @@ async function saveItemsToLibrary(items) {
                     }
                 }
                 
-                // Update existing interaction
+                // --- START OF FIX ---
+                // Update existing interaction with the NEW physical copy ID
                 const updatedPhysicalCopies = [...currentPhysicalCopies];
                 if (dbResult.physicalCopyId) {
                     updatedPhysicalCopies.push(dbResult.physicalCopyId);
@@ -493,12 +520,14 @@ async function saveItemsToLibrary(items) {
                 
                 await userInteractionRef.update({
                     physicalCopies: updatedPhysicalCopies,
-                    owned: true,
-                    upc: result.upcData?.barcode || existingData.upc || '',
-                    physicalEdition: result.physicalEdition || existingData.physicalEdition || {}
+                    owned: true
+                    // REMOVED legacy fields: upc and physicalEdition
                 });
+                // --- END OF FIX ---
+
             } else {
-                // Create new user interaction
+                // --- START OF FIX ---
+                // Create new user interaction with the NEW physical copy ID
                 const userInteractionData = {
                     movieId: movieId,
                     rating: 0,
@@ -507,12 +536,12 @@ async function saveItemsToLibrary(items) {
                     watchedDate: null,
                     owned: true,
                     interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                    physicalCopies: dbResult.physicalCopyId ? [dbResult.physicalCopyId] : [],
-                    upc: result.upcData?.barcode || '',
-                    physicalEdition: result.physicalEdition || {}
+                    physicalCopies: dbResult.physicalCopyId ? [dbResult.physicalCopyId] : []
+                    // REMOVED legacy fields: upc and physicalEdition
                 };
 
                 await userInteractionRef.set(userInteractionData);
+                // --- END OF FIX ---
             }
             
             successCount++;
@@ -792,55 +821,29 @@ return physicalCopiesArray.filter(copyId => copyId === targetCopyId).length;
 // Show duplicate confirmation modal
 async function showDuplicateConfirmation(movieTitle, format, edition, currentCount) {
     return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <h3>Duplicate Copy Detected</h3>
-                <p>You already own <strong>${currentCount}</strong> copy/copies of:</p>
+        ModalManager.show({
+            title: 'duplicate copy!!!!',
+            content: `
+                <p>you already own <strong>${currentCount}</strong> copy/copies of:</p>
                 <div class="duplicate-copy-details">
                     <h4>${movieTitle}</h4>
-                    <p><strong>${format}</strong> • ${edition}</p>
+                    <p><strong>${format || 'Unknown Format'}</strong> • ${edition || 'Standard'}</p>
                 </div>
-                <p>Do you want to add another copy anyway?</p>
-                <div class="modal-buttons">
-                    <button id="addAnywayBtn" class="btn btn-lg btn-success" title="Add Another Copy">
-                        <span class="icon icon-confirm icon-lg"></span>
-                        Add Anyway
-                    </button>
-                    <button id="skipDuplicateBtn" class="btn btn-lg btn-secondary" title="Skip This Copy">
-                        <span class="icon icon-close icon-lg"></span>
-                        Skip
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        const addBtn = modal.querySelector('#addAnywayBtn');
-        const skipBtn = modal.querySelector('#skipDuplicateBtn');
-        
-        const cleanup = () => {
-            modal.remove();
-        };
-        
-        addBtn.addEventListener('click', () => {
-            cleanup();
-            resolve(true);
-        });
-        
-        skipBtn.addEventListener('click', () => {
-            cleanup();
-            resolve(false);
-        });
-        
-        // Close on backdrop click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                cleanup();
-                resolve(false);
-            }
+                <p>do you want to add another copy anyway?</p>
+            `,
+            buttons: [
+                {
+                    text: '<span class="icon icon-close"></span> no i dont want',
+                    class: 'btn-rectangular',
+                    onClick: () => resolve(false) // User chose not to add
+                },
+                {
+                    text: '<span class="icon icon-add"></span> add anyway',
+                    class: 'btn-danger btn-rectangular',
+                    onClick: () => resolve(true) // User chose to add
+                }
+            ],
+            onClose: () => resolve(false) // Treat closing the modal as a "no"
         });
     });
 }

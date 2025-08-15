@@ -80,7 +80,7 @@ const ModalManager = {
                 const button = document.createElement('button');
                 // Use btnConfig.class for styling (e.g., 'btn-primary') and add a base class
                 button.className = `btn ${btnConfig.class || 'btn-secondary'}`;
-                button.textContent = btnConfig.text;
+                button.innerHTML = btnConfig.text; // Use innerHTML to allow for icons
                 button.onclick = () => {
                     // The button's action can choose whether to close the modal
                     if (btnConfig.onClick) {

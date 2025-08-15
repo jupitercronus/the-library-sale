@@ -106,7 +106,8 @@ const StarUtils = {
 
         const setRating = (ratingValue) => {
             currentRating = ratingValue;
-            updateStars(currentRating);
+            clearHoverStates(); 
+            updateStars(currentRating); 
             if (onRatingChange) onRatingChange(currentRating);
         };
 

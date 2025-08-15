@@ -335,14 +335,26 @@
             }
         }
 
-        function deleteCurrentItem() {
-            if (confirm('Are you sure you want to delete this item? You can add it manually later if needed.')) {
-                completionStats.deleted++;
-                const currentItem = reviewQueue[currentItemIndex];
-                LibraryUtils.ui.showStatusMessage(`Deleted item ${currentItem.barcode}`, 'info');
-                moveToNextItem();
+function deleteCurrentItem() {
+    ModalManager.show({
+        title: 'delete item?',
+        content: 'are you sure you want to delete this item from the review queue? you can add it manually later if needed.',
+        buttons: [
+            { text: '<span class="icon icon-close"></span> cancel', 
+            class: 'btn-rectangular' },
+            {
+                text: '<span class="icon icon-trash"></span> trash',
+                class: 'btn-danger btn-rectangular',
+                onClick: () => {
+                    completionStats.deleted++;
+                    const currentItem = reviewQueue[currentItemIndex];
+                    LibraryUtils.ui.showStatusMessage(`Deleted item ${currentItem.barcode}`, 'info');
+                    moveToNextItem();
+                }
             }
-        }
+        ]
+    });
+}
 
         function moveToNextItem() {
             currentItemIndex++;

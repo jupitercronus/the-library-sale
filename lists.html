@@ -366,9 +366,8 @@
                         <span class="icon icon-list icon-3xl"></span>
                         <h3>No lists found</h3>
                         <p>Try adjusting your search or create a new list!</p>
-                        <a href="create-list.html" class="btn btn-lg btn-primary">
-                            <span class="icon icon-add icon-lg"></span>
-                            Create New List
+                        <a href="create-list.html" class="btn btn-lg btn-success">
+                            <span class="icon icon-list icon-lg"></span>
                         </a>
                     </div>
                 `;
@@ -416,24 +415,21 @@
             }).join('');
         }
         
-        function confirmDeleteList(listId) {
-            const modal = document.getElementById('confirmationModal');
-            modal.classList.add('active');
-
-            const yesBtn = document.getElementById('confirmModalYes');
-            const noBtn = document.getElementById('confirmModalNo');
-
-            const yesHandler = () => {
-                modal.classList.remove('active');
-                deleteList(listId);
-            };
-            const noHandler = () => {
-                modal.classList.remove('active');
-            };
-
-            yesBtn.addEventListener('click', yesHandler, { once: true });
-            noBtn.addEventListener('click', noHandler, { once: true });
-        }
+    function confirmDeleteList(listId) {
+        ModalManager.show({
+            title: 'delete list?',
+            content: 'are you sure you want to permanently delete this list?',
+            buttons: [
+            {text: '<span class="icon icon-close"></span> cancel', 
+            class: 'btn-rectangular' },
+            {
+                text: '<span class="icon icon-trash"></span> trash',
+                class: 'btn-danger btn-rectangular',
+                    onClick: () => deleteList(listId)
+                }
+            ]
+        });
+    }
 
         async function deleteList(listId) {
             if (!currentUser) return;
