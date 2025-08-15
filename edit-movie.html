@@ -390,6 +390,7 @@
         let editingPhysicalCopyId = null;
         let currentMovieId = null; 
         let allPhysicalCopies = []; 
+        let currentUpcData = null; 
         
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -559,33 +560,35 @@ async function initializeEditScanner() {
     editScanner = new ScannerManager({
     continuous: false, // Stop after one successful scan
     onBarcodeScanned: async (barcode) => {
-    // When a barcode is found, hide the scanner UI
-    scannerSection.style.display = 'none';
+        // When a barcode is found, hide the scanner UI
+        scannerSection.style.display = 'none';
 
-    try {
-        // Use the centralized lookup utility
-        LibraryUtils.ui.showStatusMessage('Looking up barcode...', 'info');
-        const { physicalEdition } = await MediaLookupUtils.completeMovieLookup(barcode);
+        try {
+            // Use the centralized lookup utility
+            LibraryUtils.ui.showStatusMessage('Looking up barcode...', 'info');
+            const lookupResult = await MediaLookupUtils.completeMovieLookup(barcode); 
+            const { physicalEdition, upcData } = lookupResult; 
+            currentUpcData = upcData; 
 
-        // Populate the editable form with the new data
-        document.getElementById('edition-format').value = physicalEdition.format || '';
-        populateEdition(physicalEdition.edition);
-        document.getElementById('region').value = physicalEdition.region || '';
-        document.getElementById('edition-distributor').value = physicalEdition.distributor || '';
-        const features = Array.isArray(physicalEdition.features) ? physicalEdition.features : [];
-            document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
-                // Check the box if a feature from the scan results includes the checkbox's value
-                // e.g., "Bloopers/Outtakes" includes "Bloopers"
-                cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
-            });
-        document.getElementById('upc-code').value = barcode;
+            // Populate the editable form with the new data
+            document.getElementById('edition-format').value = physicalEdition.format || '';
+            populateEdition(physicalEdition.edition);
+            document.getElementById('region').value = physicalEdition.region || '';
+            document.getElementById('edition-distributor').value = physicalEdition.distributor || '';
+            const features = Array.isArray(physicalEdition.features) ? physicalEdition.features : [];
+                document.querySelectorAll('input[id^="feature-"]').forEach(cb => {
+                    // Check the box if a feature from the scan results includes the checkbox's value
+                    // e.g., "Bloopers/Outtakes" includes "Bloopers"
+                    cb.checked = features.some(feature => feature.includes(cb.value.split('/')[0]));
+                });
+            document.getElementById('upc-code').value = barcode;
 
-        LibraryUtils.ui.showStatusMessage('physical copy details updated!', 'success');
+            LibraryUtils.ui.showStatusMessage('physical copy details updated!', 'success');
 
-    } catch (error) {
-        console.error('Barcode lookup failed:', error);
-        LibraryUtils.ui.showStatusMessage(error.message, 'error');
-    }
+        } catch (error) {
+            console.error('Barcode lookup failed:', error);
+            LibraryUtils.ui.showStatusMessage(error.message, 'error');
+        }
     },
     onStatusUpdate: (message, type) => {
         ScannerUI.updateStatus(message, type, 'scannerStatus');
@@ -719,8 +722,7 @@ async function editPhysicalCopy(copyId) {
 /* Save a physical copy (new or edited)*/
 async function savePhysicalCopy() {
     const physicalData = {
-        title: document.getElementById('movie-title').textContent || 'Unknown Title', 
-        format: document.getElementById('edition-format').value || '',
+        title: (currentUpcData && currentUpcData.originalTitle) ? currentUpcData.originalTitle : (document.getElementById('movie-title').textContent || 'Unknown Title'),        format: document.getElementById('edition-format').value || '',
         edition: document.getElementById('edition').value === 'other' 
             ? document.getElementById('other-edition-text').value 
             : document.getElementById('edition').value || '',

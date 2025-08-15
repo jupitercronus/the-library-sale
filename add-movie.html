@@ -466,8 +466,9 @@ async function addMedia() {
                     movieDocRef.id, 
                     {
                         ...physicalEditionData,
-                        barcode: upcCode
-                    }, 
+                        barcode: upcCode,
+                        title: form.dataset.upcOriginalTitle
+                    },
                     currentUser.uid
                 );
                 console.log('Created new physical copy:', physicalCopyId);

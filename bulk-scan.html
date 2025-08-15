@@ -314,6 +314,8 @@ async function processScanQueue() {
         }
     }    
 }
+// In bulk-scan.html
+
 async function addAllConfirmedAndReview() {
     const foundItems = scanResults.filter(r => r.status === 'found');
     const reviewItems = scanResults.filter(r => r.status === 'needs_review');
@@ -328,13 +330,14 @@ async function addAllConfirmedAndReview() {
     addBtn.disabled = true;
     
     try {
-        // Save confirmed items immediately
+        // Save confirmed items immediately and wait for it to finish
         if (foundItems.length > 0) {
+            LibraryUtils.ui.showStatusMessage(`Saving ${foundItems.length} found items... Please wait.`, 'info', 5000);
             const results = await saveItemsToLibrary(foundItems);
-            LibraryUtils.ui.showStatusMessage(`Added ${results.successCount} confirmed items`, 'success');
+            LibraryUtils.ui.showStatusMessage(`Added ${results.successCount} of ${foundItems.length} items.`, 'success');
         }
         
-        // Send review items to review queue
+        // NOW, handle the redirect
         if (reviewItems.length > 0) {
             sessionStorage.setItem('reviewQueue', JSON.stringify({
                 items: reviewItems,
@@ -342,25 +345,24 @@ async function addAllConfirmedAndReview() {
                 totalFound: foundItems.length
             }));
             
-            // Redirect to review page AFTER a short delay
+            // Redirect to review page after a short delay to let the message be seen
             setTimeout(() => {
                 window.location.href = 'review-failed.html';
-            }, 1000); // 1-second delay
-
+            }, 1500);
         } else {
-            // No review items, just go to library
+            // No review items, go to library after a delay
             setTimeout(() => {
                 window.location.href = `index.html?bulk_imported=${foundItems.length}`;
-            }, 1000);
+            }, 1500);
         }
         
     } catch (error) {
         console.error('Failed to process items:', error);
         LibraryUtils.ui.showStatusMessage('Failed to save items. Please try again.', 'error');
-    } finally {
         addBtn.classList.remove('saving');
         addBtn.disabled = false;
     }
+    // 'finally' block is removed to prevent enabling the button before redirect
 }
 async function sendAllToReview() {
     const allProcessableItems = scanResults.filter(r => r.status === 'found' || r.status === 'needs_review');
@@ -446,28 +448,29 @@ async function addMovieToDatabase(result) {
             movieDocRef = await db.collection('movies').add(movieData);
             CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
         }
-        // Handle physical copy creation using the correct new format
+        // Handle physical copy creation
         let physicalCopyId = null;
-        if (physicalEdition && upcData.barcode) {
-             const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
-                upcData.barcode,
-                physicalEdition.format,
-                physicalEdition.edition,
-                physicalEdition.region
-            );
-
-            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-            
-            if (existingCopy) {
-                physicalCopyId = existingCopy.id;
-            } else {
-                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
-                    movieDocRef.id, 
-                    { ...physicalEdition, barcode: upcData.barcode }, 
-                    currentUser.uid
+            if (physicalEdition && upcData.barcode) {
+                const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                    upcData.barcode,
+                    physicalEdition.format,
+                    physicalEdition.edition,
+                    physicalEdition.region
                 );
-            }
-        }        
+
+                const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+                
+                if (existingCopy) {
+                    physicalCopyId = existingCopy.id;
+                } else {
+                    // Pass the original title when creating the copy
+                    physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                        movieDocRef.id, 
+                        { ...physicalEdition, barcode: upcData.barcode, title: upcData.originalTitle }, 
+                        currentUser.uid
+                    );
+                }
+            }          
         return { 
             movieDocRef, 
             physicalCopyId, // This will now contain the ID of the new physical copy record
