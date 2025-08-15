@@ -375,12 +375,13 @@ function deleteCurrentItem() {
             showCompletionState();
         }
 
-async function addMovieToDatabase(result) {
+        async function addMovieToDatabase(result) {
     const { tmdbData, upcData, physicalEdition } = result;
     
     try {
         let movieDocRef;
         
+        // Check if movie already exists by TMDB ID
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
             if (existingDoc && existingDoc.exists) {
@@ -410,32 +411,35 @@ async function addMovieToDatabase(result) {
             movieDocRef = await db.collection('movies').add(movieData);
             CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
         }
+        
         // Handle physical copy creation
         let physicalCopyId = null;
-            if (physicalEdition && upcData.barcode) {
-                const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
-                    upcData.barcode,
-                    physicalEdition.format,
-                    physicalEdition.edition,
-                    physicalEdition.region
-                );
+        if (physicalEdition && upcData.barcode) {
+            const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                upcData.barcode,
+                physicalEdition.format,
+                physicalEdition.edition,
+                physicalEdition.region
+            );
 
-                const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
-                
-                if (existingCopy) {
-                    physicalCopyId = existingCopy.id;
-                } else {
-                    // Pass the original title when creating the copy
-                    physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
-                        movieDocRef.id, 
-                        { ...physicalEdition, barcode: upcData.barcode, title: upcData.originalTitle }, 
-                        currentUser.uid
-                    );
-                }
-            }          
+            const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+            
+            if (existingCopy) {
+                physicalCopyId = existingCopy.id;
+            } else {
+                // Pass the original title when creating the copy
+                physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                    movieDocRef.id,  // THIS IS THE CRITICAL LINE - linking physical copy to movie
+                    { ...physicalEdition, barcode: upcData.barcode, title: upcData.originalTitle }, 
+                    currentUser.uid
+                );
+            }
+        }
+        
+        // CRITICAL: Return both the movie reference and physical copy ID
         return { 
             movieDocRef, 
-            physicalCopyId, // This will now contain the ID of the new physical copy record
+            physicalCopyId,
             processed: true
         };
         
