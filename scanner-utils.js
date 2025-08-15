@@ -415,6 +415,7 @@ const MediaLookupUtils = {
 
         const copyData = {
             movieId: movieId,
+            title: physicalEditionData.title || 'Unknown Title',
             barcode: physicalEditionData.barcode || '',
             format: physicalEditionData.format || 'Unknown',
             edition: physicalEditionData.edition || 'Standard',

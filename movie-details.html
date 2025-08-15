@@ -270,7 +270,7 @@ async function loadMoviePage(user, movieId) {
             movieDoc = await CachedFirestore.getMovieByDocId(movieId);
         }
         
-        if (!movieDoc.exists) {
+        if (!movieDoc || !movieDoc.exists) {
             throw new Error("This movie could not be found in the main library.");
         }
         

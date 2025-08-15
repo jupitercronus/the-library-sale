@@ -516,12 +516,11 @@ const CachedFirestore = {
      */
     cacheMovie(movieId, movieData, tmdbId = null) {
         // Cache by document ID
-        this.movieCache.set('movies', `doc_${movieId}`, movieData);
+        MovieCache.cacheMovieByDocId(movieId, movieData);
         
         // Also cache by TMDB ID if available
         if (tmdbId) {
-            const dataWithFirestoreId = { firestoreId: movieId, ...movieData };
-            this.movieCache.set('movies', `tmdb_${tmdbId}`, dataWithFirestoreId);
+            MovieCache.cacheMovieByTmdbId(tmdbId, movieData);
         }
         
         console.log(`💾 Manually cached movie: ${movieId}`);

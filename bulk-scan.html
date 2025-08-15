@@ -492,6 +492,7 @@ async function saveItemsToLibrary(items) {
                 .collection('movieInteractions').doc(movieId);
             const existingInteraction = await userInteractionRef.get();
             
+
             if (existingInteraction.exists) {
                 const existingData = existingInteraction.data();
                 const currentPhysicalCopies = existingData.physicalCopies || [];
@@ -513,7 +514,7 @@ async function saveItemsToLibrary(items) {
                 
                 // --- START OF FIX ---
                 // Update existing interaction with the NEW physical copy ID
-                const updatedPhysicalCopies = [...currentPhysicalCopies];
+                const updatedPhysicalCopies = [...(existingInteraction.data().physicalCopies || [])]; // <-- CORRECTED LINE
                 if (dbResult.physicalCopyId) {
                     updatedPhysicalCopies.push(dbResult.physicalCopyId);
                 }
@@ -521,12 +522,10 @@ async function saveItemsToLibrary(items) {
                 await userInteractionRef.update({
                     physicalCopies: updatedPhysicalCopies,
                     owned: true
-                    // REMOVED legacy fields: upc and physicalEdition
                 });
-                // --- END OF FIX ---
 
             } else {
-                // --- START OF FIX ---
+              
                 // Create new user interaction with the NEW physical copy ID
                 const userInteractionData = {
                     movieId: movieId,
