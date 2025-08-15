@@ -422,7 +422,7 @@ async function addMovieToDatabase(result) {
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
             if (existingDoc && existingDoc.exists) {
-                movieDocRef = { id: existingDoc.id };
+                movieDocRef = db.collection('movies').doc(existingDoc.id);
             }
         }
         
