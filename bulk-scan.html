@@ -342,8 +342,11 @@ async function addAllConfirmedAndReview() {
                 totalFound: foundItems.length
             }));
             
-            // Redirect to review page
-            window.location.href = 'review-failed.html';
+            // Redirect to review page AFTER a short delay
+            setTimeout(() => {
+                window.location.href = 'review-failed.html';
+            }, 1000); // 1-second delay
+
         } else {
             // No review items, just go to library
             setTimeout(() => {
