@@ -50,18 +50,23 @@ const StarUtils = {
 
         const updateStars = (ratingToDisplay) => {
             stars.forEach((star, index) => {
-                star.classList.remove('star-full', 'star-half');
+                // Remove all possible star classes first
+                star.classList.remove('star-full', 'star-half', 'star-empty');
+                
+                // Apply the appropriate class based on rating
                 if (ratingToDisplay > index + 0.5) {
                     star.classList.add('star-full');
                 } else if (ratingToDisplay > index) {
                     star.classList.add('star-half');
+                } else {
+                    star.classList.add('star-empty');
                 }
             });
         };
-
         const clearHoverStates = () => {
             stars.forEach(star => {
                 star.classList.remove('hover-star-full', 'hover-star-half');
+                // Don't remove star-empty here as updateStars will handle it
             });
         };
 
@@ -104,6 +109,7 @@ const StarUtils = {
             });
         };
 
+        // Fixed setRating function
         const setRating = (ratingValue) => {
             currentRating = ratingValue;
             clearHoverStates(); 
