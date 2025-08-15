@@ -419,16 +419,31 @@ async function addMovieToDatabase(result) {
     try {
         let movieDocRef;
         
-        // Check if movie already exists by TMDB ID
+        console.log('🎬 Starting addMovieToDatabase for:', tmdbData.title || tmdbData.name);
+        console.log('🔍 TMDB ID:', tmdbData.id);
+        console.log('🔍 TMDB ID type:', typeof tmdbData.id);
+        console.log('🔍 Starts with upc_?', `${tmdbData.id}`.startsWith('upc_'));
+        
         if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
+            console.log('🔍 Checking for existing movie with TMDB ID:', tmdbData.id);
+            
             const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
+            console.log('🔍 Existing doc found:', existingDoc ? 'YES' : 'NO');
+            
             if (existingDoc && existingDoc.exists) {
+                console.log('✅ Using existing movie:', existingDoc.id);
                 movieDocRef = db.collection('movies').doc(existingDoc.id);
+            } else {
+                console.log('❌ No existing movie found, will create new one');
             }
+        } else {
+            console.log('🔍 Skipping existing check - invalid TMDB ID or UPC-based ID');
         }
         
         // Create new movie if doesn't exist
         if (!movieDocRef) {
+            console.log('🆕 Creating new movie...');
+            
             const movieData = {
                 title: tmdbData.title || tmdbData.name,
                 year: tmdbData.release_date ? parseInt(tmdbData.release_date.substring(0, 4)) : null,
@@ -446,13 +461,22 @@ async function addMovieToDatabase(result) {
                 isManualEntry: false,
             };
             
+            console.log('🆕 Movie data to create:', movieData);
+            console.log('🆕 Current user:', currentUser ? currentUser.uid : 'NULL');
+            
             movieDocRef = await db.collection('movies').add(movieData);
+            console.log('✅ Movie created with ID:', movieDocRef.id);
+            
             CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
+        } else {
+            console.log('📋 Using existing movie, ID:', movieDocRef.id);
         }
         
         // Handle physical copy creation
         let physicalCopyId = null;
         if (physicalEdition && upcData.barcode) {
+            console.log('📦 Creating physical copy for movie:', movieDocRef.id);
+            
             const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
                 upcData.barcode,
                 physicalEdition.format,
@@ -463,16 +487,23 @@ async function addMovieToDatabase(result) {
             const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
             
             if (existingCopy) {
+                console.log('📦 Using existing physical copy:', existingCopy.id);
                 physicalCopyId = existingCopy.id;
             } else {
+                console.log('📦 Creating new physical copy...');
                 // Pass the original title when creating the copy
                 physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
                     movieDocRef.id,  // THIS IS THE CRITICAL LINE - linking physical copy to movie
                     { ...physicalEdition, barcode: upcData.barcode, title: upcData.originalTitle }, 
                     currentUser.uid
                 );
+                console.log('📦 Physical copy created with ID:', physicalCopyId);
             }
+        } else {
+            console.log('📦 No physical copy needed');
         }
+        
+        console.log('✅ addMovieToDatabase completed successfully');
         
         // CRITICAL: Return both the movie reference and physical copy ID
         return { 
@@ -482,7 +513,8 @@ async function addMovieToDatabase(result) {
         };
         
     } catch (error) {
-        console.error('Error in addMovieToDatabase:', error);
+        console.error('❌ Error in addMovieToDatabase:', error);
+        console.error('❌ Error stack:', error.stack);
         throw error;
     }
 }
