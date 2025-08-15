@@ -229,7 +229,7 @@
             document.getElementById('currentItemNum').textContent = current;
             document.getElementById('totalItemsNum').textContent = total;
             
-            const progressPercent = (currentItemIndex / total) * 100;
+            const progressPercent = (current / total) * 100; 
             document.getElementById('progressBarFill').style.width = `${progressPercent}%`;
         }
 
@@ -375,58 +375,75 @@ function deleteCurrentItem() {
             showCompletionState();
         }
 
-        // Database function (same as bulk scan)
-        async function addMovieToDatabase(result) {
-            const { tmdbData, upcData, physicalEdition } = result;
-            
-            // Check if movie already exists
-            let movieDocRef;
-            if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
-                const existingQuery = await db.collection('movies').where('tmdbId', '==', parseInt(tmdbData.id)).limit(1).get();
-                if (!existingQuery.empty) {
-                    movieDocRef = existingQuery.docs[0].ref;
-                }
+async function addMovieToDatabase(result) {
+    const { tmdbData, upcData, physicalEdition } = result;
+    
+    try {
+        let movieDocRef;
+        
+        if (tmdbData.id && !`${tmdbData.id}`.startsWith('upc_')) {
+            const existingDoc = await CachedFirestore.getMovieByTmdbId(tmdbData.id);
+            if (existingDoc && existingDoc.exists) {
+                movieDocRef = db.collection('movies').doc(existingDoc.id);
             }
-
-            // Create new movie if doesn't exist
-            if (!movieDocRef) {
-                const movieData = {
-                    title: tmdbData.title || tmdbData.name,
-                    year: tmdbData.release_date ? parseInt(tmdbData.release_date.substring(0, 4)) : (tmdbData.first_air_date ? parseInt(tmdbData.first_air_date.substring(0, 4)) : null),
-                    director: tmdbData.credits?.crew?.find(c => c.job === 'Director')?.name || '',
-                    genre: tmdbData.genres?.map(g => g.name).join(', ') || '',
-                    posterUrl: tmdbData.poster_path ? `${MediaLookupUtils.TMDB_IMAGE_BASE}${tmdbData.poster_path}` : null,
-                    runtime: tmdbData.runtime || (tmdbData.episode_run_time ? tmdbData.episode_run_time[0] : null),
-                    tmdbId: tmdbData.id && !`${tmdbData.id}`.startsWith('upc_') ? parseInt(tmdbData.id) : null,
-                    overview: tmdbData.overview || '',
-                    cast: tmdbData.credits?.cast?.slice(0, 5).map(c => c.name) || [],
-                    contentType: tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie'),
-                    dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
-                    originalUploaderId: currentUser.uid,
-                    originalUploaderDisplayName: currentUser.displayName || currentUser.email,
-                    isManualEntry: false,
-                };
-                
-                movieDocRef = await db.collection('movies').add(movieData);
-            }
-            
-            // Add user interaction
-            const userInteractionData = {
-                movieId: movieDocRef.id,
-                rating: 0,
-                review: "",
-                watched: false,
-                watchedDate: null,
-                owned: true,
-                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                physicalEdition: physicalEdition || {},
-                upc: upcData?.barcode || '',
-                editionTitle: physicalEdition?.edition || '',
-                editionFormat: physicalEdition?.format || ''
-            };
-
-            await db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id).set(userInteractionData);
         }
+        
+        // Create new movie if doesn't exist
+        if (!movieDocRef) {
+            const movieData = {
+                title: tmdbData.title || tmdbData.name,
+                year: tmdbData.release_date ? parseInt(tmdbData.release_date.substring(0, 4)) : null,
+                director: tmdbData.credits?.crew?.find(c => c.job === 'Director')?.name || '',
+                genre: tmdbData.genres?.map(g => g.name).join(', ') || '',
+                posterUrl: tmdbData.poster_path ? MediaLookupUtils.TMDB_IMAGE_BASE + tmdbData.poster_path : null,
+                runtime: tmdbData.runtime || null,
+                tmdbId: tmdbData.id && !`${tmdbData.id}`.startsWith('upc_') ? parseInt(tmdbData.id) : null,
+                overview: tmdbData.overview || '',
+                cast: tmdbData.credits?.cast?.slice(0, 5).map(c => c.name) || [],
+                contentType: tmdbData.media_type || (tmdbData.seasons ? 'tv' : 'movie'),
+                dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
+                originalUploaderId: currentUser.uid,
+                originalUploaderDisplayName: currentUser.displayName || currentUser.email,
+                isManualEntry: false,
+            };
+            
+            movieDocRef = await db.collection('movies').add(movieData);
+            CachedFirestore.cacheMovie(movieDocRef.id, movieData, movieData.tmdbId);
+        }
+        // Handle physical copy creation
+        let physicalCopyId = null;
+            if (physicalEdition && upcData.barcode) {
+                const uniqueId = MediaLookupUtils.generateUniqueIdentifier(
+                    upcData.barcode,
+                    physicalEdition.format,
+                    physicalEdition.edition,
+                    physicalEdition.region
+                );
+
+                const existingCopy = await MediaLookupUtils.findExistingPhysicalCopy(uniqueId);
+                
+                if (existingCopy) {
+                    physicalCopyId = existingCopy.id;
+                } else {
+                    // Pass the original title when creating the copy
+                    physicalCopyId = await MediaLookupUtils.createPhysicalCopy(
+                        movieDocRef.id, 
+                        { ...physicalEdition, barcode: upcData.barcode, title: upcData.originalTitle }, 
+                        currentUser.uid
+                    );
+                }
+            }          
+        return { 
+            movieDocRef, 
+            physicalCopyId, // This will now contain the ID of the new physical copy record
+            processed: true
+        };
+        
+    } catch (error) {
+        console.error('Error in addMovieToDatabase:', error);
+        throw error;
+    }
+}
 
         // Event listeners
         function setupEventListeners() {
