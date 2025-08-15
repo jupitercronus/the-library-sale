@@ -39,6 +39,11 @@
   margin-bottom: var(--space-6xl); /* Space above footer */
 }
 
+.auth-container {
+  width: var(--container-width-md)
+  
+
+}
 .my-stacks-container {
   max-width: var(--container-width-lg);
   margin: 0 auto;
