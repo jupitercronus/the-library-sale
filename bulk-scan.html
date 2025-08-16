@@ -828,54 +828,6 @@ function updateScannerStatus(message, type = 'info') {
             statusEl.textContent = message;
             statusEl.className = `scanner-status status-${type}`;
         }
-function updateStats() {
-    const scannedCount = scanResults.length;
-    const foundCount = scanResults.filter(r => r.status === 'found').length;
-    const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
-    const failedCount = scanResults.filter(r => r.status === 'failed').length;
-    const skippedCount = scanResults.filter(r => r.status === 'skipped').length;
-    
-    // Update compact stats (new)
-    document.getElementById('compactScannedCount').textContent = scannedCount;
-    document.getElementById('compactFoundCount').textContent = foundCount;
-    document.getElementById('compactFailedCount').textContent = failedCount;
-    
-    // Update filter tabs
-    document.getElementById('allCount').textContent = scannedCount;
-    document.getElementById('foundTabCount').textContent = foundCount;
-    document.getElementById('needsReviewTabCount').textContent = needsReviewCount;
-    document.getElementById('failedTabCount').textContent = failedCount;
-    
-    // Add skipped count if element exists
-    const skippedTabElement = document.getElementById('skippedTabCount');
-    if (skippedTabElement) {
-        skippedTabElement.textContent = skippedCount;
-    }
-
-    // Update final stats
-    document.getElementById('finalFoundCount').textContent = foundCount;
-    document.getElementById('finalFailedCount').textContent = failedCount;
-
-    const finalNeedsReviewElement = document.getElementById('finalNeedsReviewCount');
-    if (finalNeedsReviewElement) {
-        finalNeedsReviewElement.textContent = needsReviewCount;
-    }
-    
-    const finalSkippedElement = document.getElementById('finalSkippedCount');
-    if (finalSkippedElement) {
-        finalSkippedElement.textContent = skippedCount;
-    }
-
-    // Show/hide review button only if it exists
-    const reviewBtn = document.getElementById('reviewItemsBtn');
-    if (reviewBtn) {
-        reviewBtn.style.display = needsReviewCount > 0 ? 'inline-flex' : 'none';
-    }   
-}
-// Helper function to count how many of the same copy type user has
-function getCurrentCopyCount(physicalCopiesArray, targetCopyId) {
-return physicalCopiesArray.filter(copyId => copyId === targetCopyId).length;
-}
 // Show duplicate confirmation modal
 async function showDuplicateConfirmation(movieTitle, format, edition, currentCount) {
     return new Promise((resolve) => {
@@ -1050,7 +1002,29 @@ function finishScanning() {
     }
 }
 
+
 // Add these helper functions:
+
+
+function updateResultStatus(resultId, status) {
+    // Find the result in the scanResults array
+    const result = scanResults.find(r => r.id === resultId);
+    if (result) {
+        // Update the result's status
+        if (status === 'saved') {
+            result.saved = true;
+            result.status = 'saved';
+        } else if (status === 'error') {
+            result.status = 'error';
+        }
+        
+        // Re-render the results to show the updated status
+        renderResults();
+        
+        // Update the stats to reflect the changes
+        updateStats();
+    }
+}
 function sendToReview(resultId) {
     const result = scanResults.find(r => r.id === resultId);
     if (result) {
@@ -1059,7 +1033,6 @@ function sendToReview(resultId) {
         renderResults();
     }
 }
-// Update progress bar during bulk operations
 function updateProgressBar(current, total) {
     const progressContainer = document.getElementById('scanProgress');
     const progressBar = document.getElementById('scanProgressBar');
@@ -1074,7 +1047,53 @@ function updateProgressBar(current, total) {
         }
     }
 }
+function getCurrentCopyCount(physicalCopiesArray, targetCopyId) {
+return physicalCopiesArray.filter(copyId => copyId === targetCopyId).length;
+}
+function updateStats() {
+    const scannedCount = scanResults.length;
+    const foundCount = scanResults.filter(r => r.status === 'found').length;
+    const needsReviewCount = scanResults.filter(r => r.status === 'needs_review').length;
+    const failedCount = scanResults.filter(r => r.status === 'failed').length;
+    const skippedCount = scanResults.filter(r => r.status === 'skipped').length;
+    
+    // Update compact stats (new)
+    document.getElementById('compactScannedCount').textContent = scannedCount;
+    document.getElementById('compactFoundCount').textContent = foundCount;
+    document.getElementById('compactFailedCount').textContent = failedCount;
+    
+    // Update filter tabs
+    document.getElementById('allCount').textContent = scannedCount;
+    document.getElementById('foundTabCount').textContent = foundCount;
+    document.getElementById('needsReviewTabCount').textContent = needsReviewCount;
+    document.getElementById('failedTabCount').textContent = failedCount;
+    
+    // Add skipped count if element exists
+    const skippedTabElement = document.getElementById('skippedTabCount');
+    if (skippedTabElement) {
+        skippedTabElement.textContent = skippedCount;
+    }
 
+    // Update final stats
+    document.getElementById('finalFoundCount').textContent = foundCount;
+    document.getElementById('finalFailedCount').textContent = failedCount;
+
+    const finalNeedsReviewElement = document.getElementById('finalNeedsReviewCount');
+    if (finalNeedsReviewElement) {
+        finalNeedsReviewElement.textContent = needsReviewCount;
+    }
+    
+    const finalSkippedElement = document.getElementById('finalSkippedCount');
+    if (finalSkippedElement) {
+        finalSkippedElement.textContent = skippedCount;
+    }
+
+    // Show/hide review button only if it exists
+    const reviewBtn = document.getElementById('reviewItemsBtn');
+    if (reviewBtn) {
+        reviewBtn.style.display = needsReviewCount > 0 ? 'inline-flex' : 'none';
+    }   
+}
 // Initialize when auth is ready
 document.addEventListener('authStateReady', (e) => {
     currentUser = e.detail.user;
