@@ -534,64 +534,81 @@ async function saveItemsToLibrary(items) {
                 .collection('movieInteractions').doc(movieId);
             const existingInteraction = await userInteractionRef.get();
             
-
+            let physicalCopiesArray = [];
+            
             if (existingInteraction.exists) {
                 const existingData = existingInteraction.data();
-                const currentPhysicalCopies = existingData.physicalCopies || [];
+                physicalCopiesArray = existingData.physicalCopies || [];
                 
                 // Check for duplicates and handle accordingly
-                if (dbResult.physicalCopyId && currentPhysicalCopies.includes(dbResult.physicalCopyId)) {
-                    const shouldAddAnyway = await showDuplicateConfirmation(
-                        result.tmdbData.title || result.tmdbData.name,
-                        result.physicalEdition.format,
-                        result.physicalEdition.edition,
-                        currentPhysicalCopies.filter(id => id === dbResult.physicalCopyId).length
-                    );
-                    
-                    if (!shouldAddAnyway) {
-                        duplicateCount++;
-                        continue;
-                    }
-                }
-                
-                // --- START OF FIX ---
-                // Update existing interaction with the NEW physical copy ID
-                const updatedPhysicalCopies = [...(existingInteraction.data().physicalCopies || [])]; // <-- CORRECTED LINE
                 if (dbResult.physicalCopyId) {
-                    updatedPhysicalCopies.push(dbResult.physicalCopyId);
+                    if (physicalCopiesArray.includes(dbResult.physicalCopyId)) {
+                        console.log(`Duplicate physical copy ${dbResult.physicalCopyId} for user`);
+                        duplicateCount++;
+                        
+                        // Optional: Show confirmation dialog for duplicate
+                        // For bulk operations, you might want to skip duplicates silently
+                        // or add a setting to control this behavior
+                    } else {
+                        // Add the new physical copy ID to the array
+                        physicalCopiesArray.push(dbResult.physicalCopyId);
+                        
+                        // Update the interaction with the new physical copy
+                        await userInteractionRef.update({
+                            physicalCopies: physicalCopiesArray,
+                            owned: true,
+                            // Remove old format fields - don't store physicalEdition data here
+                            // Only keep these for backward compatibility if absolutely necessary
+                        });
+                        
+                        successCount++;
+                        console.log(`added physical copy to existing interaction. total copies: ${physicalCopiesArray.length}`);
+                    }
+                } else {
+                    // No physical copy but movie exists in library
+                    successCount++;
+                }
+            } else {
+                // Create new user interaction
+                if (dbResult.physicalCopyId) {
+                    physicalCopiesArray = [dbResult.physicalCopyId];
                 }
                 
-                await userInteractionRef.update({
-                    physicalCopies: updatedPhysicalCopies,
-                    owned: true
-                });
-
-            } else {
-              
-                // Create new user interaction with the NEW physical copy ID
                 const userInteractionData = {
                     movieId: movieId,
                     rating: 0,
                     review: "",
                     watched: false,
                     watchedDate: null,
-                    owned: true,
+                    owned: physicalCopiesArray.length > 0, // Only owned if has physical copies
                     interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                    physicalCopies: dbResult.physicalCopyId ? [dbResult.physicalCopyId] : []
-                    // REMOVED legacy fields: upc and physicalEdition
+                    physicalCopies: physicalCopiesArray
+                    // Don't store physicalEdition or upc here anymore
                 };
-
+                
                 await userInteractionRef.set(userInteractionData);
-                // --- END OF FIX ---
+                successCount++;
+                console.log('Created new user interaction with physical copy');
             }
             
-            successCount++;
+            // Update the result status in UI
+            result.saved = true;
+            updateResultStatus(result.id, 'saved');
             
         } catch (error) {
-            console.error('Failed to save item to user library:', error);
+            console.error('Error saving item:', error);
             errorCount++;
+            result.error = error.message;
+            updateResultStatus(result.id, 'error');
         }
     }
+    
+    // Update stats
+    updateStats();
+    
+    // Show completion message
+    const message = `Saved ${successCount} items${duplicateCount > 0 ? `, ${duplicateCount} duplicates skipped` : ''}${errorCount > 0 ? `, ${errorCount} errors` : ''}`;
+    LibraryUtils.ui.showStatusMessage(message, errorCount > 0 ? 'warning' : 'success');
     
     return { successCount, duplicateCount, errorCount };
 }

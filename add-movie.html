@@ -495,7 +495,7 @@ async function addMedia() {
             }
         }
 
-        // FIXED: Handle user interaction creation/update properly
+        // Handle user interaction creation/update properly
         const userInteractionRef = db.collection('users').doc(currentUser.uid).collection('movieInteractions').doc(movieDocRef.id);
         const existingInteraction = await userInteractionRef.get();
         
@@ -505,18 +505,33 @@ async function addMedia() {
             const existingData = existingInteraction.data();
             physicalCopiesArray = existingData.physicalCopies || [];
             
-            // Add new physical copy if not already in array
-            if (physicalCopyId && !physicalCopiesArray.includes(physicalCopyId)) {
-                physicalCopiesArray.push(physicalCopyId);
+            // Only add physical copy if we have one and it's not a duplicate
+            if (physicalCopyId) {
+                if (!physicalCopiesArray.includes(physicalCopyId)) {
+                    physicalCopiesArray.push(physicalCopyId);
+                } else {
+                    // Handle duplicate - ask for confirmation
+                    const currentCount = physicalCopiesArray.filter(id => id === physicalCopyId).length;
+                    const shouldAddAnyway = await showDuplicateConfirmation(
+                        titleValue,
+                        physicalEditionData.format,
+                        physicalEditionData.edition,
+                        currentCount
+                    );
+                    
+                    if (!shouldAddAnyway) {
+                        LibraryUtils.ui.showStatusMessage('Duplicate copy not added', 'info');
+                        return;
+                    }
+                    physicalCopiesArray.push(physicalCopyId);
+                }
             }
             
-            // Update only the physical copies, preserve ratings/reviews/etc
+            // Update only the physical copies array and owned status
             await userInteractionRef.update({
                 physicalCopies: physicalCopiesArray,
-                owned: true, // Make sure owned is true when adding physical copy
-                // Update legacy fields for backward compatibility
-                upc: upcCode || existingData.upc || '',
-                physicalEdition: physicalEditionData
+                owned: physicalCopiesArray.length > 0
+                // DON'T store upc or physicalEdition here anymore
             });
             
             console.log(`Updated existing interaction. Total physical copies: ${physicalCopiesArray.length}`);
@@ -525,23 +540,17 @@ async function addMedia() {
             if (physicalCopyId) {
                 physicalCopiesArray = [physicalCopyId];
             }
-        
-            if (!movieDocRef || !movieDocRef.id) {
-                throw new Error('Failed to create or retrieve movie document');
-            }
+            
             const userInteractionData = {
                 movieId: movieDocRef.id,
                 rating: 0,
                 review: "",
                 watched: false,
                 watchedDate: null,
-                owned: true,
+                owned: physicalCopiesArray.length > 0, // Only owned if has physical copies
                 interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                physicalCopies: physicalCopiesArray,
-                
-                // DEPRECATED: Keep for backward compatibility
-                upc: upcCode || '',
-                physicalEdition: physicalEditionData
+                physicalCopies: physicalCopiesArray
+                // DON'T store upc or physicalEdition here anymore
             };
 
             await userInteractionRef.set(userInteractionData);
