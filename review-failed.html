@@ -302,6 +302,8 @@
 
         // In review-failed.html, REPLACE the existing addSelectedItem function with this:
 
+// REPLACE the addSelectedItem function in review-failed.html with this fixed version:
+
 async function addSelectedItem() {
     if (!selectedResult) {
         LibraryUtils.ui.showStatusMessage('Please select a movie first', 'warning');
@@ -327,57 +329,64 @@ async function addSelectedItem() {
         const dbResult = await addMovieToDatabase(reviewedResult);
         const movieId = dbResult.movieDocRef.id;
         
-        // CRITICAL FIX: Handle user interaction (this was missing!)
-        if (currentUser) {
-            const userInteractionRef = db.collection('users').doc(currentUser.uid)
-                .collection('movieInteractions').doc(movieId);
-            const existingInteraction = await userInteractionRef.get();
+        // Handle user interaction creation (this was missing!)
+        const userInteractionRef = db.collection('users').doc(currentUser.uid)
+            .collection('movieInteractions').doc(movieId);
+        const existingInteraction = await userInteractionRef.get();
+        
+        let physicalCopiesArray = [];
+        
+        if (existingInteraction.exists) {
+            // User already has this movie, add the physical copy
+            const existingData = existingInteraction.data();
+            physicalCopiesArray = existingData.physicalCopies || [];
             
-            let physicalCopiesArray = [];
-            
-            if (existingInteraction.exists) {
-                // Get existing physical copies
-                const existingData = existingInteraction.data();
-                physicalCopiesArray = existingData.physicalCopies || [];
-                
-                // Add new physical copy ID if we have one and it's not a duplicate
-                if (dbResult.physicalCopyId && !physicalCopiesArray.includes(dbResult.physicalCopyId)) {
+            if (dbResult.physicalCopyId) {
+                if (!physicalCopiesArray.includes(dbResult.physicalCopyId)) {
                     physicalCopiesArray.push(dbResult.physicalCopyId);
+                    
+                    await userInteractionRef.update({
+                        physicalCopies: physicalCopiesArray,
+                        owned: true
+                    });
+                    
+                    console.log('Added physical copy to existing interaction');
+                } else {
+                    console.log('Physical copy already exists for this user');
                 }
-                
-                // Update the interaction
-                await userInteractionRef.update({
-                    physicalCopies: physicalCopiesArray,
-                    owned: physicalCopiesArray.length > 0
-                });
-            } else {
-                // Create new user interaction
-                if (dbResult.physicalCopyId) {
-                    physicalCopiesArray = [dbResult.physicalCopyId];
-                }
-                
-                const userInteractionData = {
-                    movieId: movieId,
-                    rating: 0,
-                    review: "",
-                    watched: false,
-                    watchedDate: null,
-                    owned: physicalCopiesArray.length > 0,
-                    interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                    physicalCopies: physicalCopiesArray
-                };
-                
-                await userInteractionRef.set(userInteractionData);
             }
+        } else {
+            // Create new user interaction
+            if (dbResult.physicalCopyId) {
+                physicalCopiesArray = [dbResult.physicalCopyId];
+            }
+            
+            const userInteractionData = {
+                movieId: movieId,
+                rating: 0,
+                review: "",
+                watched: false,
+                watchedDate: null,
+                owned: physicalCopiesArray.length > 0,
+                interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                physicalCopies: physicalCopiesArray
+            };
+            
+            await userInteractionRef.set(userInteractionData);
+            console.log('Created new user interaction with physical copy');
         }
+
+        // Mark item as processed
+        currentItem.processed = true;
+        LibraryUtils.ui.showStatusMessage('Item added successfully!', 'success');
         
-        completionStats.added++;
-        LibraryUtils.ui.showStatusMessage(`Added "${fullTmdbData.title || fullTmdbData.name}" to library`, 'success');
-        
-        moveToNextItem();
+        // Move to next item or finish
+        setTimeout(() => {
+            nextItem();
+        }, 1000);
 
     } catch (error) {
-        console.error('Failed to add selected item:', error);
+        console.error('Error adding selected item:', error);
         LibraryUtils.ui.showStatusMessage('Failed to add item. Please try again.', 'error');
     }
 }

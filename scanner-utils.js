@@ -402,36 +402,47 @@ const MediaLookupUtils = {
         }
     },
 
-    /**
+   /**
      * Create new physical copy in database
      */
     async createPhysicalCopy(movieId, physicalEditionData, userId) {
-        const uniqueId = this.generateUniqueIdentifier(
-            physicalEditionData.barcode,
-            physicalEditionData.format,
-            physicalEditionData.edition,
-            physicalEditionData.region
-        );
+        try {
+            const uniqueId = this.generateUniqueIdentifier(
+                physicalEditionData.barcode,
+                physicalEditionData.format,
+                physicalEditionData.edition,
+                physicalEditionData.region
+            );
 
-        const copyData = {
-            movieId: movieId,
-            userId: userId,
-            title: physicalEditionData.title || 'Unknown Title',
-            barcode: physicalEditionData.barcode || '',
-            format: physicalEditionData.format || 'Unknown',
-            edition: physicalEditionData.edition || 'Standard',
-            region: physicalEditionData.region || 'Region 1',
-            distributor: physicalEditionData.distributor || '',
-            features: physicalEditionData.features || [],
-            uniqueIdentifier: uniqueId,
-            dateFirstScanned: firebase.firestore.FieldValue.serverTimestamp(),
-            scannedBy: userId,
-            scanCount: 1
-        };
+            const copyData = {
+                movieId: movieId,
+                userId: userId,
+                title: physicalEditionData.title || 'Unknown Title',
+                barcode: physicalEditionData.barcode || '',
+                format: physicalEditionData.format || 'Unknown',
+                edition: physicalEditionData.edition || 'Standard',
+                region: physicalEditionData.region || 'Region 1',
+                distributor: physicalEditionData.distributor || '',
+                features: physicalEditionData.features || [],
+                uniqueIdentifier: uniqueId,
+                dateFirstScanned: firebase.firestore.FieldValue.serverTimestamp(),
+                scannedBy: userId,
+                scanCount: 1
+            };
 
-        const copyRef = await db.collection('physicalCopies').add(copyData);
-        return copyRef.id;
-    }, 
+            console.log('📦 Creating physical copy with data:', copyData);
+            
+            // THIS IS THE CRITICAL LINE THAT WAS MISSING:
+            const copyRef = await db.collection('physicalCopies').add(copyData);
+            
+            console.log('📦 Physical copy created successfully with ID:', copyRef.id);
+            return copyRef.id;
+            
+        } catch (error) {
+            console.error('❌ Error creating physical copy:', error);
+            throw error;
+        }
+    },
 
     async createPhysicalCopyWithTransaction(movieId, physicalEditionData, userId) {
             return await db.runTransaction(async (transaction) => {
