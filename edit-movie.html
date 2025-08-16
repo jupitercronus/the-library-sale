@@ -640,6 +640,15 @@ async function displayAllPhysicalCopies(userData, movieId) {
                 const data = copyDoc.data();
                 const copyCard = document.createElement('div');
                 copyCard.className = 'physical-copy-card';
+                
+                // Only show edit button if current user owns this copy
+                // (In this context, we're already viewing the user's own copies)
+                const editButton = `
+                    <button onclick="editPhysicalCopy('${copyId}')" class="btn btn-sm btn-secondary" title="Edit">
+                        <i class="icon icon-edit"></i>
+                    </button>
+                `;
+                
                 copyCard.innerHTML = `
                     <div class="copy-main-info">
                         <div class="copy-format-badge">${data.format || 'Unknown'}</div>
@@ -647,7 +656,7 @@ async function displayAllPhysicalCopies(userData, movieId) {
                             ${data.edition ? `<span class="copy-edition">${data.edition}</span>` : ''}
                             ${data.barcode ? `<span class="copy-barcode">UPC: ${data.barcode}</span>` : ''}
                             ${data.distributor ? `<span class="copy-distributor">${data.distributor}</span>` : ''}
-                            ${data.region ? `<span class="copy-region">Region ${data.region}</span>` : ''}
+                            ${data.region ? `<span class="copy-region">${data.region}</span>` : ''}
                         </div>
                         ${data.features && data.features.length > 0 ? 
                             `<div class="copy-features">
@@ -655,9 +664,7 @@ async function displayAllPhysicalCopies(userData, movieId) {
                             </div>` : ''}
                     </div>
                     <div class="copy-actions">
-                        <button onclick="editPhysicalCopy('${copyId}')" class="btn btn-sm btn-secondary" title="Edit">
-                            <i class="icon icon-edit"></i>
-                        </button>
+                        ${editButton}
                     </div>
                 `;
                 listContainer.appendChild(copyCard);
@@ -685,10 +692,12 @@ function addNewPhysicalCopy() {
     // Scroll to form
     document.getElementById('physicalCopyForm').scrollIntoView({ behavior: 'smooth' });
 }
+// In edit-movie.html, REPLACE the existing editPhysicalCopy function with this:
+
 /* Edit an existing physical copy */
 async function editPhysicalCopy(copyId) {
     editingPhysicalCopyId = copyId;
-    document.getElementById('physicalFormTitle').textContent = 'edit physical copy';
+    document.getElementById('physicalFormTitle').textContent = 'Edit Physical Copy';
     document.getElementById('physicalCopyForm').style.display = 'block';
     
     try {
@@ -698,7 +707,24 @@ async function editPhysicalCopy(copyId) {
             
             // Populate form with existing data
             document.getElementById('edition-format').value = data.format || '';
-            populateEdition(data.edition || '');
+            
+            // Handle edition field (check if it's a standard option or custom)
+            const editionSelect = document.getElementById('edition');
+            const otherEditionText = document.getElementById('other-edition-text');
+            const standardEditions = ['Standard', 'Collector\'s Edition', 'Director\'s Cut', 
+                                     'Extended Edition', 'Special Edition', 'Limited Edition', 
+                                     'Criterion Collection', 'Anniversary Edition'];
+            
+            if (standardEditions.includes(data.edition)) {
+                editionSelect.value = data.edition;
+                otherEditionText.style.display = 'none';
+                otherEditionText.value = '';
+            } else {
+                editionSelect.value = 'other';
+                otherEditionText.style.display = 'block';
+                otherEditionText.value = data.edition || '';
+            }
+            
             document.getElementById('region').value = data.region || '';
             document.getElementById('edition-distributor').value = data.distributor || '';
             document.getElementById('upc-code').value = data.barcode || '';
@@ -710,6 +736,11 @@ async function editPhysicalCopy(copyId) {
                     feature.toLowerCase().includes(cb.value.split('/')[0].toLowerCase())
                 );
             });
+            
+            // Store the current UPC data if we have a title
+            if (data.title) {
+                currentUpcData = { originalTitle: data.title };
+            }
         }
         
         // Scroll to form
