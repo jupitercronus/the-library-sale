@@ -334,11 +334,58 @@ async function loadFreshData(userId) {
     
     await Promise.all(batchPromises);
 
-    const freshMedia = movieIds.map(id => ({
-        ...movieData[id],
-        ...interactions[id],
-        movieId: id
-    })).filter(movie => movie.title);
+    const allPhysicalCopyIds = new Set();
+        Object.values(interactions).forEach(interaction => {
+            if (interaction.physicalCopies && interaction.physicalCopies.length > 0) {
+                interaction.physicalCopies.forEach(id => allPhysicalCopyIds.add(id));
+            }
+        });
+
+    // Fetch physical copy details if there are any
+    const physicalCopyMap = new Map();
+    if (allPhysicalCopyIds.size > 0) {
+        const copyIds = Array.from(allPhysicalCopyIds);
+        const copyBatchPromises = [];
+        
+        for (let i = 0; i < copyIds.length; i += 10) {
+            const batch = copyIds.slice(i, i + 10);
+            const batchPromise = db.collection('physicalCopies')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                .get()
+                .then(snapshot => {
+                    snapshot.docs.forEach(doc => {
+                        physicalCopyMap.set(doc.id, doc.data());
+                    });
+                });
+            copyBatchPromises.push(batchPromise);
+        }
+        
+        await Promise.all(copyBatchPromises);
+    }
+
+    // Merge physical copy data with movies
+    const freshMedia = movieIds.map(id => {
+        const movie = {
+            ...movieData[id],
+            ...interactions[id],
+            movieId: id
+        };
+        
+        // Add physical edition data if available
+        if (movie.physicalCopies && movie.physicalCopies.length > 0) {
+            const firstCopyId = movie.physicalCopies[0];
+            const copyData = physicalCopyMap.get(firstCopyId);
+            if (copyData) {
+                movie.physicalEdition = {
+                    edition: copyData.edition || 'Standard',
+                    format: copyData.format || 'DVD',
+                    region: copyData.region || 'Unknown'
+                };
+            }
+        }
+        
+        return movie;
+    }).filter(movie => movie.title);
 
     // Cache the newly fetched data
     setCachedData({
