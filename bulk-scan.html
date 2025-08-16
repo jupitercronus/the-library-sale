@@ -338,6 +338,7 @@ async function addAllConfirmedAndReview() {
         }
         
         // NOW, handle the redirect
+        localStorage.removeItem('bulkScanProgress');
         if (reviewItems.length > 0) {
             sessionStorage.setItem('reviewQueue', JSON.stringify({
                 items: reviewItems,
@@ -373,11 +374,14 @@ async function sendAllToReview() {
     }
     
     // Send everything to review queue
+    localStorage.removeItem('bulkScanProgress');
     sessionStorage.setItem('reviewQueue', JSON.stringify({
         items: allProcessableItems,
         timestamp: Date.now(),
         totalFound: 0
     }));
+    
+    window.location.href = 'review-failed.html';
     
     window.location.href = 'review-failed.html';
 }

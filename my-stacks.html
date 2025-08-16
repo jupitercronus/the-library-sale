@@ -164,7 +164,24 @@
         let groupsCurrentlyShown = 0;
         let currentlyDisplayedGroups = [];
 
-        // Cache management (add after line 130)
+        const MAIN_GENRES = {
+            'Action & Adventure': ['action', 'adventure', 'martial arts', 'superhero', 'vigilante', 'espionage', 'spy'],
+            'Comedy': ['comedy', 'romantic comedy', 'rom-com', 'dark comedy', 'satire', 'parody', 'slapstick', 'mockumentary'],
+            'Drama': ['drama', 'melodrama', 'tragedy', 'character study', 'coming-of-age'],
+            'Horror & Thriller': ['horror', 'thriller', 'psychological thriller', 'slasher', 'suspense', 'supernatural', 'zombie', 'vampire', 'monster'],
+            'Sci-Fi & Fantasy': ['sci-fi', 'science fiction', 'fantasy', 'dystopian', 'cyberpunk', 'space', 'time travel', 'alternate reality', 'steampunk'],
+            'Romance': ['romance', 'romantic', 'love story', 'romantic drama'],
+            'Crime & Mystery': ['crime', 'mystery', 'detective', 'noir', 'neo-noir', 'whodunit', 'heist', 'gangster', 'mafia'],
+            'Documentary': ['documentary', 'docudrama', 'true crime documentary'],
+            'Animation': ['animation', 'animated', 'anime', 'cartoon', 'cgi', 'stop-motion'],
+            'Western': ['western', 'neo-western', 'spaghetti western'],
+            'Historical': ['history', 'historical', 'based on a true story', 'true story', 'biography', 'biographical', 'biopic', 'memoir', 'war', 'military', 'combat', 'period piece', 'historical drama'],
+            'Family': ['family', 'kids', 'children', 'disney', 'pixar'],
+            'Musical': ['musical', 'music', 'concert', 'jukebox musical'],
+            'Indie': ['indie', 'independent', 'arthouse', 'experimental', 'mumblecore', 'underground']
+        };
+
+        // Cache management
         const CACHE_KEY = 'dvd_collection_cache';
         const CACHE_EXPIRY_KEY = 'dvd_collection_cache_expiry';
         const CACHE_DURATION = 60 * 60 * 1000; // 30 minutes
@@ -172,207 +189,241 @@
         // Session storage for ultra-fast same-session access
         const SESSION_CACHE_KEY = 'dvd_collection_session';
 
-    function getCachedData() {
-        // First check session storage (fastest)
-        const sessionCached = sessionStorage.getItem(SESSION_CACHE_KEY);
-        if (sessionCached) {
-            const data = JSON.parse(sessionCached);
-            // Session storage doesn't expire during the session
-            console.log('Using session cache (ultra-fast)');
-            return data;
+function getCachedData() {
+    // First check session storage (fastest)
+    const sessionCached = sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (sessionCached) {
+        const data = JSON.parse(sessionCached);
+        // Session storage doesn't expire during the session
+        console.log('Using session cache (ultra-fast)');
+        return data;
+    }
+    
+    // Then check localStorage (persistent cache)
+    const cached = localStorage.getItem(CACHE_KEY);
+    const expiry = localStorage.getItem(CACHE_EXPIRY_KEY);
+    
+    if (cached && expiry && new Date().getTime() < parseInt(expiry)) {
+        console.log('Using local storage cache');
+        // Also store in session for next access
+        sessionStorage.setItem(SESSION_CACHE_KEY, cached);
+        return JSON.parse(cached);
+    }
+    
+    // Check if we have preview data from profile page
+    const preview = localStorage.getItem(CACHE_KEY + '_preview');
+    if (preview) {
+        console.log('Using preview cache from profile');
+        return JSON.parse(preview);
+    }
+    
+    return null;
+}
+
+function setCachedData(data) {
+    // Store in both storages
+    const dataStr = JSON.stringify(data);
+    
+    // Session storage (fastest access)
+    sessionStorage.setItem(SESSION_CACHE_KEY, dataStr);
+    
+    // Local storage (persistent)
+    localStorage.setItem(CACHE_KEY, dataStr);
+    localStorage.setItem(CACHE_EXPIRY_KEY, new Date().getTime() + CACHE_DURATION);
+}
+
+function clearCache() {
+    // Clear all caches
+    sessionStorage.removeItem(SESSION_CACHE_KEY);
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_EXPIRY_KEY);
+    localStorage.removeItem(CACHE_KEY + '_preview');
+}
+
+// Initialize on auth state change
+document.addEventListener('authStateReady', (e) => {
+    currentUser = e.detail.user;
+    if (currentUser) {
+        // Now that the user is confirmed, load the collection data
+        loadUserCollection(currentUser.uid);
+    } else {
+        // This page requires a user, so redirect if they are not logged in
+        window.location.href = 'auth.html';
+    }
+});
+
+// Load user's collection
+async function loadUserCollection(userId) {
+    // --- 1. Set initial UI state ---
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('groupsContainer').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('cacheIndicator').style.display = 'none';
+
+    try {
+        const cachedData = getCachedData();
+
+        // --- 2. Decide whether to use cache or fetch fresh data ---
+        if (cachedData && cachedData.userId === userId) {
+            console.log('Using cached data.');
+            allOwnedMedia = cachedData.media || []; 
+            document.getElementById('cacheIndicator').style.display = 'flex';
+            refreshDataInBackground(userId); // Silently check for updates in the background
+        } else {
+            console.log('No valid cache. Fetching fresh data.');
+            allOwnedMedia = await loadFreshData(userId); // Get data from Firestore
         }
-        
-        // Then check localStorage (persistent cache)
-        const cached = localStorage.getItem(CACHE_KEY);
-        const expiry = localStorage.getItem(CACHE_EXPIRY_KEY);
-        
-        if (cached && expiry && new Date().getTime() < parseInt(expiry)) {
-            console.log('Using local storage cache');
-            // Also store in session for next access
-            sessionStorage.setItem(SESSION_CACHE_KEY, cached);
-            return JSON.parse(cached);
+
+        // --- 3. Update the UI now that data is guaranteed to be ready ---
+        if (allOwnedMedia && allOwnedMedia.length > 0) {
+            updateOverviewStats();
+            groupAndDisplay();
+            document.getElementById('groupsContainer').style.display = 'block';
+        } else {
+            // Show a friendly message if the user owns no media
+            document.getElementById('emptyState').style.display = 'block';
         }
-        
-        // Check if we have preview data from profile page
-        const preview = localStorage.getItem(CACHE_KEY + '_preview');
-        if (preview) {
-            console.log('Using preview cache from profile');
-            return JSON.parse(preview);
-        }
-        
-        return null;
+
+    } catch (error) {
+        console.error('Error loading collection:', error);
+        // Display a clear error message on the page
+        document.getElementById('emptyState').innerHTML = `
+            <span class="icon icon-close icon-3xl"></span>
+            <h3>Error Loading Collection</h3>
+            <p>There was a problem fetching your data. Please try refreshing.</p>
+            <button class="btn btn-primary" onclick="clearCache(); location.reload();">Try Again</button>
+        `;
+        document.getElementById('emptyState').style.display = 'block';
+    } finally {
+        // --- 4. Always hide the loading spinner at the end ---
+        document.getElementById('loadingState').style.display = 'none';
+    }
+}
+async function loadFreshData(userId) {
+    const interactionsSnapshot = await db.collection('users')
+        .doc(userId)
+        .collection('movieInteractions')
+        .where('owned', '==', true)
+        .get();
+
+    if (interactionsSnapshot.empty) {
+        return []; // Return an empty array if no media is owned
     }
 
-        function setCachedData(data) {
-            // Store in both storages
-            const dataStr = JSON.stringify(data);
-            
-            // Session storage (fastest access)
-            sessionStorage.setItem(SESSION_CACHE_KEY, dataStr);
-            
-            // Local storage (persistent)
-            localStorage.setItem(CACHE_KEY, dataStr);
-            localStorage.setItem(CACHE_EXPIRY_KEY, new Date().getTime() + CACHE_DURATION);
-        }
+    const movieIds = interactionsSnapshot.docs.map(doc => doc.id);
+    const interactions = {};
+    interactionsSnapshot.docs.forEach(doc => {
+        interactions[doc.id] = doc.data();
+    });
 
-        function clearCache() {
-            // Clear all caches
-            sessionStorage.removeItem(SESSION_CACHE_KEY);
-            localStorage.removeItem(CACHE_KEY);
-            localStorage.removeItem(CACHE_EXPIRY_KEY);
-            localStorage.removeItem(CACHE_KEY + '_preview');
-        }
+    const movieData = {};
+    const batchPromises = [];
+    
+    for (let i = 0; i < movieIds.length; i += 10) {
+        const batch = movieIds.slice(i, i + 10);
+        const batchPromise = db.collection('movies')
+            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+            .get()
+            .then(snapshot => {
+                snapshot.docs.forEach(doc => {
+                    movieData[doc.id] = { ...doc.data(), id: doc.id };
+                });
+            });
+        batchPromises.push(batchPromise);
+    }
+    
+    await Promise.all(batchPromises);
 
-        // Initialize on auth state change
-        document.addEventListener('authStateReady', (e) => {
-            currentUser = e.detail.user;
-            if (currentUser) {
-                // Now that the user is confirmed, load the collection data
-                loadUserCollection(currentUser.uid);
-            } else {
-                // This page requires a user, so redirect if they are not logged in
-                window.location.href = 'auth.html';
-            }
+    const freshMedia = movieIds.map(id => ({
+        ...movieData[id],
+        ...interactions[id],
+        movieId: id
+    })).filter(movie => movie.title);
+
+    // Cache the newly fetched data
+    setCachedData({
+        userId: userId,
+        media: freshMedia,
+        timestamp: new Date().getTime()
+    });
+
+    // Return the data to the function that called it
+    return freshMedia;
+}
+async function refreshDataInBackground(userId) {
+    try {
+        // Silently refresh data in background
+        const interactionsSnapshot = await db.collection('users')
+            .doc(userId)
+            .collection('movieInteractions')
+            .where('owned', '==', true)
+            .get();
+
+        if (interactionsSnapshot.empty) return;
+
+        const movieIds = interactionsSnapshot.docs.map(doc => doc.id);
+        const interactions = {};
+        interactionsSnapshot.docs.forEach(doc => {
+            interactions[doc.id] = doc.data();
         });
 
-        // Load user's collection
-        async function loadUserCollection(userId) {
-            // --- 1. Set initial UI state ---
-            document.getElementById('loadingState').style.display = 'block';
-            document.getElementById('groupsContainer').style.display = 'none';
-            document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('cacheIndicator').style.display = 'none';
+        // Check if collection size changed
+        if (movieIds.length !== allOwnedMedia.length) {
+            // Significant change, reload fresh data
+            await loadFreshData(userId);
+        }
+    } catch (error) {
+        console.error('Background refresh failed:', error);
+    }
+}
 
-            try {
-                const cachedData = getCachedData();
+// Update overview statistics
+function updateOverviewStats() {
+    const totalOwned = allOwnedMedia.length;
+    const totalWatched = allOwnedMedia.filter(m => m.watched).length;
+    const completionRate = totalOwned > 0 
+        ? Math.round((totalWatched / totalOwned) * 100) + '%'
+        : '0%';
 
-                // --- 2. Decide whether to use cache or fetch fresh data ---
-                if (cachedData && cachedData.userId === userId) {
-                    console.log('Using cached data.');
-                    allOwnedMedia = cachedData.media || []; 
-                    document.getElementById('cacheIndicator').style.display = 'flex';
-                    refreshDataInBackground(userId); // Silently check for updates in the background
-                } else {
-                    console.log('No valid cache. Fetching fresh data.');
-                    allOwnedMedia = await loadFreshData(userId); // Get data from Firestore
-                }
-
-                // --- 3. Update the UI now that data is guaranteed to be ready ---
-                if (allOwnedMedia && allOwnedMedia.length > 0) {
-                    updateOverviewStats();
-                    groupAndDisplay();
-                    document.getElementById('groupsContainer').style.display = 'block';
-                } else {
-                    // Show a friendly message if the user owns no media
-                    document.getElementById('emptyState').style.display = 'block';
-                }
-
-            } catch (error) {
-                console.error('Error loading collection:', error);
-                // Display a clear error message on the page
-                document.getElementById('emptyState').innerHTML = `
-                    <span class="icon icon-close icon-3xl"></span>
-                    <h3>Error Loading Collection</h3>
-                    <p>There was a problem fetching your data. Please try refreshing.</p>
-                    <button class="btn btn-primary" onclick="clearCache(); location.reload();">Try Again</button>
-                `;
-                document.getElementById('emptyState').style.display = 'block';
-            } finally {
-                // --- 4. Always hide the loading spinner at the end ---
-                document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('totalOwned').textContent = totalOwned;
+    document.getElementById('totalWatched').textContent = totalWatched;
+    document.getElementById('completionRate').textContent = completionRate;
+}
+function normalizeGenres(genreString) {
+    if (!genreString) return ['Unknown'];
+    
+    // Split by common delimiters
+    const genres = genreString.split(/[,&\/]/).map(g => g.trim().toLowerCase());
+    const normalizedGenres = new Set();
+    
+    genres.forEach(genre => {
+        let matched = false;
+        
+        // Check each main genre category
+        for (const [mainGenre, subGenres] of Object.entries(MAIN_GENRES)) {
+            if (subGenres.some(sub => genre.includes(sub))) {
+                normalizedGenres.add(mainGenre);
+                matched = true;
             }
         }
-        async function loadFreshData(userId) {
-            const interactionsSnapshot = await db.collection('users')
-                .doc(userId)
-                .collection('movieInteractions')
-                .where('owned', '==', true)
-                .get();
-
-            if (interactionsSnapshot.empty) {
-                return []; // Return an empty array if no media is owned
-            }
-
-            const movieIds = interactionsSnapshot.docs.map(doc => doc.id);
-            const interactions = {};
-            interactionsSnapshot.docs.forEach(doc => {
-                interactions[doc.id] = doc.data();
-            });
-
-            const movieData = {};
-            const batchPromises = [];
-            
-            for (let i = 0; i < movieIds.length; i += 10) {
-                const batch = movieIds.slice(i, i + 10);
-                const batchPromise = db.collection('movies')
-                    .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
-                    .get()
-                    .then(snapshot => {
-                        snapshot.docs.forEach(doc => {
-                            movieData[doc.id] = { ...doc.data(), id: doc.id };
-                        });
-                    });
-                batchPromises.push(batchPromise);
-            }
-            
-            await Promise.all(batchPromises);
-
-            const freshMedia = movieIds.map(id => ({
-                ...movieData[id],
-                ...interactions[id],
-                movieId: id
-            })).filter(movie => movie.title);
-
-            // Cache the newly fetched data
-            setCachedData({
-                userId: userId,
-                media: freshMedia,
-                timestamp: new Date().getTime()
-            });
-
-            // Return the data to the function that called it
-            return freshMedia;
-        }
-        async function refreshDataInBackground(userId) {
-            try {
-                // Silently refresh data in background
-                const interactionsSnapshot = await db.collection('users')
-                    .doc(userId)
-                    .collection('movieInteractions')
-                    .where('owned', '==', true)
-                    .get();
-
-                if (interactionsSnapshot.empty) return;
-
-                const movieIds = interactionsSnapshot.docs.map(doc => doc.id);
-                const interactions = {};
-                interactionsSnapshot.docs.forEach(doc => {
-                    interactions[doc.id] = doc.data();
-                });
-
-                // Check if collection size changed
-                if (movieIds.length !== allOwnedMedia.length) {
-                    // Significant change, reload fresh data
-                    await loadFreshData(userId);
-                }
-            } catch (error) {
-                console.error('Background refresh failed:', error);
+        
+        // If no match, check if it IS a main genre name itself
+        if (!matched) {
+            const mainGenreNames = Object.keys(MAIN_GENRES);
+            const exactMatch = mainGenreNames.find(main => 
+                main.toLowerCase() === genre
+            );
+            if (exactMatch) {
+                normalizedGenres.add(exactMatch);
+            } else {
+                // Keep original for truly unique genres (will likely go to "Other Genres" later)
+                normalizedGenres.add(genre);
             }
         }
-
-        // Update overview statistics
-        function updateOverviewStats() {
-            const totalOwned = allOwnedMedia.length;
-            const totalWatched = allOwnedMedia.filter(m => m.watched).length;
-            const completionRate = totalOwned > 0 
-                ? Math.round((totalWatched / totalOwned) * 100) + '%'
-                : '0%';
-
-            document.getElementById('totalOwned').textContent = totalOwned;
-            document.getElementById('totalWatched').textContent = totalWatched;
-            document.getElementById('completionRate').textContent = completionRate;
-        }
-
+    });
+    
+    return normalizedGenres.size > 0 ? Array.from(normalizedGenres) : ['Unknown'];
+}
 function groupAndDisplay() {
     let groups = {}; // Use 'let' instead of 'const' to allow reassignment    
 
@@ -381,7 +432,7 @@ function groupAndDisplay() {
         let groupKeys = [];
         switch (currentGroupBy) {
             case 'genre':
-                groupKeys = movie.genre ? movie.genre.split(',').map(g => g.trim()) : ['Unknown'];
+                groupKeys = normalizeGenres(movie.genre);
                 break;
             case 'director':
                 groupKeys = [movie.director || 'Unknown Director'];
@@ -406,15 +457,42 @@ function groupAndDisplay() {
                 groupKeys = cast.slice(0, 3);
                 break;
             case 'edition':
-                groupKeys = [(movie.physicalEdition && movie.physicalEdition.edition) || 'Standard'];
+                // Updated to properly handle edition data from physicalEdition
+                let edition = 'Standard';
+                if (movie.physicalEdition && movie.physicalEdition.edition) {
+                    edition = movie.physicalEdition.edition;
+                    
+                    // Normalize edition names for better grouping
+                    const editionLower = edition.toLowerCase();
+                    if (editionLower === 'standard' || editionLower === '') {
+                        edition = 'Standard';
+                    } else if (editionLower === 'fullscreen') {
+                        edition = 'Fullscreen';
+                    } else if (editionLower === 'widescreen') {
+                        edition = 'Widescreen';
+                    } else if (editionLower.includes('special')) {
+                        edition = 'Special Edition';
+                    } else if (editionLower.includes('collector')) {
+                        edition = "Collector's Edition";
+                    } else if (editionLower.includes('director')) {
+                        edition = "Director's Cut";
+                    } else if (editionLower.includes('extended')) {
+                        edition = 'Extended Version';
+                    } else if (editionLower.includes('criterion')) {
+                        edition = 'Criterion Collection';
+                    } else {
+                        // Keep the original edition name for "other" editions
+                        edition = movie.physicalEdition.edition;
+                    }
+                }
+                groupKeys = [edition];
                 break;
-        }
+            }
         groupKeys.forEach(key => {
             if (!groups[key]) groups[key] = [];
             groups[key].push(movie);
         });
     });
-    // --- THIS IS THE NEW LOGIC ---
     // Step 1.5: Consolidate small groups for specific views
     if (currentGroupBy === 'director') {
         // For directors, keep the threshold at 2 and create the "Various Directors" group
@@ -422,6 +500,9 @@ function groupAndDisplay() {
     } else if (currentGroupBy === 'cast') {
         // For cast, set a threshold of 3 and DO NOT create an "Other" group
         groups = consolidateSmallGroups(groups, 3, '', false);
+    } else if (currentGroupBy === 'genre') {
+        // For genres, consolidate small ones into "Other Genres"
+        groups = consolidateSmallGroups(groups, 3, 'Other Genres', true);
     }
 
     // Step 2: Convert to an array and apply robust sorting
@@ -483,131 +564,131 @@ function groupAndDisplay() {
     displayGroups(sortedGroups);
 }
 
-        // Display grouped media
-        function displayGroups(sortedGroups) {
-            // Store the full list of groups so we can add to it later
-            currentlyDisplayedGroups = sortedGroups; 
-            groupsCurrentlyShown = 0; // Reset on every re-display
-            
-            const container = document.getElementById('groupsContainer');
-            container.innerHTML = ''; // Clear previous results
-            
-            if (currentViewMode === 'stats') {
-                displayStatsView(currentlyDisplayedGroups, container);
-                // Hide the load more button in stats view
-                document.getElementById('loadMoreContainer').style.display = 'none';
-                return;
-            }
+    // Display grouped media
+    function displayGroups(sortedGroups) {
+        // Store the full list of groups so we can add to it later
+        currentlyDisplayedGroups = sortedGroups; 
+        groupsCurrentlyShown = 0; // Reset on every re-display
+        
+        const container = document.getElementById('groupsContainer');
+        container.innerHTML = ''; // Clear previous results
+        
+        if (currentViewMode === 'stats') {
+            displayStatsView(currentlyDisplayedGroups, container);
+            // Hide the load more button in stats view
+            document.getElementById('loadMoreContainer').style.display = 'none';
+            return;
+        }
 
-            // Initial render of the first batch of groups
-            appendNextGroups();
+        // Initial render of the first batch of groups
+        appendNextGroups();
 
-            // Apply sorting to the groups themselves
-            let groupsToDisplay = [...sortedGroups];
+        // Apply sorting to the groups themselves
+        let groupsToDisplay = [...sortedGroups];
 
-            switch (sortOrder) {
-                case 'titleAsc':
-                    groupsToDisplay.sort((a, b) => a[0].localeCompare(b[0]));
-                    break;
-                case 'titleDesc':
-                    groupsToDisplay.sort((a, b) => b[0].localeCompare(a[0]));
-                    break;
-                case 'yearAsc':
-                    // For year sorting, only works when grouping by year/decade
-                    if (currentGroupBy === 'year' || currentGroupBy === 'decade') {
-                        groupsToDisplay.sort((a, b) => {
-                            const yearA = parseInt(a[0]) || 0;
-                            const yearB = parseInt(b[0]) || 0;
-                            return yearA - yearB;
-                        });
-                    } else {
-                        // Fall back to alphabetical if not year-based grouping
-                        groupsToDisplay.sort((a, b) => a[0].localeCompare(b[0]));
-                    }
-                    break;
-                case 'yearDesc':
-                    // For year sorting, only works when grouping by year/decade
-                    if (currentGroupBy === 'year' || currentGroupBy === 'decade') {
-                        groupsToDisplay.sort((a, b) => {
-                            const yearA = parseInt(a[0]) || 9999;
-                            const yearB = parseInt(b[0]) || 9999;
-                            return yearB - yearA;
-                        });
-                    } else {
-                        // Fall back to alphabetical if not year-based grouping
-                        groupsToDisplay.sort((a, b) => b[0].localeCompare(a[0]));
-                    }
-                    break;
-            }
-
-             // Apply search filter to movies within groups
-            if (searchTerm) {
-                const search = searchTerm.toLowerCase();
-                groupsToDisplay = groupsToDisplay.map(([groupName, movies]) => {
-                    const filtered = movies.filter(movie => {
-                        const title = (movie.title || '').toLowerCase();
-                        const director = (movie.director || '').toLowerCase();
-                        const genre = (movie.genre || '').toLowerCase();
-                        const year = (movie.year || '').toString();
-                        const cast = Array.isArray(movie.cast) 
-                            ? movie.cast.join(' ').toLowerCase() 
-                            : (movie.cast || '').toLowerCase();
-                        
-                        return title.includes(search) ||
-                            director.includes(search) ||
-                            genre.includes(search) ||
-                            year.includes(search) ||
-                            cast.includes(search);
+        switch (sortOrder) {
+            case 'titleAsc':
+                groupsToDisplay.sort((a, b) => a[0].localeCompare(b[0]));
+                break;
+            case 'titleDesc':
+                groupsToDisplay.sort((a, b) => b[0].localeCompare(a[0]));
+                break;
+            case 'yearAsc':
+                // For year sorting, only works when grouping by year/decade
+                if (currentGroupBy === 'year' || currentGroupBy === 'decade') {
+                    groupsToDisplay.sort((a, b) => {
+                        const yearA = parseInt(a[0]) || 0;
+                        const yearB = parseInt(b[0]) || 0;
+                        return yearA - yearB;
                     });
-                    return [groupName, filtered];
-                }).filter(([_, movies]) => movies.length > 0); // Remove empty groups
-            }
-            
-            if (currentViewMode === 'stats') {
-                displayStatsView(groupsToDisplay, container);
-                return;
-            }
+                } else {
+                    // Fall back to alphabetical if not year-based grouping
+                    groupsToDisplay.sort((a, b) => a[0].localeCompare(b[0]));
+                }
+                break;
+            case 'yearDesc':
+                // For year sorting, only works when grouping by year/decade
+                if (currentGroupBy === 'year' || currentGroupBy === 'decade') {
+                    groupsToDisplay.sort((a, b) => {
+                        const yearA = parseInt(a[0]) || 9999;
+                        const yearB = parseInt(b[0]) || 9999;
+                        return yearB - yearA;
+                    });
+                } else {
+                    // Fall back to alphabetical if not year-based grouping
+                    groupsToDisplay.sort((a, b) => b[0].localeCompare(a[0]));
+                }
+                break;
+        }
 
-            
-            if (currentViewMode === 'stats') {
-                displayStatsView(sortedGroups, container);
-                return;
-            }
+            // Apply search filter to movies within groups
+        if (searchTerm) {
+            const search = searchTerm.toLowerCase();
+            groupsToDisplay = groupsToDisplay.map(([groupName, movies]) => {
+                const filtered = movies.filter(movie => {
+                    const title = (movie.title || '').toLowerCase();
+                    const director = (movie.director || '').toLowerCase();
+                    const genre = (movie.genre || '').toLowerCase();
+                    const year = (movie.year || '').toString();
+                    const cast = Array.isArray(movie.cast) 
+                        ? movie.cast.join(' ').toLowerCase() 
+                        : (movie.cast || '').toLowerCase();
+                    
+                    return title.includes(search) ||
+                        director.includes(search) ||
+                        genre.includes(search) ||
+                        year.includes(search) ||
+                        cast.includes(search);
+                });
+                return [groupName, filtered];
+            }).filter(([_, movies]) => movies.length > 0); // Remove empty groups
+        }
+        
+        if (currentViewMode === 'stats') {
+            displayStatsView(groupsToDisplay, container);
+            return;
+        }
 
-            container.innerHTML = sortedGroups.map(([groupName, movies], index) => {
-                const watchedCount = movies.filter(m => m.watched).length;
-                const completionPercent = Math.round((watchedCount / movies.length) * 100);
-                const avgRating = calculateAverageRating(movies);
-                
-                return `
-                    <div class="collection-group" data-group-index="${index}">
-                        <div class="group-header" onclick="toggleGroup(${index})">
-                            <div class="group-info">
-                                <h2 class="group-title">
-                                    <span class="group-expand-icon" data-expanded="false">▶</span>
-                                    ${groupName}
-                                </h2>
-                                <div class="group-stats">
-                                    <span class="group-stat">${movies.length} titles</span>
-                                    <span class="group-stat">${watchedCount} watched</span>
-                                    ${avgRating > 0 ? `<span class="group-stat"><span class="icon star-full"></span> ${avgRating.toFixed(1)}</span>` : ''}                                </div>
-                            </div>
-                            <div class="group-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${completionPercent}%"></div>
-                                </div>
-                                <span class="progress-text">${completionPercent}%</span>
-                            </div>
+        
+        if (currentViewMode === 'stats') {
+            displayStatsView(sortedGroups, container);
+            return;
+        }
+
+        container.innerHTML = sortedGroups.map(([groupName, movies], index) => {
+            const watchedCount = movies.filter(m => m.watched).length;
+            const completionPercent = Math.round((watchedCount / movies.length) * 100);
+            const avgRating = calculateAverageRating(movies);
+            
+            return `
+                <div class="collection-group" data-group-index="${index}">
+                    <div class="group-header" onclick="toggleGroup(${index})">
+                        <div class="group-info">
+                            <h2 class="group-title">
+                                <span class="group-expand-icon" data-expanded="false">▶</span>
+                                ${groupName}
+                            </h2>
+                            <div class="group-stats">
+                                <span class="group-stat">${movies.length} titles</span>
+                                <span class="group-stat">${watchedCount} watched</span>
+                                ${avgRating > 0 ? `<span class="group-stat"><span class="icon star-full"></span> ${avgRating.toFixed(1)}</span>` : ''}                                </div>
                         </div>
-                        <div class="group-content" id="group-content-${index}" style="display: none;">
-                            ${currentViewMode === 'grid' ? 
-                                renderGridView(movies) : 
-                                renderListView(movies)}
+                        <div class="group-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${completionPercent}%"></div>
+                            </div>
+                            <span class="progress-text">${completionPercent}%</span>
                         </div>
                     </div>
-                `;
-            }).join('');
-        }
+                    <div class="group-content" id="group-content-${index}" style="display: none;">
+                        ${currentViewMode === 'grid' ? 
+                            renderGridView(movies) : 
+                            renderListView(movies)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 
     function appendNextGroups() {
         const container = document.getElementById('groupsContainer');
