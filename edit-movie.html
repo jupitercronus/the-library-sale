@@ -466,7 +466,8 @@ async function editPhysicalCopy(copyId) {
 }
 async function savePhysicalCopy() {
     const physicalData = {
-        title: (currentUpcData && currentUpcData.originalTitle) ? currentUpcData.originalTitle : (document.getElementById('movie-title').textContent || 'Unknown Title'),        format: document.getElementById('edition-format').value || '',
+        title: (currentUpcData && currentUpcData.originalTitle) ? currentUpcData.originalTitle : (document.getElementById('movie-title').textContent || 'Unknown Title'),        
+        format: document.getElementById('edition-format').value || '',
         edition: document.getElementById('edition').value === 'other' 
             ? document.getElementById('other-edition-text').value 
             : document.getElementById('edition').value || '',

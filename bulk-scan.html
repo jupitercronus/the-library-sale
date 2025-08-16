@@ -611,6 +611,15 @@ async function saveItemsToLibrary(items) {
     LibraryUtils.ui.showStatusMessage(message, errorCount > 0 ? 'warning' : 'success');
     
     return { successCount, duplicateCount, errorCount };
+
+        if (dbResult.physicalCopyId) {
+        // Verify the physical copy was actually created
+        const verifyDoc = await db.collection('physicalCopies').doc(dbResult.physicalCopyId).get();
+        if (!verifyDoc.exists) {
+            console.error('Physical copy ID returned but document does not exist!');
+            // Handle this error appropriately
+        }
+    }
 }
 //Function to show a toast notification
 function showToastNotification(message, status = 'info') {

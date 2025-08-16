@@ -402,9 +402,6 @@ const MediaLookupUtils = {
         }
     },
 
-   /**
-     * Create new physical copy in database
-     */
     async createPhysicalCopy(movieId, physicalEditionData, userId) {
         try {
             const uniqueId = this.generateUniqueIdentifier(
@@ -413,7 +410,7 @@ const MediaLookupUtils = {
                 physicalEditionData.edition,
                 physicalEditionData.region
             );
-
+    
             const copyData = {
                 movieId: movieId,
                 userId: userId,
@@ -429,11 +426,15 @@ const MediaLookupUtils = {
                 scannedBy: userId,
                 scanCount: 1
             };
-
+    
             console.log('📦 Creating physical copy with data:', copyData);
             
-            // THIS IS THE CRITICAL LINE THAT WAS MISSING:
+            // ENSURE THIS LINE EXECUTES:
             const copyRef = await db.collection('physicalCopies').add(copyData);
+            
+            if (!copyRef || !copyRef.id) {
+                throw new Error('Failed to create physical copy document');
+            }
             
             console.log('📦 Physical copy created successfully with ID:', copyRef.id);
             return copyRef.id;
