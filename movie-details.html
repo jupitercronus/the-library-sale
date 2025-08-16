@@ -525,7 +525,7 @@ async function loadPhysicalCopies(interactions, currentUser, isAdmin) {
             // Add edit/delete buttons only for current user's copies
             const actionButtons = canModify ? `
                 <div class="copy-actions">
-                    <button onclick="editPhysicalCopy('${copyId}', '${copyData.movieId || movieId}')" 
+                    <button onclick="editPhysicalCopy('${copyId}', '${new URLSearchParams(window.location.search).get('id')}')" 
                             class="btn btn-md btn-primary" title="Edit">
                         <i class="icon icon-edit"></i>
                     </button>
@@ -608,8 +608,19 @@ async function loadPhysicalCopies(interactions, currentUser, isAdmin) {
         }
 }   
 function editPhysicalCopy(copyId, movieId) {
-    // Redirect to edit-movie page with a special parameter to focus on physical copy editing
-    window.location.href = `edit-movie.html?id=${movieId}&editCopy=${copyId}`; 
+    // If movieId is not provided or is invalid, get it from current URL
+    if (!movieId || movieId === 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        movieId = urlParams.get('id');
+    }
+    
+    if (!movieId) {
+        console.error('Cannot edit physical copy: Movie ID not found');
+        return;
+    }
+    
+    // Redirect to edit-movie page
+    window.location.href = `edit-movie.html?id=${movieId}&editCopy=${copyId}`;
 }
 function setupCommentForm(user, movieId, myInteraction) {
     // --- Get DOM Elements ---
