@@ -426,9 +426,8 @@ async function editPhysicalCopy(copyId) {
             // Handle edition field (check if it's a standard option or custom)
             const editionSelect = document.getElementById('edition');
             const otherEditionText = document.getElementById('other-edition-text');
-            const standardEditions = ['Standard', 'Collector\'s Edition', 'Director\'s Cut', 
-                                     'Extended Edition', 'Special Edition', 'Limited Edition', 
-                                     'Criterion Collection', 'Anniversary Edition'];
+            const standardEditions = ['fullscreen', 'widescreen', 'special edition', 'collector\'s edition', 
+                                    'director\'s cut', 'extended version', 'criterion collection'];
             
             if (standardEditions.includes(data.edition)) {
                 editionSelect.value = data.edition;
@@ -545,6 +544,7 @@ async function savePhysicalCopy() {
     window.addNewPhysicalCopy = addNewPhysicalCopy;
     window.savePhysicalCopy = savePhysicalCopy;
 
+    
 async function displayAllPhysicalCopies(userData, movieId) {
     const listContainer = document.getElementById('physicalCopiesList');
     const formContainer = document.getElementById('physicalCopyForm');
@@ -688,6 +688,7 @@ async function checkEditPermissions(movieId) {
         };
 }
 function populateEdition(editionValue) {
+    const editionSelect = document.getElementById('edition');
     const otherEditionInput = document.getElementById('other-edition-text');
     const isStandardOption = [...editionSelect.options].some(opt => opt.value === editionValue);
     if (isStandardOption) {
@@ -984,6 +985,59 @@ function getMovieDataFromForm() {
     };
     return movieData;
 }
+function updatePageContext(fromParam) {
+    const pageTitle = document.querySelector('title');
+    const heroTitle = document.querySelector('.hero-subtitle');
+    if (fromParam === 'edit') {
+        pageTitle.textContent = 'edit media - the library sale';
+        if (heroTitle) heroTitle.textContent = 'edit media';
+    } else {
+        pageTitle.textContent = 'edit media - the library sale';
+        if (heroTitle) heroTitle.textContent = 'edit media';
+    }
+}
+function setupEditMode(hasFullRights, movieData) {
+    if (hasFullRights) {
+        // Show full edit mode
+        document.getElementById('tmdbSearchSection').style.display = 'block';
+        document.getElementById('movieDetailsForm').style.display = 'block';
+        document.getElementById('contentTypeSection').style.display = 'block';
+        
+        // Make fields editable
+        ['edit-title', 'edit-year', 'edit-director', 'edit-genre', 'edit-cast', 'edit-summary'].forEach(id => {
+            const field = document.getElementById(id);
+            if (field) field.removeAttribute('readonly');
+        });
+        
+        // Initialize TMDB search
+        initializeTMDBSearch();
+        
+        // Populate with current movie data
+        if (movieData) {
+            populateMovieFields(movieData);
+        }
+        
+        // Store for form submission
+        window.hasFullEditRights = true;
+    } else {
+        // Limited mode - keep fields readonly
+        document.getElementById('tmdbSearchSection').style.display = 'none';
+        document.getElementById('movieDetailsForm').style.display = 'none';
+        document.getElementById('contentTypeSection').style.display = 'none';
+        
+        // Update page title
+        document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
+        
+        // Store for form submission
+        window.hasFullEditRights = false;
+    }
+};
+function showAdminIndicator() {
+    const adminIndicator = document.createElement('p');
+        adminIndicator.className = 'admin-indicator';
+        adminIndicator.innerHTML = '👑 editing as admin';
+        document.querySelector('.hero-subtitle').after(adminIndicator);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- 1. Get DOM Elements ---
@@ -1006,61 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editingPhysicalCopyId = null;
     });
 
-    function updatePageContext(fromParam) {
-        const pageTitle = document.querySelector('title');
-        const heroTitle = document.querySelector('.hero-subtitle');
-        if (fromParam === 'edit') {
-            pageTitle.textContent = 'edit media - the library sale';
-            if (heroTitle) heroTitle.textContent = 'edit media';
-        } else {
-            pageTitle.textContent = 'edit media - the library sale';
-            if (heroTitle) heroTitle.textContent = 'edit media';
-        }
-    }
-
-    function setupEditMode(hasFullRights, movieData) {
-        if (hasFullRights) {
-            // Show full edit mode
-            document.getElementById('tmdbSearchSection').style.display = 'block';
-            document.getElementById('movieDetailsForm').style.display = 'block';
-            document.getElementById('contentTypeSection').style.display = 'block';
-            
-            // Make fields editable
-            ['edit-title', 'edit-year', 'edit-director', 'edit-genre', 'edit-cast', 'edit-summary'].forEach(id => {
-                const field = document.getElementById(id);
-                if (field) field.removeAttribute('readonly');
-            });
-            
-            // Initialize TMDB search
-            initializeTMDBSearch();
-            
-            // Populate with current movie data
-            if (movieData) {
-                populateMovieFields(movieData);
-            }
-            
-            // Store for form submission
-            window.hasFullEditRights = true;
-        } else {
-            // Limited mode - keep fields readonly
-            document.getElementById('tmdbSearchSection').style.display = 'none';
-            document.getElementById('movieDetailsForm').style.display = 'none';
-            document.getElementById('contentTypeSection').style.display = 'none';
-            
-            // Update page title
-            document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
-            
-            // Store for form submission
-            window.hasFullEditRights = false;
-        }
-    };
-    function showAdminIndicator() {
-        const adminIndicator = document.createElement('p');
-            adminIndicator.className = 'admin-indicator';
-            adminIndicator.innerHTML = '👑 editing as admin';
-            document.querySelector('.hero-subtitle').after(adminIndicator);
-    }
-
+    
     // --- Main Logic and Event Listeners ---
     if (!movieId) {
             window.location.href = 'index.html';
