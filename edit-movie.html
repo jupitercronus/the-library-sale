@@ -392,7 +392,6 @@
     let allPhysicalCopies = []; 
     let currentUpcData = null; 
     
-/* Start adding a new physical copy */
 function addNewPhysicalCopy() {
     editingPhysicalCopyId = null; // Clear editing ID
     document.getElementById('physicalFormTitle').textContent = 'Add New Physical Copy';
@@ -411,7 +410,6 @@ function addNewPhysicalCopy() {
     // Scroll to form
     document.getElementById('physicalCopyForm').scrollIntoView({ behavior: 'smooth' });
 }
-/* Edit an existing physical copy */
 async function editPhysicalCopy(copyId) {
     editingPhysicalCopyId = copyId;
     document.getElementById('physicalFormTitle').textContent = 'Edit Physical Copy';
@@ -542,63 +540,66 @@ async function savePhysicalCopy() {
         LibraryUtils.ui.showStatusMessage('Failed to save physical copy', 'error');
     }
 }
-window.editPhysicalCopy = editPhysicalCopy;
-window.addNewPhysicalCopy = addNewPhysicalCopy;
-window.savePhysicalCopy = savePhysicalCopy;
-
-document.addEventListener('DOMContentLoaded', () => {
-    // --- 1. Get DOM Elements ---
-    const params = new URLSearchParams(window.location.search);
-    const movieId = params.get('id');
-    const fromParam = params.get('from');
-
-    const mainContent = document.getElementById('mainContent');
-    const editMovieForm = document.getElementById('edit-movie-form');
-    const physicalDetailsSection = document.getElementById('physical-edition-details');
-    const editionSelect = document.getElementById('edition');
-    const otherEditionGroup = document.getElementById('other-edition-group');
-    const deleteBtn = document.getElementById('delete-btn');
-    const saveBtn = document.getElementById('save-btn');
-
-    document.getElementById('add-physical-copy-btn')?.addEventListener('click', addNewPhysicalCopy);
-    document.getElementById('save-physical-copy')?.addEventListener('click', savePhysicalCopy);
-    document.getElementById('cancel-physical-edit')?.addEventListener('click', () => {
-        document.getElementById('physicalCopyForm').style.display = 'none';
-        editingPhysicalCopyId = null;
-    });
-
-function updatePageContext(fromParam) {
-    const pageTitle = document.querySelector('title');
-    const heroTitle = document.querySelector('.hero-subtitle');
-    if (fromParam === 'edit') {
-        pageTitle.textContent = 'edit media - the library sale';
-        if (heroTitle) heroTitle.textContent = 'edit media';
-    } else {
-        pageTitle.textContent = 'edit media - the library sale';
-        if (heroTitle) heroTitle.textContent = 'edit media';
-    }
-}
     
-function toggleOtherEditionField() {
-    if (editionSelect.value === 'other') {
-        otherEditionGroup.style.display = 'block';
-    } else {
-        otherEditionGroup.style.display = 'none';
+    window.editPhysicalCopy = editPhysicalCopy;
+    window.addNewPhysicalCopy = addNewPhysicalCopy;
+    window.savePhysicalCopy = savePhysicalCopy;
+
+async function displayAllPhysicalCopies(userData, movieId) {
+    const listContainer = document.getElementById('physicalCopiesList');
+    const formContainer = document.getElementById('physicalCopyForm');
+    
+    if (!userData.physicalCopies || userData.physicalCopies.length === 0) {
+        listContainer.style.display = 'none';
+        formContainer.style.display = 'none';
+        return;
+    }
+    
+    listContainer.innerHTML = '';
+    listContainer.style.display = 'block';
+    allPhysicalCopies = userData.physicalCopies;
+    
+    for (const copyId of userData.physicalCopies) {
+        try {
+            const copyDoc = await db.collection('physicalCopies').doc(copyId).get();
+            if (copyDoc.exists) {
+                const data = copyDoc.data();
+                const copyCard = document.createElement('div');
+                copyCard.className = 'physical-copy-card';
+                
+                // Only show edit button if current user owns this copy
+                // (In this context, we're already viewing the user's own copies)
+                const editButton = `
+                    <button onclick="editPhysicalCopy('${copyId}')" class="btn btn-sm btn-secondary" title="Edit">
+                        <i class="icon icon-edit"></i>
+                    </button>
+                `;
+                
+                copyCard.innerHTML = `
+                    <div class="copy-main-info">
+                        <div class="copy-format-badge">${data.format || 'Unknown'}</div>
+                        <div class="copy-details">
+                            ${data.edition ? `<span class="copy-edition">${data.edition}</span>` : ''}
+                            ${data.barcode ? `<span class="copy-barcode">UPC: ${data.barcode}</span>` : ''}
+                            ${data.distributor ? `<span class="copy-distributor">${data.distributor}</span>` : ''}
+                            ${data.region ? `<span class="copy-region">${data.region}</span>` : ''}
+                        </div>
+                        ${data.features && data.features.length > 0 ? 
+                            `<div class="copy-features">
+                                <small>Features: ${data.features.join(', ')}</small>
+                            </div>` : ''}
+                    </div>
+                    <div class="copy-actions">
+                        ${editButton}
+                    </div>
+                `;
+                listContainer.appendChild(copyCard);
+            }
+        } catch (error) {
+            console.error('Error loading physical copy:', error);
+        }
     }
 }
-
-function populateEdition(editionValue) {
-    const otherEditionInput = document.getElementById('other-edition-text');
-    const isStandardOption = [...editionSelect.options].some(opt => opt.value === editionValue);
-    if (isStandardOption) {
-        editionSelect.value = editionValue;
-    } else if (editionValue) {
-        editionSelect.value = 'other';
-        otherEditionInput.value = editionValue;
-    }
-    toggleOtherEditionField();
-}
-
 async function displayCurrentPhysicalEdition(userData) {
     const editableForm = document.getElementById('editablePhysicalForm');
     if (userData.owned && userData.physicalCopies && userData.physicalCopies.length > 0) {
@@ -628,8 +629,7 @@ async function displayCurrentPhysicalEdition(userData) {
         displayLegacyPhysicalEdition(userData);
     }
 }
-
-const loadMovieData = async (userId, movieId) => {
+async function loadMovieData(userId, movieId) {
     try {
         currentMovieId = movieId;
         const movieDoc = await db.collection('movies').doc(movieId).get();
@@ -662,45 +662,49 @@ const loadMovieData = async (userId, movieId) => {
         console.error("Error loading movie data:", error);
         document.getElementById('editLoadingState').innerHTML = `<div class="error-state"><h3>Error</h3><p>${error.message}</p><a href="index.html" class="btn btn-primary">Back</a></div>`;
     }
-};
+}
+async function checkEditPermissions(movieId) {
+    const user = auth.currentUser;
+        if (!user) return;
+        try {
+            const [movieDoc, adminDoc] = await Promise.all([
+                db.collection('movies').doc(movieId).get(),
+                db.collection('admins').doc(user.uid).get()
+            ]);
+            if (!movieDoc.exists) throw new Error('Movie not found');
+            const movieData = movieDoc.data();
+            const isOriginalUploader = movieData.originalUploaderId === user.uid;
+            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
+            const hasFullEditRights = isOriginalUploader || isAdmin;
 
-function setupEditMode(hasFullRights, movieData) {
-    if (hasFullRights) {
-        // Show full edit mode
-        document.getElementById('tmdbSearchSection').style.display = 'block';
-        document.getElementById('movieDetailsForm').style.display = 'block';
-        document.getElementById('contentTypeSection').style.display = 'block';
-        
-        // Make fields editable
-        ['edit-title', 'edit-year', 'edit-director', 'edit-genre', 'edit-cast', 'edit-summary'].forEach(id => {
-            const field = document.getElementById(id);
-            if (field) field.removeAttribute('readonly');
-        });
-        
-        // Initialize TMDB search
-        initializeTMDBSearch();
-        
-        // Populate with current movie data
-        if (movieData) {
-            populateMovieFields(movieData);
-        }
-        
-        // Store for form submission
-        window.hasFullEditRights = true;
-    } else {
-        // Limited mode - keep fields readonly
-        document.getElementById('tmdbSearchSection').style.display = 'none';
-        document.getElementById('movieDetailsForm').style.display = 'none';
-        document.getElementById('contentTypeSection').style.display = 'none';
-        
-        // Update page title
-        document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
-        
-        // Store for form submission
-        window.hasFullEditRights = false;
+            // This is the corrected section from the last fix
+            console.log('Checking permissions for user:', user.uid);
+            console.log('Has full edit rights:', hasFullEditRights);
+            
+            setupEditMode(hasFullEditRights, movieData);
+        } catch (error) {
+            console.error('Permission check failed:', error);
+            setupEditMode(false, null);
+        };
+}
+function populateEdition(editionValue) {
+    const otherEditionInput = document.getElementById('other-edition-text');
+    const isStandardOption = [...editionSelect.options].some(opt => opt.value === editionValue);
+    if (isStandardOption) {
+        editionSelect.value = editionValue;
+    } else if (editionValue) {
+        editionSelect.value = 'other';
+        otherEditionInput.value = editionValue;
     }
-};
-
+    toggleOtherEditionField();
+}
+function toggleOtherEditionField() {
+    if (editionSelect.value === 'other') {
+        otherEditionGroup.style.display = 'block';
+    } else {
+        otherEditionGroup.style.display = 'none';
+    }
+}
 async function initializeEditScanner() {
     // Get references to the UI elements
     const scanBtn = document.getElementById('scan-barcode-btn');
@@ -770,108 +774,7 @@ async function initializeEditScanner() {
         editScanner.stopCamera();
         scannerSection.style.display = 'none';
     });
-};
-async function displayAllPhysicalCopies(userData, movieId) {
-    const listContainer = document.getElementById('physicalCopiesList');
-    const formContainer = document.getElementById('physicalCopyForm');
-    
-    if (!userData.physicalCopies || userData.physicalCopies.length === 0) {
-        listContainer.style.display = 'none';
-        formContainer.style.display = 'none';
-        return;
-    }
-    
-    listContainer.innerHTML = '';
-    listContainer.style.display = 'block';
-    allPhysicalCopies = userData.physicalCopies;
-    
-    for (const copyId of userData.physicalCopies) {
-        try {
-            const copyDoc = await db.collection('physicalCopies').doc(copyId).get();
-            if (copyDoc.exists) {
-                const data = copyDoc.data();
-                const copyCard = document.createElement('div');
-                copyCard.className = 'physical-copy-card';
-                
-                // Only show edit button if current user owns this copy
-                // (In this context, we're already viewing the user's own copies)
-                const editButton = `
-                    <button onclick="editPhysicalCopy('${copyId}')" class="btn btn-sm btn-secondary" title="Edit">
-                        <i class="icon icon-edit"></i>
-                    </button>
-                `;
-                
-                copyCard.innerHTML = `
-                    <div class="copy-main-info">
-                        <div class="copy-format-badge">${data.format || 'Unknown'}</div>
-                        <div class="copy-details">
-                            ${data.edition ? `<span class="copy-edition">${data.edition}</span>` : ''}
-                            ${data.barcode ? `<span class="copy-barcode">UPC: ${data.barcode}</span>` : ''}
-                            ${data.distributor ? `<span class="copy-distributor">${data.distributor}</span>` : ''}
-                            ${data.region ? `<span class="copy-region">${data.region}</span>` : ''}
-                        </div>
-                        ${data.features && data.features.length > 0 ? 
-                            `<div class="copy-features">
-                                <small>Features: ${data.features.join(', ')}</small>
-                            </div>` : ''}
-                    </div>
-                    <div class="copy-actions">
-                        ${editButton}
-                    </div>
-                `;
-                listContainer.appendChild(copyCard);
-            }
-        } catch (error) {
-            console.error('Error loading physical copy:', error);
-        }
-    }
 }
-async function checkEditPermissions(movieId) {
-    const user = auth.currentUser;
-        if (!user) return;
-        try {
-            const [movieDoc, adminDoc] = await Promise.all([
-                db.collection('movies').doc(movieId).get(),
-                db.collection('admins').doc(user.uid).get()
-            ]);
-            if (!movieDoc.exists) throw new Error('Movie not found');
-            const movieData = movieDoc.data();
-            const isOriginalUploader = movieData.originalUploaderId === user.uid;
-            const isAdmin = adminDoc.exists && adminDoc.data().isActive === true;
-            const hasFullEditRights = isOriginalUploader || isAdmin;
-
-            // This is the corrected section from the last fix
-            console.log('Checking permissions for user:', user.uid);
-            console.log('Has full edit rights:', hasFullEditRights);
-            
-            setupEditMode(hasFullEditRights, movieData);
-        } catch (error) {
-            console.error('Permission check failed:', error);
-            setupEditMode(false, null);
-        };
-};
-function showAdminIndicator() {
-    const adminIndicator = document.createElement('p');
-        adminIndicator.className = 'admin-indicator';
-        adminIndicator.innerHTML = '👑 editing as admin';
-        document.querySelector('.hero-subtitle').after(adminIndicator);
-}
-function updatePageContext(fromParam) {
-    const pageTitle = document.querySelector('title');
-    const heroTitle = document.querySelector('.hero-subtitle');
-    
-        if (fromParam === 'review') {
-            pageTitle.textContent = 'review my thots - the library sale';
-            if (heroTitle) {
-                heroTitle.textContent = 'review and edit your personal thots';
-            }
-        } else {
-            pageTitle.textContent = 'edit media - the library sale';
-            if (heroTitle) {
-                heroTitle.textContent = 'review and add your personal thots';
-            }
-        };
-};
 async function initializeTMDBSearch() {
     const searchInput = document.getElementById('tmdb-search');
     const searchBtn = document.getElementById('tmdb-search-btn');
@@ -1030,7 +933,7 @@ function populateMovieFields(movieData) {
     
     // Set content type
     updateContentTypeToggle(movieData.contentType || 'movie');
-} 
+}   
 function updateContentTypeToggle(selectedValue) {
     const toggleContainer = document.getElementById('contentTypeToggle');
     if (toggleContainer) {
@@ -1039,7 +942,6 @@ function updateContentTypeToggle(selectedValue) {
         });
     }
 }    
-/* Finds a movie by its TMDB ID. If it doesn't exist, creates it. * Returns the Firestore document reference. */
 async function findOrCreateMovieByTmdbId(tmdbId, newData) {
     const numericTmdbId = parseInt(tmdbId);
     if (isNaN(numericTmdbId)) {
@@ -1059,7 +961,6 @@ async function findOrCreateMovieByTmdbId(tmdbId, newData) {
         return await moviesRef.add(newData);
     }
 }
-/* Gets the user's interaction data for a specific movie. */
 async function getUserInteraction(movieId) {
     if (!currentUser || !movieId) return null;
 
@@ -1067,7 +968,6 @@ async function getUserInteraction(movieId) {
     const doc = await interactionRef.get();
     return doc.exists ? doc.data() : null;
 }
-/*Gathers the core movie details from the editable form fields.*/
 function getMovieDataFromForm() {
     const posterImg = document.getElementById('movie-poster-img');
     const contentTypeToggle = document.getElementById('contentTypeToggle');
@@ -1085,71 +985,144 @@ function getMovieDataFromForm() {
     return movieData;
 }
 
-// --- Main Logic and Event Listeners ---
-if (!movieId) {
-        window.location.href = 'index.html';
-        return;
-    }
-    updatePageContext(fromParam);
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. Get DOM Elements ---
+    const params = new URLSearchParams(window.location.search);
+    const movieId = params.get('id');
+    const fromParam = params.get('from');
 
+    const mainContent = document.getElementById('mainContent');
+    const editMovieForm = document.getElementById('edit-movie-form');
+    const physicalDetailsSection = document.getElementById('physical-edition-details');
+    const editionSelect = document.getElementById('edition');
+    const otherEditionGroup = document.getElementById('other-edition-group');
+    const deleteBtn = document.getElementById('delete-btn');
+    const saveBtn = document.getElementById('save-btn');
 
-    document.addEventListener('authStateReady', (e) => {
-        currentUser = e.detail.user;
-
-        if (!currentUser) {
-            window.location.href = 'auth.html';
-            return;
-        }
-
-        // All the logic from the old listener now lives here,
-        // running only AFTER main.js confirms the user's auth state.
-        const params = new URLSearchParams(window.location.search);
-        const movieId = params.get('id');
-        const mode = params.get('mode');
-        const editCopyId = params.get('editCopy');
-
-        // Get references to page sections and buttons
-        const movieDetailsForm = document.getElementById('movieDetailsForm');
-        const physicalDetailsSection = document.getElementById('physical-edition-details');
-        const heroSubtitle = document.querySelector('.hero-subtitle');
-        const mainSaveBtn = document.getElementById('save-btn');
-        const savePhysicalCopyBtn = document.getElementById('save-physical-copy');
-
-        // Load base movie data for all modes
-        loadMovieData(currentUser.uid, movieId);
-        initializeEditScanner();
-
-        // Hide all optional sections and buttons by default
-        movieDetailsForm.style.display = 'none';
-        physicalDetailsSection.style.display = 'none';
-        mainSaveBtn.style.display = 'none';
-        savePhysicalCopyBtn.style.display = 'none';
-
-        // Configure the UI based on the mode
-        if (mode === 'details') {
-            heroSubtitle.textContent = 'edit movie details';
-            checkEditPermissions(movieId);
-            mainSaveBtn.style.display = 'inline-flex';
-        
-        } else if (editCopyId) {
-            heroSubtitle.textContent = 'edit physical copy';
-            physicalDetailsSection.style.display = 'block';
-            editPhysicalCopy(editCopyId);
-            savePhysicalCopyBtn.style.display = 'inline-flex';
-        
-        } else if (mode === 'addCopy') {
-            heroSubtitle.textContent = 'add new physical copy';
-            physicalDetailsSection.style.display = 'block';
-            addNewPhysicalCopy();
-            savePhysicalCopyBtn.style.display = 'inline-flex';
-
-         } else {
-        
-        }
+    document.getElementById('add-physical-copy-btn')?.addEventListener('click', addNewPhysicalCopy);
+    document.getElementById('save-physical-copy')?.addEventListener('click', savePhysicalCopy);
+    document.getElementById('cancel-physical-edit')?.addEventListener('click', () => {
+        document.getElementById('physicalCopyForm').style.display = 'none';
+        editingPhysicalCopyId = null;
     });
 
-    editionSelect.addEventListener('change', toggleOtherEditionField);
-        
+    function updatePageContext(fromParam) {
+        const pageTitle = document.querySelector('title');
+        const heroTitle = document.querySelector('.hero-subtitle');
+        if (fromParam === 'edit') {
+            pageTitle.textContent = 'edit media - the library sale';
+            if (heroTitle) heroTitle.textContent = 'edit media';
+        } else {
+            pageTitle.textContent = 'edit media - the library sale';
+            if (heroTitle) heroTitle.textContent = 'edit media';
+        }
+    }
+
+    function setupEditMode(hasFullRights, movieData) {
+        if (hasFullRights) {
+            // Show full edit mode
+            document.getElementById('tmdbSearchSection').style.display = 'block';
+            document.getElementById('movieDetailsForm').style.display = 'block';
+            document.getElementById('contentTypeSection').style.display = 'block';
+            
+            // Make fields editable
+            ['edit-title', 'edit-year', 'edit-director', 'edit-genre', 'edit-cast', 'edit-summary'].forEach(id => {
+                const field = document.getElementById(id);
+                if (field) field.removeAttribute('readonly');
+            });
+            
+            // Initialize TMDB search
+            initializeTMDBSearch();
+            
+            // Populate with current movie data
+            if (movieData) {
+                populateMovieFields(movieData);
+            }
+            
+            // Store for form submission
+            window.hasFullEditRights = true;
+        } else {
+            // Limited mode - keep fields readonly
+            document.getElementById('tmdbSearchSection').style.display = 'none';
+            document.getElementById('movieDetailsForm').style.display = 'none';
+            document.getElementById('contentTypeSection').style.display = 'none';
+            
+            // Update page title
+            document.querySelector('.hero-subtitle').textContent = 'edit your personal collection details';
+            
+            // Store for form submission
+            window.hasFullEditRights = false;
+        }
+    };
+    function showAdminIndicator() {
+        const adminIndicator = document.createElement('p');
+            adminIndicator.className = 'admin-indicator';
+            adminIndicator.innerHTML = '👑 editing as admin';
+            document.querySelector('.hero-subtitle').after(adminIndicator);
+    }
+
+    // --- Main Logic and Event Listeners ---
+    if (!movieId) {
+            window.location.href = 'index.html';
+            return;
+        }
+        updatePageContext(fromParam);
+
+    document.addEventListener('authStateReady', (e) => {
+            currentUser = e.detail.user;
+
+            if (!currentUser) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            // All the logic from the old listener now lives here,
+            // running only AFTER main.js confirms the user's auth state.
+            const params = new URLSearchParams(window.location.search);
+            const movieId = params.get('id');
+            const mode = params.get('mode');
+            const editCopyId = params.get('editCopy');
+
+            // Get references to page sections and buttons
+            const movieDetailsForm = document.getElementById('movieDetailsForm');
+            const physicalDetailsSection = document.getElementById('physical-edition-details');
+            const heroSubtitle = document.querySelector('.hero-subtitle');
+            const mainSaveBtn = document.getElementById('save-btn');
+            const savePhysicalCopyBtn = document.getElementById('save-physical-copy');
+
+            // Load base movie data for all modes
+            loadMovieData(currentUser.uid, movieId);
+            initializeEditScanner();
+
+            // Hide all optional sections and buttons by default
+            movieDetailsForm.style.display = 'none';
+            physicalDetailsSection.style.display = 'none';
+            mainSaveBtn.style.display = 'none';
+            savePhysicalCopyBtn.style.display = 'none';
+
+            // Configure the UI based on the mode
+            if (mode === 'details') {
+                heroSubtitle.textContent = 'edit movie details';
+                checkEditPermissions(movieId);
+                mainSaveBtn.style.display = 'inline-flex';
+            
+            } else if (editCopyId) {
+                heroSubtitle.textContent = 'edit physical copy';
+                physicalDetailsSection.style.display = 'block';
+                editPhysicalCopy(editCopyId);
+                savePhysicalCopyBtn.style.display = 'inline-flex';
+            
+            } else if (mode === 'addCopy') {
+                heroSubtitle.textContent = 'add new physical copy';
+                physicalDetailsSection.style.display = 'block';
+                addNewPhysicalCopy();
+                savePhysicalCopyBtn.style.display = 'inline-flex';
+
+            } else {
+            
+            }
+    });
+    editionSelect.addEventListener('change', toggleOtherEditionField);      
     editMovieForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!currentUser) return;
@@ -1209,8 +1182,6 @@ if (!movieId) {
             UIUtils.resetButton('save-btn');
         }
     });
-
-    // Single, correct 'delete' event listener
     deleteBtn.addEventListener('click', async () => {
         ModalManager.show({
             title: 'delete media?',
