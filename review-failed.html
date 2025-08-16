@@ -300,77 +300,87 @@
             addBtn.disabled = !selectedResult;
         }
 
-        async function addSelectedItem() {
-            if (!selectedResult) {
-                LibraryUtils.ui.showStatusMessage('Please select a movie first', 'warning');
-                return;
-            }
+        // In review-failed.html, REPLACE the existing addSelectedItem function with this:
 
-            try {
-                const currentItem = reviewQueue[currentItemIndex];
+async function addSelectedItem() {
+    if (!selectedResult) {
+        LibraryUtils.ui.showStatusMessage('Please select a movie first', 'warning');
+        return;
+    }
+
+    try {
+        const currentItem = reviewQueue[currentItemIndex];
+        
+        // Get full TMDB details for the selected result
+        const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${selectedResult.media_type}/${selectedResult.id}?append_to_response=credits`;
+        const detailsResponse = await fetch(detailsUrl);
+        const fullTmdbData = await detailsResponse.json();
+
+        // Create a complete result object similar to bulk scan
+        const reviewedResult = {
+            upcData: currentItem.upcData,
+            tmdbData: fullTmdbData,
+            physicalEdition: currentItem.physicalEdition
+        };
+
+        // Add to database using the same function as bulk scan
+        const dbResult = await addMovieToDatabase(reviewedResult);
+        const movieId = dbResult.movieDocRef.id;
+        
+        // CRITICAL FIX: Handle user interaction (this was missing!)
+        if (currentUser) {
+            const userInteractionRef = db.collection('users').doc(currentUser.uid)
+                .collection('movieInteractions').doc(movieId);
+            const existingInteraction = await userInteractionRef.get();
+            
+            let physicalCopiesArray = [];
+            
+            if (existingInteraction.exists) {
+                // Get existing physical copies
+                const existingData = existingInteraction.data();
+                physicalCopiesArray = existingData.physicalCopies || [];
                 
-                // Get full TMDB details for the selected result
-                const detailsUrl = `${MediaLookupUtils.TMDB_BASE_URL}/${selectedResult.media_type}/${selectedResult.id}?append_to_response=credits`;
-                const detailsResponse = await fetch(detailsUrl);
-                const fullTmdbData = await detailsResponse.json();
-
-                // Create a complete result object similar to bulk scan
-                const reviewedResult = {
-                    upcData: currentItem.upcData,
-                    tmdbData: fullTmdbData,
-                    physicalEdition: currentItem.physicalEdition
-                };
-
-                // Add to database using the same function as bulk scan
-                const dbResult = await addMovieToDatabase(reviewedResult);
-                const movieId = dbResult.movieDocRef.id;
-                
-                // ✅ ADD THIS MISSING PART: Create user interaction (just like in bulk-scan.html)
-                const userInteractionRef = db.collection('users').doc(currentUser.uid)
-                    .collection('movieInteractions').doc(movieId);
-                const existingInteraction = await userInteractionRef.get();
-
-                if (existingInteraction.exists) {
-                    // Update existing interaction with the new physical copy
-                    const existingData = existingInteraction.data();
-                    const currentPhysicalCopies = existingData.physicalCopies || [];
-                    
-                    // Add new physical copy if not already in array
-                    if (dbResult.physicalCopyId && !currentPhysicalCopies.includes(dbResult.physicalCopyId)) {
-                        currentPhysicalCopies.push(dbResult.physicalCopyId);
-                    }
-                    
-                    await userInteractionRef.update({
-                        physicalCopies: currentPhysicalCopies,
-                        owned: true
-                    });
-                } else {
-                    // Create new user interaction
-                    const userInteractionData = {
-                        movieId: movieId,
-                        rating: 0,
-                        review: "",
-                        watched: false,
-                        watchedDate: null,
-                        owned: true,
-                        interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
-                        physicalCopies: dbResult.physicalCopyId ? [dbResult.physicalCopyId] : []
-                    };
-
-                    await userInteractionRef.set(userInteractionData);
+                // Add new physical copy ID if we have one and it's not a duplicate
+                if (dbResult.physicalCopyId && !physicalCopiesArray.includes(dbResult.physicalCopyId)) {
+                    physicalCopiesArray.push(dbResult.physicalCopyId);
                 }
-                // ✅ END OF MISSING PART
                 
-                completionStats.added++;
-                LibraryUtils.ui.showStatusMessage(`Added "${fullTmdbData.title || fullTmdbData.name}" to library`, 'success');
+                // Update the interaction
+                await userInteractionRef.update({
+                    physicalCopies: physicalCopiesArray,
+                    owned: physicalCopiesArray.length > 0
+                });
+            } else {
+                // Create new user interaction
+                if (dbResult.physicalCopyId) {
+                    physicalCopiesArray = [dbResult.physicalCopyId];
+                }
                 
-                moveToNextItem();
-
-            } catch (error) {
-                console.error('Failed to add selected item:', error);
-                LibraryUtils.ui.showStatusMessage('Failed to add item. Please try again.', 'error');
+                const userInteractionData = {
+                    movieId: movieId,
+                    rating: 0,
+                    review: "",
+                    watched: false,
+                    watchedDate: null,
+                    owned: physicalCopiesArray.length > 0,
+                    interactionDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    physicalCopies: physicalCopiesArray
+                };
+                
+                await userInteractionRef.set(userInteractionData);
             }
         }
+        
+        completionStats.added++;
+        LibraryUtils.ui.showStatusMessage(`Added "${fullTmdbData.title || fullTmdbData.name}" to library`, 'success');
+        
+        moveToNextItem();
+
+    } catch (error) {
+        console.error('Failed to add selected item:', error);
+        LibraryUtils.ui.showStatusMessage('Failed to add item. Please try again.', 'error');
+    }
+}
 function deleteCurrentItem() {
     ModalManager.show({
         title: 'delete item?',
